@@ -1,0 +1,102 @@
+# Step 11 — Testing and Verification Strategy
+
+## Purpose / scope
+
+Define how each module gets tested, given there's no existing test
+infrastructure yet. Covers unit tests, fixtures, and manual verification for
+the one piece that can't be meaningfully unit-tested (the browser UI).
+
+## Detailed design
+
+### Unit tests (Pester 5)
+
+Focus on pure, deterministic functions — the highest-value, cheapest tests:
+
+- `ConvertTo-SafeFileName` — every case from
+  [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md)
+  (invalid chars, trailing dot/space, reserved device names).
+- `Test-IsReleaseFolder` / `Test-IsGroupingFolder` / `Test-IsCategorySubfolder` /
+  `Test-IsBandMemberFolder` — one test per manifesto §1 pattern.
+- Track-number regex parsing — numbered-with-dash, numbered-no-dash,
+  no-number-at-all fallback.
+- `stableKey` generation — same normalized input always produces the same
+  key; different case/whitespace normalizes to the same key.
+- Disc/track numbering math — continuous cross-disc filename numbering vs.
+  per-disc-restarting `Track` tag, for a 3-disc fixture matching the
+  manifesto §5 example table exactly.
+- JSON schema round-trips: a `recognition.json` fixture, extended with
+  proposal fields, validates against `proposal.schema.json` via `Test-Json`.
+
+### Fixture source tree
+
+`tests/fixtures/sample-source-tree/` — a small synthetic tree using 0-byte
+dummy files with correct extensions (no real audio needed for structural
+tests), covering every messy pattern named in the manifesto:
+
+- A normal single-disc album.
+- A multi-disc album (`CD 1`/`CD 2` subfolders).
+- A single-file + `.cue` release.
+- A grouping folder ("Godspeeds and their projects" style) with two real
+  artist subfolders inside.
+- A category subfolder (`EPs`/`Singles`/`Lives`) under a normal artist.
+- A band-member folder nested inside a band folder (`David Byrne` inside
+  `Talking Heads`).
+- Loose companion files (letter-prefixed) and nested companion files.
+- Tracks with no track number / no separator.
+- A playlist file (`.m3u`) that must be ignored.
+- A deeply nested path approaching the Windows path-length limit.
+- A filename with invalid characters and a folder named `CON`.
+
+### Discogs mocking
+
+`tests/fixtures/discogs-responses/` holds captured JSON for a handful of
+real searches/releases. `Invoke-DiscogsRequest` is mocked in Proposal-module
+tests (`Mock Invoke-DiscogsRequest { Get-Content $fixturePath | ConvertFrom-Json }`)
+so tests never hit the real network or consume rate limit budget.
+
+### Implementation module verification
+
+1. Run with `-WhatIf` first — assert zero filesystem writes occurred
+   (compare directory listing before/after).
+2. Run for real against a scratch temp target directory.
+3. Verify the resulting layout and tags by reading them back with
+   **TagLibSharp** — deliberately not by trusting mp3tag's own success exit
+   code, so the read path and write path are independently verified against
+   each other.
+
+### UI verification
+
+No automated browser test suite for v1 — Playwright/similar is explicitly
+optional/stretch, not required. Instead, a manual checklist run in Chrome:
+
+1. Open a session folder via the picker.
+2. Edit a proposed release/track name.
+3. Change the selected cover-art candidate.
+4. Resolve an ambiguous Discogs match by picking a candidate.
+5. Approve a release.
+6. Save, reload the page, confirm all edits persisted in `proposal.json`.
+7. Confirm `proposal.backup.json` holds the pre-save version.
+8. Revoke folder permission mid-session (via browser UI) and confirm the app
+   shows a retry prompt instead of a silent failure.
+
+## Decisions & rationale
+
+- **Pure-function unit tests over integration tests as the default**: the
+  messy-folder heuristics and numbering math are exactly the places a subtle
+  bug would silently corrupt a personal music collection — cheap to test in
+  isolation, expensive to debug after the fact against real files.
+- **Verify Implementation's output independently of the tool that wrote it**:
+  reading tags back with TagLibSharp instead of trusting mp3tag's exit code
+  catches a class of bug where the write "succeeds" per mp3tag but the
+  actual tag values are wrong.
+- **No UI automation for v1**: proportionate effort for a personal tool used
+  by one person — a documented manual checklist is enough, and can be
+  revisited if the UI grows more complex.
+
+## Definition of done
+
+- `Invoke-Pester` runs green across all unit tests.
+- The fixture source tree, run through the full pipeline end-to-end
+  (`-WhatIf` then real), produces the exact expected `recognition.json` /
+  `proposal.json` / target layout for every planted pattern.
+- The manual UI checklist has been run at least once and passed.

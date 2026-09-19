@@ -1,0 +1,159 @@
+# Step 5 — Recognition Module
+
+## Purpose / scope
+
+Walk a source folder tree, recognize main artists / releases / tracks /
+companion materials using the visual-cue heuristics from manifesto §2, and
+produce `recognition.json`. Matches manifesto §7 module 2.
+
+## Inputs / outputs
+
+- Input: `sourceRoot` (from [04](04-settings-module.md)), an optional
+  human-edited `overrides.json` for this source root.
+- Output: `recognition.json` (schema in [03](03-domain-model-and-json-schemas.md)),
+  validated before being written.
+
+## Detailed design
+
+### Entry point
+
+`Invoke-Recognition.ps1 -SourceRoot <path> -SessionId <id>`, implemented via
+`Tagger.Recognition.psm1`.
+
+### Heuristic functions
+
+- `Test-IsReleaseFolder` — folder looks like `yyyy Name` or `Name`, and
+  directly contains audio files with sequential-looking numbering.
+- `Test-IsGroupingFolder` — folder contains only subfolders, none of which
+  look like releases themselves, and those subfolders each look like distinct
+  artist names (e.g. "Godspeeds and their projects" containing "Godspeed You!
+  Black Emperor", "Silver Mountain Zion").
+- `Test-IsCategorySubfolder` — folder name matches a configurable list
+  (`EPs`, `Singles`, `Lives`, `Live`, `Compilations`, `Bootlegs`, ...) and its
+  children are releases belonging to the *parent* artist, not to itself.
+- `Test-IsBandMemberFolder` — a subfolder inside an artist folder that itself
+  contains release-shaped children, but whose name doesn't match the parent
+  artist (e.g. `David Byrne` inside `Talking Heads`) — this is actually a
+  second, separate main artist nested for historical/organizational reasons.
+
+### The rule: ambiguous cases are never auto-resolved
+
+Grouping folders, band-member folders, and category subfolders are exactly
+the patterns manifesto §1 calls out as real, recurring chaos. Rather than
+guessing:
+
+- Every folder that any heuristic flags as ambiguous goes into
+  `unrecognized[]` with a `reason` code (`grouping-folder-suspected`,
+  `band-member-suspected`, `category-subfolder-suspected`) and `children`
+  listing what's inside.
+- A human-editable `overrides.json` file (one per source root, stored next to
+  that source root's session data, reusable across re-runs of the same
+  source) lets the user tell Recognition explicitly: "this folder is a
+  grouping folder, treat each child as its own artist" or "this folder is a
+  category subfolder, its children belong to artist X". Recognition reads
+  `overrides.json` **before** applying heuristics, so a resolved override
+  short-circuits the ambiguity on every subsequent run.
+- This is the concrete hook for the manifesto's "AI skill" idea (§8): an AI
+  skill's job is to help a human populate `overrides.json` faster (e.g. by
+  looking at a folder tree and suggesting entries) — not to change
+  Recognition's code or bypass the human-review gate.
+
+### Track/disc parsing
+
+- Track number + name: ordered regex fallbacks, most specific first:
+  1. `^(\d+)\s*[-–]\s*(.+)$` (`"01 - Track Name"`)
+  2. `^(\d+)\s+(.+)$` (`"01 Track Name"`, no separator)
+  3. no number found → fall back to alphabetical filename order within the
+     folder, set `inferredTrackOrder: true` and add flag
+     `"no-track-number"` — never blocks recognition, but is visible
+     downstream.
+- Disc folder detection: `^(CD|Disc|Disk)\s*\.?\s*(\d+)$` (case-insensitive).
+  Track numbers from files inside disc folders are combined and
+  renumbered continuously across discs per manifesto §4.4 when building
+  `proposedFileName` in [06](06-edit-proposal-module.md) — Recognition itself
+  just records `discFolder` and `detectedTrackNumberInDisc` per track, it
+  doesn't compute the final continuous numbering (that's a proposal-step
+  concern since it depends on final disc ordering).
+
+### Single-file + cue detection
+
+A release folder containing exactly one audio file and one `.cue` file (or a
+per-disc pair inside `CD N` subfolders) is recorded as `cueSheet: {
+cueFilePath, audioFilePath }`. Track splitting itself happens in
+[08-implementation-module.md](08-implementation-module.md); Recognition only
+detects and records the pattern, and does not read the tracks inside it as
+separate `tracks[]` entries (there's nothing to enumerate yet — track names
+come from the cue sheet content, parsed here into virtual track entries with
+`sourceFilePath` pointing at the shared audio file plus a `cueTimestamp` for
+later splitting).
+
+### Companion file classification
+
+By extension + filename keywords:
+
+- Images (`.jpg`, `.png`, ...) → `kind: "cover"` unless filename suggests
+  otherwise (`booklet`, `back`, `insert` → `kind: "scan"`).
+- `.txt`, `.pdf`, `.nfo` with keywords like `lyrics`, `article`, `interview` →
+  `kind: "text"`.
+- `.m3u`, `.m3u8`, `.pls` → routed to an `ignored` bucket with
+  `reason: "playlist-file"` — never copied, per manifesto §4.4 ("No playlist
+  files are allowed").
+- `placement` recorded as `"loose"` (directly in the release folder) or
+  `"nested"` (in a subfolder), matching manifesto §4.5's two allowed
+  placements.
+
+### Reading existing tags
+
+**Recommendation (flagged as a deviation from the user's mp3tag decision —
+please confirm):** use **TagLibSharp** (a mature, MIT-licensed .NET library,
+loaded via `Add-Type` in PowerShell 7) to read existing tags here, rather than
+mp3tag. Reason: mp3tag has no clean scriptable "dump all tags as JSON" mode —
+its CLI/Action strength is *writing*, which is exactly what it's used for in
+[08](08-implementation-module.md). TagLibSharp gives direct, structured
+programmatic read access across flac/mp3/alac without shelling out or
+parsing GUI-oriented output.
+
+### Output
+
+Validated against `schemas/recognition.schema.json` via `Test-Json` before
+being written to disk.
+
+## Decisions & rationale
+
+- **Never auto-resolve ambiguous folder types**: a wrong guess here (e.g.
+  treating "Godspeeds and their projects" as one artist) corrupts the target
+  structure at the root — Level 1 folders are supposed to be real main
+  artists (manifesto §4.2). A human decision, recorded once in
+  `overrides.json`, is cheap and permanent; a wrong heuristic is expensive to
+  discover and fix later.
+- **`overrides.json` per source root, not global**: the same folder name
+  ("Live") can mean different things in different parts of a messy
+  collection; scoping overrides to the source root avoids one correct
+  decision silently misapplying elsewhere.
+
+## Edge cases
+
+- Empty release folder (no audio files) → `unrecognized[]` with
+  `reason: "no-audio-files"`.
+- Nested releases-within-releases (rare but possible in a messy collection,
+  e.g. a "Best Of" folder containing what look like two sub-albums) →
+  flagged `needsReview` rather than picking one interpretation.
+- See [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md)
+  for path-length and invalid-character handling, which apply to source paths
+  too (a source path can already be near the limit).
+
+## Manual setup
+
+None beyond having TagLibSharp available (NuGet package, referenced via
+`Add-Type -Path`).
+
+## Definition of done
+
+- Running against [11](11-testing-and-verification-strategy.md)'s fixture
+  source tree produces a `recognition.json` that correctly identifies every
+  planted pattern (normal album, multi-disc, cue+single-file, grouping
+  folder, category subfolder, band-member folder, missing track numbers,
+  loose vs. nested companions, a playlist file correctly routed to
+  `ignored`).
+- An `overrides.json` entry demonstrably changes the outcome for a
+  grouping-folder case on a second run.
