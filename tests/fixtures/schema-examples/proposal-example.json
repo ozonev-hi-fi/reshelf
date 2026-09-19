@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "2026-09-19-0001",
+  "sourceRoot": "D:\\downloads\\incoming",
+  "generatedAtUtc": "2026-09-19T10:00:00Z",
+  "artists": [
+    {
+      "recognizedName": "ZZ Top",
+      "sourcePaths": ["D:\\downloads\\incoming\\ZZ Top"],
+      "releases": [
+        {
+          "stableKey": "a1b2c3d4e5f60708",
+          "recognizedTitle": "XXX",
+          "recognizedYear": 1999,
+          "sourceFolderPath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\01 Poke Chop Sandwich.flac",
+              "discFolder": null,
+              "originalFileName": "01 Poke Chop Sandwich.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": { "artist": null, "album": null, "title": null },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 231,
+              "proposedFileName": "01 Poke Chop Sandwich.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Poke Chop Sandwich",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "XXX",
+                "year": 1999,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Poke Chop Sandwich"
+              }
+            }
+          ],
+          "companionFiles": [
+            { "sourcePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\cover.jpg", "kind": "cover", "placement": "loose" }
+          ],
+          "cueSheet": null,
+          "recognitionConfidence": 0.95,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "matched",
+            "selectedReleaseId": 123456,
+            "candidates": [
+              { "releaseId": 123456, "title": "XXX", "year": 1999, "format": "CD, Album", "score": 0.97 }
+            ]
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "1999 XXX",
+            "year": 1999,
+            "album": "XXX"
+          },
+          "coverArt": {
+            "candidates": [
+              { "url": "https://example.com/cover.jpg", "sourceEdition": "US CD", "width": 1200, "height": 1200 }
+            ],
+            "chosenCandidateUrl": "https://example.com/cover.jpg",
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": { "isLossy": false, "action": "none" },
+          "targetAction": "create-new",
+          "humanReview": { "required": false, "resolved": true, "notes": "" }
+        }
+      ]
+    }
+  ],
+  "unrecognized": [
+    {
+      "path": "D:\\downloads\\incoming\\Godspeeds and their projects",
+      "reason": "grouping-folder-suspected",
+      "children": ["Godspeed You! Black Emperor", "Silver Mountain Zion"]
+    }
+  ]
+}

@@ -92,7 +92,7 @@ Install:
 
 ### Dev tooling
 
-- **PowerShell 7** (`pwsh`) — every script starts with `#Requires -Version 7.0`.
+- **PowerShell 7** (`pwsh`) — every script starts with `#Requires -Version 7.4` (bumped from 7.0 in milestone 2, since `Test-Json`'s `-LiteralPath` and full JSON Schema 2020-12 support require 7.4+).
 - **Pester** — unit tests (see [11](11-testing-and-verification-strategy.md)). Installed as v6.2.0 (2026-09-19); Windows ships an old built-in v3.4.0 which is left alone — always invoke `Import-Module Pester -MinimumVersion 5.0` or run via a version-pinned `Invoke-Pester` to avoid picking up the built-in one.
 - **PSScriptAnalyzer** — linting. Installed as v1.25.0.
 

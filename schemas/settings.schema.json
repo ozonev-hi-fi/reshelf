@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tagger.local/schemas/settings.schema.json",
+  "title": "Tagger settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultSourceRoot",
+    "targetRoot",
+    "copyMode",
+    "namingTemplates",
+    "trackNumberPadWidth",
+    "coverMaxDimension",
+    "discogsTokenEnvVar",
+    "rateLimitPerMinute",
+    "cacheTtlDays",
+    "dataHome",
+    "mp3tagPath",
+    "ffmpegPath"
+  ],
+  "properties": {
+    "defaultSourceRoot": { "type": "string" },
+    "targetRoot": { "type": "string", "minLength": 1 },
+    "copyMode": { "type": "string", "enum": ["copy", "move"] },
+    "namingTemplates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseFolder", "trackFile"],
+      "properties": {
+        "releaseFolder": { "type": "string", "minLength": 1 },
+        "trackFile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "trackNumberPadWidth": { "type": "integer", "minimum": 2 },
+    "coverMaxDimension": { "type": "integer", "minimum": 1 },
+    "discogsTokenEnvVar": { "type": "string", "minLength": 1 },
+    "rateLimitPerMinute": { "type": "integer", "minimum": 1 },
+    "cacheTtlDays": { "type": "integer", "minimum": 0 },
+    "dataHome": { "type": "string" },
+    "mp3tagPath": { "type": "string" },
+    "ffmpegPath": { "type": "string" }
+  }
+}

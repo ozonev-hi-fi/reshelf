@@ -1,0 +1,17 @@
+{
+  "defaultSourceRoot": "",
+  "targetRoot": "E:\\Music",
+  "copyMode": "copy",
+  "namingTemplates": {
+    "releaseFolder": "{year} {album}",
+    "trackFile": "{trackNumber} {title}"
+  },
+  "trackNumberPadWidth": 2,
+  "coverMaxDimension": 600,
+  "discogsTokenEnvVar": "DISCOGS_ACCESS_TOKEN",
+  "rateLimitPerMinute": 55,
+  "cacheTtlDays": 30,
+  "dataHome": "",
+  "mp3tagPath": "",
+  "ffmpegPath": ""
+}

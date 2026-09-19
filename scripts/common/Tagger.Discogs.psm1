@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 
 Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
 
