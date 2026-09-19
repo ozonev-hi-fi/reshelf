@@ -24,12 +24,15 @@
               "existingTags": { "artist": null, "album": null, "title": null },
               "format": "flac",
               "isLossless": true,
-              "durationSeconds": 231
+              "durationSeconds": 231,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
             }
           ],
           "companionFiles": [
             { "sourcePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\cover.jpg", "kind": "cover", "placement": "loose" }
           ],
+          "ignoredFiles": [],
           "cueSheet": null,
           "recognitionConfidence": 0.95,
           "recognitionFlags": [],

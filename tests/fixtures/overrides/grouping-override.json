@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "(fixture - sourceRoot is informational only, not used for matching)",
+  "entries": [
+    {
+      "relativePath": "Godspeeds and their projects",
+      "kind": "grouping",
+      "parentArtistName": null,
+      "artistName": null,
+      "notes": "Each child folder is its own artist."
+    }
+  ]
+}

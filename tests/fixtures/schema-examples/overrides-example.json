@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "D:\\downloads\\incoming",
+  "entries": [
+    {
+      "relativePath": "Godspeeds and their projects",
+      "kind": "grouping",
+      "parentArtistName": null,
+      "artistName": null,
+      "notes": "Each child folder is its own artist."
+    },
+    {
+      "relativePath": "Talking Heads/EPs",
+      "kind": "category",
+      "parentArtistName": "Talking Heads",
+      "artistName": null,
+      "notes": ""
+    },
+    {
+      "relativePath": "Talking Heads/David Byrne",
+      "kind": "band-member",
+      "parentArtistName": null,
+      "artistName": "David Byrne",
+      "notes": ""
+    },
+    {
+      "relativePath": "1999 Loose Album",
+      "kind": "artist",
+      "parentArtistName": null,
+      "artistName": "Some Artist",
+      "notes": "Release folder sat directly under sourceRoot."
+    }
+  ]
+}

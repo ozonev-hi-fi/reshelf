@@ -16,12 +16,16 @@ param(
     [string]$TargetRoot,
     [string]$DefaultSourceRoot,
     [string]$CopyMode,
-    [switch]$Force
+    [switch]$Force,
+    [string]$SourceRoot,
+    [switch]$SaveAsDefault,
+    [string]$OverridesPath
 )
 
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Common.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Json.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Settings.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Recognition.psm1') -Force
 
 switch ($Command) {
     'settings' {
@@ -48,6 +52,32 @@ switch ($Command) {
             }
             default { throw "Unknown 'session' subcommand '$SubCommand'. Use list, show, or resume." }
         }
+    }
+    'recognize' {
+        $settings = Get-TaggerSettings
+        $resolvedSourceRoot = if ($SourceRoot) { $SourceRoot } else { $settings.defaultSourceRoot }
+        if (-not $resolvedSourceRoot) {
+            throw "No source root given and no defaultSourceRoot configured. Pass -SourceRoot, or run 'Tagger.ps1 settings set -Key defaultSourceRoot -Value <path>'."
+        }
+
+        if ($SaveAsDefault -and $SourceRoot) {
+            Set-TaggerSettings -Key defaultSourceRoot -Value $SourceRoot | Out-Null
+        }
+
+        $session = New-TaggerSession -SourceRoot $resolvedSourceRoot
+        try {
+            $result = Invoke-TaggerRecognition -SourceRoot $resolvedSourceRoot -SessionId $session.sessionId -OverridesPath $OverridesPath -TagLibSharpPath $settings.taglibSharpPath
+        }
+        catch {
+            throw "Recognition failed for session '$($session.sessionId)': $($_.Exception.Message) The session was created but has no recognition.json - fix the issue and run 'Tagger.ps1 recognize -SourceRoot $resolvedSourceRoot' again (this starts a new session)."
+        }
+
+        [pscustomobject]@{
+            SessionId        = $session.sessionId
+            ArtistCount      = $result.artists.Count
+            ReleaseCount     = ($result.artists.releases | Measure-Object).Count
+            UnrecognizedCount = $result.unrecognized.Count
+        } | Format-List
     }
     default {
         Write-Warning "'$Command' is not implemented yet - see plan/05, 06, 08, or 09."

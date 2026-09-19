@@ -16,7 +16,8 @@
     "cacheTtlDays",
     "dataHome",
     "mp3tagPath",
-    "ffmpegPath"
+    "ffmpegPath",
+    "taglibSharpPath"
   ],
   "properties": {
     "defaultSourceRoot": { "type": "string" },
@@ -38,6 +39,7 @@
     "cacheTtlDays": { "type": "integer", "minimum": 0 },
     "dataHome": { "type": "string" },
     "mp3tagPath": { "type": "string" },
-    "ffmpegPath": { "type": "string" }
+    "ffmpegPath": { "type": "string" },
+    "taglibSharpPath": { "type": "string" }
   }
 }

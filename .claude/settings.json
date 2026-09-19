@@ -1,5 +1,14 @@
 {
   "permissions": {
+    "allow": [
+      "PowerShell(Import-Module Pester:*)",
+      "PowerShell(Invoke-Pester:*)",
+      "PowerShell(Import-Module:*)",
+      "PowerShell(Test-Json:*)",
+      "PowerShell(Invoke-ScriptAnalyzer:*)",
+      "Bash(pwsh -NoProfile -File ./scripts/Tagger.ps1 settings show)",
+      "Bash(pwsh -NoProfile -File ./scripts/Tagger.ps1 session list)"
+    ],
     "deny": [
       "Read(./.env)",
       "Grep(./.env)",

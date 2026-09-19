@@ -48,6 +48,7 @@
         "discFolderCount",
         "tracks",
         "companionFiles",
+        "ignoredFiles",
         "cueSheet",
         "recognitionConfidence",
         "recognitionFlags",
@@ -79,6 +80,10 @@
         "companionFiles": {
           "type": "array",
           "items": { "$ref": "#/$defs/companionFile" }
+        },
+        "ignoredFiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ignoredFile" }
         },
         "cueSheet": {
           "anyOf": [
@@ -194,6 +199,8 @@
         "format",
         "isLossless",
         "durationSeconds",
+        "cueTimestamp",
+        "isCueVirtualTrack",
         "proposedFileName",
         "proposedDiscNumber",
         "proposedTrackNumber",
@@ -219,6 +226,8 @@
         "format": { "type": "string", "minLength": 1 },
         "isLossless": { "type": "boolean" },
         "durationSeconds": { "type": "number", "minimum": 0 },
+        "cueTimestamp": { "type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}:\\d{2}$" },
+        "isCueVirtualTrack": { "type": "boolean" },
         "proposedFileName": { "type": "string", "minLength": 1 },
         "proposedDiscNumber": { "type": "integer", "minimum": 1 },
         "proposedTrackNumber": { "type": "integer", "minimum": 1 },
@@ -247,6 +256,15 @@
         "sourcePath": { "type": "string", "minLength": 1 },
         "kind": { "type": "string", "enum": ["cover", "booklet", "photo", "lyrics", "other"] },
         "placement": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ignoredFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcePath", "reason"],
+      "properties": {
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
       }
     },
     "unrecognizedEntry": {

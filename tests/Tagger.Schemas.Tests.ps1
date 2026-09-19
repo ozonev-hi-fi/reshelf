@@ -26,6 +26,10 @@ Describe 'Schema examples validate against their schema' {
     It 'lossy-tracking-example.json validates against lossy-tracking.schema.json' {
         Test-Json -LiteralPath "$FixturesDir/lossy-tracking-example.json" -SchemaFile "$PSScriptRoot/../schemas/lossy-tracking.schema.json" | Should -Be $true
     }
+
+    It 'overrides-example.json validates against overrides.schema.json' {
+        Test-Json -LiteralPath "$FixturesDir/overrides-example.json" -SchemaFile "$PSScriptRoot/../schemas/overrides.schema.json" | Should -Be $true
+    }
 }
 
 Describe 'recognition.json can be extended into a valid proposal.json' {

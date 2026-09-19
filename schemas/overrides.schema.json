@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tagger.local/schemas/overrides.schema.json",
+  "title": "Tagger overrides.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceRoot", "entries"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceRoot": { "type": "string", "minLength": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/overrideEntry" }
+    }
+  },
+  "$defs": {
+    "overrideEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relativePath", "kind", "parentArtistName", "artistName", "notes"],
+      "properties": {
+        "relativePath": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["grouping", "category", "band-member", "artist"] },
+        "parentArtistName": { "type": ["string", "null"] },
+        "artistName": { "type": ["string", "null"] },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

@@ -3,6 +3,10 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
+    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Common.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
+
     $script:TaggerPs1 = "$PSScriptRoot/../scripts/Tagger.ps1"
 
     function Invoke-Tagger {
@@ -59,18 +63,67 @@ Describe 'Tagger.ps1 settings/session dispatch' {
         $result.ExitCode | Should -Be 0
     }
 
-    It 'recognize emits a not-implemented warning and exits 1' {
-        $result = Invoke-Tagger recognize
-
-        $result.ExitCode | Should -Be 1
-        ($result.Output -join "`n") | Should -BeLike '*not implemented*'
-    }
-
-    It 'propose, apply, and lossy also emit a not-implemented warning and exit 1' {
+    It 'propose, apply, and lossy emit a not-implemented warning and exit 1' {
         foreach ($command in @('propose', 'apply', 'lossy')) {
             $result = Invoke-Tagger $command
             $result.ExitCode | Should -Be 1
         }
+    }
+
+    It 'recognize fails with a clear error when there is no -SourceRoot and no defaultSourceRoot' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        Invoke-Tagger settings init -TargetRoot $targetRoot | Out-Null
+
+        $result = Invoke-Tagger recognize
+
+        $result.ExitCode | Should -Not -Be 0
+        ($result.Output -join "`n") | Should -BeLike '*No source root given*'
+    }
+
+    It 'recognize creates a session and prints a summary for a source with no audio files' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        Invoke-Tagger settings init -TargetRoot $targetRoot | Out-Null
+
+        $sourceRoot = Join-Path $TestDrive 'source-empty'
+        New-Item -ItemType Directory -Path (Join-Path $sourceRoot 'Some Artist Folder') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Some Artist Folder' 'readme.txt') -Force | Out-Null
+
+        $result = Invoke-Tagger recognize -SourceRoot $sourceRoot
+
+        $result.ExitCode | Should -Be 0
+        $output = $result.Output -join "`n"
+        $output | Should -BeLike '*SessionId*'
+        (Get-TaggerSession -DataHome $dataHome).Count | Should -Be 1
+    }
+
+    It 'recognize surfaces a clear error (naming the orphaned session) when recognition fails after the session is created' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        Invoke-Tagger settings init -TargetRoot $targetRoot | Out-Null
+
+        $sourceRoot = Join-Path $TestDrive 'source-for-failure'
+        New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+
+        $malformedOverridesPath = Join-Path $TestDrive 'malformed-overrides.json'
+        Set-Content -LiteralPath $malformedOverridesPath -Value '{"entries":"not-an-array"}'
+
+        $result = Invoke-Tagger recognize -SourceRoot $sourceRoot -OverridesPath $malformedOverridesPath
+
+        $result.ExitCode | Should -Not -Be 0
+        $output = $result.Output -join "`n"
+        $output | Should -BeLike '*Recognition failed for session*'
+        (Get-TaggerSession -DataHome $dataHome).Count | Should -Be 1
+    }
+
+    It 'recognize -SaveAsDefault persists the source root to settings' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        Invoke-Tagger settings init -TargetRoot $targetRoot | Out-Null
+
+        $sourceRoot = Join-Path $TestDrive 'source-empty-2'
+        New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+
+        Invoke-Tagger recognize -SourceRoot $sourceRoot -SaveAsDefault | Out-Null
+
+        (Get-TaggerSettings -DataHome $dataHome).defaultSourceRoot | Should -Be $sourceRoot
     }
 
     It 'session show without a session id fails with a clear error instead of listing everything' {
