@@ -16,8 +16,9 @@ anything. Matches manifesto §7 module 1.
 
 ### `Tagger.Settings.psm1` functions
 
-- `Resolve-TaggerDataHome` — returns `$env:TAGGER_HOME` or
-  `%LOCALAPPDATA%\Tagger`, creating it if missing.
+`Resolve-TaggerDataHome` is defined in `Tagger.Common.psm1` (step 1), not here —
+`Tagger.Settings.psm1` imports it rather than redefining it.
+
 - `Get-TaggerSettings` — reads `settings.json` from the data home; if missing,
   triggers `Initialize-TaggerSettings`.
 - `Initialize-TaggerSettings` — interactive first-run wizard: prompts for

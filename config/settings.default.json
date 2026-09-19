@@ -11,5 +11,7 @@
   "discogsTokenEnvVar": "DISCOGS_ACCESS_TOKEN",
   "rateLimitPerMinute": 55,
   "cacheTtlDays": 30,
-  "dataHome": ""
+  "dataHome": "",
+  "mp3tagPath": "",
+  "ffmpegPath": ""
 }

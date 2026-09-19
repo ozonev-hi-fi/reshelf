@@ -10,20 +10,20 @@ Cases, Manual Setup (if any), Definition of Done.
 
 ## Steps
 
-| # | File | What it covers | Depends on |
-|---|------|-----------------|------------|
-| 1 | [01-repo-and-tooling-scaffolding.md](01-repo-and-tooling-scaffolding.md) | Repo layout, external tools, data directory, dev tooling | — |
-| 2 | [02-discogs-account-and-api-access.md](02-discogs-account-and-api-access.md) | Discogs account, token, rate limits, caching | — |
-| 3 | [03-domain-model-and-json-schemas.md](03-domain-model-and-json-schemas.md) | Shared JSON document shapes used by every module | 1 |
-| 4 | [04-settings-module.md](04-settings-module.md) | Settings, first-run wizard, sessions | 1, 3 |
-| 5 | [05-recognition-module.md](05-recognition-module.md) | Scan source, recognize releases, output `recognition.json` | 3, 4 |
-| 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 |
-| 7 | [07-editing-ui-module.md](07-editing-ui-module.md) | Static-site review/approval UI for `proposal.json` | 3, 6 |
-| 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 |
-| 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 |
-| 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 |
-| 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 |
-| 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 |
+| # | File | What it covers | Depends on | Status |
+|---|------|-----------------|------------|--------|
+| 1 | [01-repo-and-tooling-scaffolding.md](01-repo-and-tooling-scaffolding.md) | Repo layout, external tools, data directory, dev tooling | — | done |
+| 2 | [02-discogs-account-and-api-access.md](02-discogs-account-and-api-access.md) | Discogs account, token, rate limits, caching | — | not started |
+| 3 | [03-domain-model-and-json-schemas.md](03-domain-model-and-json-schemas.md) | Shared JSON document shapes used by every module | 1 | not started |
+| 4 | [04-settings-module.md](04-settings-module.md) | Settings, first-run wizard, sessions | 1, 3 | not started |
+| 5 | [05-recognition-module.md](05-recognition-module.md) | Scan source, recognize releases, output `recognition.json` | 3, 4 | not started |
+| 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 | not started |
+| 7 | [07-editing-ui-module.md](07-editing-ui-module.md) | Static-site review/approval UI for `proposal.json` | 3, 6 | not started |
+| 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | not started |
+| 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | not started |
+| 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 | not started |
+| 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | not started |
+| 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 | not started |
 
 ## Pipeline
 
