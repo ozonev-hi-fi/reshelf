@@ -13,7 +13,7 @@ Cases, Manual Setup (if any), Definition of Done.
 | # | File | What it covers | Depends on | Status |
 |---|------|-----------------|------------|--------|
 | 1 | [01-repo-and-tooling-scaffolding.md](01-repo-and-tooling-scaffolding.md) | Repo layout, external tools, data directory, dev tooling | — | done |
-| 2 | [02-discogs-account-and-api-access.md](02-discogs-account-and-api-access.md) | Discogs account, token, rate limits, caching | — | not started |
+| 2 | [02-discogs-account-and-api-access.md](02-discogs-account-and-api-access.md) | Discogs account, token, rate limits, caching | — | done |
 | 3 | [03-domain-model-and-json-schemas.md](03-domain-model-and-json-schemas.md) | Shared JSON document shapes used by every module | 1 | not started |
 | 4 | [04-settings-module.md](04-settings-module.md) | Settings, first-run wizard, sessions | 1, 3 | not started |
 | 5 | [05-recognition-module.md](05-recognition-module.md) | Scan source, recognize releases, output `recognition.json` | 3, 4 | not started |
