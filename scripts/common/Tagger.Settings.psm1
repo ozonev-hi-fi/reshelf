@@ -365,5 +365,38 @@ function Complete-TaggerSession {
     return $session
 }
 
+function Set-TaggerSessionStage {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SessionId,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('recognized', 'proposed', 'reviewed', 'applied', 'partially-applied')]
+        [string]$Stage,
+
+        [string]$ProposalPath,
+
+        [string]$DataHome
+    )
+
+    if (-not $DataHome) {
+        $DataHome = Resolve-TaggerDataHome
+    }
+
+    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $session.stage = $Stage
+    if ($PSBoundParameters.ContainsKey('ProposalPath')) {
+        $session.proposalPath = $ProposalPath
+    }
+    $session.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+
+    $sessionFile = Join-Path $DataHome 'sessions' $SessionId 'session.json'
+    Set-TaggerJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
+
+    return $session
+}
+
 Export-ModuleMember -Function Get-TaggerSettings, Initialize-TaggerSettings, Set-TaggerSettings, `
-    New-TaggerSession, Resume-TaggerSession, Complete-TaggerSession, Get-TaggerSession
+    New-TaggerSession, Resume-TaggerSession, Complete-TaggerSession, Get-TaggerSession, Set-TaggerSessionStage

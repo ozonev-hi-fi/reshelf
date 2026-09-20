@@ -26,6 +26,9 @@ Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Common.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Json.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Settings.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Recognition.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Discogs.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.LossyTracking.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.EditProposal.psm1') -Force
 
 switch ($Command) {
     'settings' {
@@ -77,6 +80,37 @@ switch ($Command) {
             ArtistCount      = $result.artists.Count
             ReleaseCount     = ($result.artists.releases | Measure-Object).Count
             UnrecognizedCount = $result.unrecognized.Count
+        } | Format-List
+    }
+    'propose' {
+        if (-not $SessionId) {
+            throw "'propose' requires a session id. Usage: Tagger.ps1 propose -SessionId <id>"
+        }
+
+        $settings = Get-TaggerSettings
+        $dataHome = $settings.dataHome
+        $session = Get-TaggerSession -SessionId $SessionId -DataHome $dataHome
+
+        try {
+            $result = Invoke-TaggerEditProposal -SessionId $SessionId -RecognitionPath $session.recognitionPath `
+                -TargetRoot $settings.targetRoot -ReleaseFolderTemplate $settings.namingTemplates.releaseFolder `
+                -TrackFileTemplate $settings.namingTemplates.trackFile -CoverMaxDimension $settings.coverMaxDimension `
+                -CacheTtlDays $settings.cacheTtlDays -RateLimitPerMinute $settings.rateLimitPerMinute -DataHome $dataHome
+        }
+        catch {
+            throw "Edit proposal failed for session '$SessionId': $($_.Exception.Message)"
+        }
+
+        $proposalPath = Join-Path $dataHome 'sessions' $SessionId 'proposal.json'
+        Set-TaggerSessionStage -SessionId $SessionId -Stage 'proposed' -ProposalPath $proposalPath -DataHome $dataHome | Out-Null
+
+        $releases = @($result.artists.releases)
+        [pscustomobject]@{
+            SessionId        = $SessionId
+            ArtistCount      = $result.artists.Count
+            ReleaseCount     = $releases.Count
+            MatchedCount     = @($releases | Where-Object { $_.discogsMatch.status -eq 'matched' }).Count
+            NeedsReviewCount = @($releases | Where-Object { $_.humanReview.required }).Count
         } | Format-List
     }
     default {

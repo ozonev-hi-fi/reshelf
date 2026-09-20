@@ -129,3 +129,112 @@ Describe 'ConvertTo-TaggerLongPath' {
         ConvertTo-TaggerLongPath -Path $alreadyPrefixed | Should -Be $alreadyPrefixed
     }
 }
+
+Describe 'ConvertTo-SafeFileName' {
+    It 'leaves an already-safe name unchanged' {
+        $result = ConvertTo-SafeFileName -Name 'Poke Chop Sandwich'
+        $result.SafeName | Should -Be 'Poke Chop Sandwich'
+        $result.WasChanged | Should -Be $false
+        $result.Substitutions | Should -BeNullOrEmpty
+    }
+
+    It 'replaces each Windows-invalid character with an underscore' {
+        foreach ($char in @('<', '>', ':', '"', '/', '\', '|', '?', '*')) {
+            $result = ConvertTo-SafeFileName -Name "Track${char}Name"
+            $result.SafeName | Should -Be 'Track_Name'
+            $result.WasChanged | Should -Be $true
+            $result.Substitutions.Count | Should -BeGreaterThan 0
+        }
+    }
+
+    It 'strips a trailing dot' {
+        $result = ConvertTo-SafeFileName -Name 'Track Name.'
+        $result.SafeName | Should -Be 'Track Name'
+        $result.WasChanged | Should -Be $true
+    }
+
+    It 'strips a trailing space' {
+        $result = ConvertTo-SafeFileName -Name 'Track Name '
+        $result.SafeName | Should -Be 'Track Name'
+        $result.WasChanged | Should -Be $true
+    }
+
+    It 'suffixes a reserved device name case-insensitively' {
+        foreach ($name in @('CON', 'con', 'PRN', 'AUX', 'NUL', 'COM1', 'LPT9')) {
+            $result = ConvertTo-SafeFileName -Name $name
+            $result.SafeName | Should -Be "${name}_"
+            $result.WasChanged | Should -Be $true
+        }
+    }
+
+    It 'does not treat a reserved name as reserved when it is only part of the name' {
+        $result = ConvertTo-SafeFileName -Name 'CONcert'
+        $result.SafeName | Should -Be 'CONcert'
+        $result.WasChanged | Should -Be $false
+    }
+
+    It 'records multiple substitutions for combined issues' {
+        $result = ConvertTo-SafeFileName -Name 'Track: Name?.'
+        $result.SafeName | Should -Be 'Track_ Name_'
+        $result.Substitutions.Count | Should -BeGreaterThan 1
+    }
+
+    It 'handles an empty string without throwing' {
+        { ConvertTo-SafeFileName -Name '' } | Should -Not -Throw
+    }
+}
+
+Describe 'Get-TaggerFileSetHash' {
+    BeforeEach {
+        $script:hashTestDir = Join-Path $TestDrive ([Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $script:hashTestDir -Force | Out-Null
+    }
+
+    It 'is deterministic for the same file set' {
+        $fileA = Join-Path $script:hashTestDir 'a.flac'
+        $fileB = Join-Path $script:hashTestDir 'b.flac'
+        Set-Content -LiteralPath $fileA -Value 'aaaa'
+        Set-Content -LiteralPath $fileB -Value 'bb'
+
+        $first = Get-TaggerFileSetHash -FilePaths @($fileA, $fileB)
+        $second = Get-TaggerFileSetHash -FilePaths @($fileA, $fileB)
+        $first | Should -Be $second
+    }
+
+    It 'is independent of input order' {
+        $fileA = Join-Path $script:hashTestDir 'a.flac'
+        $fileB = Join-Path $script:hashTestDir 'b.flac'
+        Set-Content -LiteralPath $fileA -Value 'aaaa'
+        Set-Content -LiteralPath $fileB -Value 'bb'
+
+        $forward = Get-TaggerFileSetHash -FilePaths @($fileA, $fileB)
+        $reversed = Get-TaggerFileSetHash -FilePaths @($fileB, $fileA)
+        $forward | Should -Be $reversed
+    }
+
+    It 'is case-insensitive on file name' {
+        $fileA = Join-Path $script:hashTestDir 'a.flac'
+        Set-Content -LiteralPath $fileA -Value 'aaaa'
+
+        $lower = Get-TaggerFileSetHash -FilePaths @($fileA)
+        $upper = Get-TaggerFileSetHash -FilePaths @($fileA.ToUpperInvariant())
+        $lower | Should -Be $upper
+    }
+
+    It 'produces a different hash when file size changes' {
+        $fileA = Join-Path $script:hashTestDir 'a.flac'
+        Set-Content -LiteralPath $fileA -Value 'aaaa'
+        $before = Get-TaggerFileSetHash -FilePaths @($fileA)
+
+        Set-Content -LiteralPath $fileA -Value 'aaaaaaaa'
+        $after = Get-TaggerFileSetHash -FilePaths @($fileA)
+
+        $before | Should -Not -Be $after
+    }
+
+    It 'is deterministic for an empty file list' {
+        $first = Get-TaggerFileSetHash -FilePaths @()
+        $second = Get-TaggerFileSetHash -FilePaths @()
+        $first | Should -Be $second
+    }
+}

@@ -4,38 +4,8 @@ Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
 
 $script:TaggerCategoryFolderNames = @('EPs', 'Singles', 'Lives', 'Live', 'Compilations', 'Bootlegs')
-$script:TaggerAudioExtensions = @('.flac', '.mp3', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.ape')
 $script:TaggerTagLibSharpPath = $null
 $script:TaggerDataHome = $null
-
-# --- Format helpers -------------------------------------------------------
-
-function Test-TaggerIsLosslessFormat {
-    [CmdletBinding()]
-    [OutputType([bool])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Extension
-    )
-
-    $losslessExtensions = @('.flac', '.wav', '.ape', '.alac')
-    return $losslessExtensions -contains $Extension.ToLowerInvariant()
-}
-
-function Get-TaggerAudioFilesInFolder {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
-
-        [switch]$Recurse
-    )
-
-    $params = @{ LiteralPath = $Path; File = $true; ErrorAction = 'SilentlyContinue' }
-    if ($Recurse) { $params['Recurse'] = $true }
-
-    return @(Get-ChildItem @params | Where-Object { $script:TaggerAudioExtensions -contains $_.Extension.ToLowerInvariant() })
-}
 
 # --- Heuristics -------------------------------------------------------------
 
@@ -190,25 +160,6 @@ function Test-IsBandMemberFolder {
 
 # --- Track / disc parsing ---------------------------------------------------
 
-function ConvertFrom-TaggerTrackFileName {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$FileName
-    )
-
-    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
-
-    if ($baseName -match '^(\d+)\s*[-–]\s*(.+)$') {
-        return [pscustomobject]@{ Number = [int]$Matches[1]; Title = $Matches[2].Trim(); HasNumber = $true }
-    }
-    if ($baseName -match '^(\d+)\s+(.+)$') {
-        return [pscustomobject]@{ Number = [int]$Matches[1]; Title = $Matches[2].Trim(); HasNumber = $true }
-    }
-
-    return [pscustomobject]@{ Number = $null; Title = $baseName.Trim(); HasNumber = $false }
-}
-
 function Get-TaggerTrackOrder {
     [CmdletBinding()]
     param(
@@ -345,7 +296,7 @@ function Get-TaggerCompanionFiles {
     $allFiles = @(Get-ChildItem -LiteralPath $Path -File -Recurse -ErrorAction SilentlyContinue)
     foreach ($file in $allFiles) {
         $ext = $file.Extension.ToLowerInvariant()
-        if ($script:TaggerAudioExtensions -contains $ext) { continue }
+        if (Test-TaggerIsAudioExtension -Extension $ext) { continue }
         if ($ext -eq '.cue') { continue }
 
         if ($ext -in @('.m3u', '.m3u8', '.pls')) {

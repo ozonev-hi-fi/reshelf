@@ -17,7 +17,7 @@ Cases, Manual Setup (if any), Definition of Done.
 | 3 | [03-domain-model-and-json-schemas.md](03-domain-model-and-json-schemas.md) | Shared JSON document shapes used by every module | 1 | done |
 | 4 | [04-settings-module.md](04-settings-module.md) | Settings, first-run wizard, sessions | 1, 3 | done |
 | 5 | [05-recognition-module.md](05-recognition-module.md) | Scan source, recognize releases, output `recognition.json` | 3, 4 | done |
-| 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 | not started |
+| 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 | done |
 | 7 | [07-editing-ui-module.md](07-editing-ui-module.md) | Static-site review/approval UI for `proposal.json` | 3, 6 | not started |
 | 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | not started |
 | 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | not started |

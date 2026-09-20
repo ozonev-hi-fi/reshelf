@@ -63,11 +63,18 @@ Describe 'Tagger.ps1 settings/session dispatch' {
         $result.ExitCode | Should -Be 0
     }
 
-    It 'propose, apply, and lossy emit a not-implemented warning and exit 1' {
-        foreach ($command in @('propose', 'apply', 'lossy')) {
+    It 'apply and lossy emit a not-implemented warning and exit 1' {
+        foreach ($command in @('apply', 'lossy')) {
             $result = Invoke-Tagger $command
             $result.ExitCode | Should -Be 1
         }
+    }
+
+    It 'propose fails with a clear error when no session id is given' {
+        $result = Invoke-Tagger propose
+
+        $result.ExitCode | Should -Not -Be 0
+        ($result.Output -join "`n") | Should -BeLike '*requires a session id*'
     }
 
     It 'recognize fails with a clear error when there is no -SourceRoot and no defaultSourceRoot' {
