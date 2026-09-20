@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory, Position = 0)]
-    [ValidateSet('settings', 'session', 'recognize', 'propose', 'apply', 'lossy')]
+    [ValidateSet('settings', 'session', 'recognize', 'propose', 'apply', 'lossy', 'ui')]
     [string]$Command,
 
     [Parameter(Position = 1)]
@@ -19,7 +19,8 @@ param(
     [switch]$Force,
     [string]$SourceRoot,
     [switch]$SaveAsDefault,
-    [string]$OverridesPath
+    [string]$OverridesPath,
+    [int]$Port
 )
 
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Common.psm1') -Force
@@ -112,6 +113,15 @@ switch ($Command) {
             MatchedCount     = @($releases | Where-Object { $_.discogsMatch.status -eq 'matched' }).Count
             NeedsReviewCount = @($releases | Where-Object { $_.humanReview.required }).Count
         } | Format-List
+    }
+    'ui' {
+        switch ($SubCommand) {
+            'start' {
+                $uiServerScript = Join-Path $PSScriptRoot 'Start-TaggerUiServer.ps1'
+                if ($Port) { & $uiServerScript -Port $Port } else { & $uiServerScript }
+            }
+            default { throw "Unknown 'ui' subcommand '$SubCommand'. Use start." }
+        }
     }
     default {
         Write-Warning "'$Command' is not implemented yet - see plan/05, 06, 08, or 09."

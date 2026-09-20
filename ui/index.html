@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tagger - Review Proposal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="unsupported-banner" class="banner banner-error" hidden>
+    This browser does not support the File System Access API. Please use
+    Chrome or Edge to review and edit proposals.
+  </div>
+
+  <header id="app-header">
+    <h1>Tagger</h1>
+    <button id="open-folder-btn">Open Session Folder</button>
+    <button id="permission-retry-btn" hidden>Retry</button>
+    <span id="session-status"></span>
+  </header>
+
+  <div id="filters">
+    <label><input type="checkbox" id="filter-needs-review" /> Needs review only</label>
+    <label><input type="checkbox" id="filter-ambiguous" /> Ambiguous match only</label>
+  </div>
+
+  <main id="main-layout">
+    <aside id="release-list"></aside>
+
+    <section id="detail-panel" hidden>
+      <h2 id="detail-title"></h2>
+
+      <table id="before-after-table">
+        <thead>
+          <tr><th>Before</th><th>After</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="release-fields">
+        <label>Artist / Album Artist
+          <input type="text" id="field-artist" />
+        </label>
+        <label>Album
+          <input type="text" id="field-album" />
+        </label>
+        <label>Year
+          <input type="number" id="field-year" />
+        </label>
+        <label>Release Folder Name
+          <input type="text" id="field-release-folder" />
+        </label>
+      </div>
+
+      <table id="track-fields-table">
+        <thead>
+          <tr><th>Disc</th><th>Track</th><th>Title</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="cover-gallery"></div>
+
+      <div id="discogs-candidates" hidden>
+        <h3>Discogs match is ambiguous - pick the correct edition</h3>
+        <div id="discogs-candidates-list"></div>
+      </div>
+
+      <label>Notes
+        <textarea id="notes-field"></textarea>
+      </label>
+
+      <label><input type="checkbox" id="approve-checkbox" /> Approve</label>
+
+      <div id="save-row">
+        <button id="save-btn">Save</button>
+        <span id="save-status"></span>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
