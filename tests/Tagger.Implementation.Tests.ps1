@@ -225,6 +225,105 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
     }
 }
 
+Describe 'Resolve-TaggerTruncatedReleaseNames' {
+    BeforeAll {
+        function New-TruncationTestRelease {
+            param(
+                [string]$ArtistFolderName = 'Some Band',
+                [string]$ReleaseFolderName = '2010 Some Album',
+                [string[]]$TrackFileNames = @('01 Track.flac')
+            )
+            $tracks = foreach ($fileName in $TrackFileNames) {
+                New-TestTrack -SourceFilePath (Join-Path $TestDrive $fileName) -ProposedFileName $fileName
+            }
+            return New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName $ArtistFolderName -ReleaseFolderName $ReleaseFolderName `
+                -Year 2010 -Album 'Some Album' -SourceFolderPath $TestDrive -Tracks @($tracks)
+        }
+    }
+
+    It 'leaves normal short names unchanged' {
+        $release = New-TruncationTestRelease
+        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot 'D:\Music'
+
+        $result.Truncated | Should -Be $false
+        $result.ArtistFolderName | Should -Be 'Some Band'
+        $result.ReleaseFolderName | Should -Be '2010 Some Album'
+        $result.TrackFileNames['01 Track.flac'] | Should -Be '01 Track.flac'
+    }
+
+    It 'truncates long names while keeping every resulting path within budget, and preserves prefixes/extensions' {
+        $longArtist = 'The ' + ('Extremely ' * 10) + 'Long Band Name'
+        $longAlbum = '2010 ' + ('Extremely ' * 10) + 'Long Album Title'
+        $longTrack = '01 ' + ('Extremely ' * 10) + 'Long Track Title.flac'
+        $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
+
+        $release = New-TruncationTestRelease -ArtistFolderName $longArtist -ReleaseFolderName $longAlbum -TrackFileNames @($longTrack)
+        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+
+        $result.Truncated | Should -Be $true
+        $result.ReleaseFolderName | Should -BeLike '2010 *'
+        $result.TrackFileNames[$longTrack] | Should -BeLike '01 *'
+        $result.TrackFileNames[$longTrack] | Should -BeLike '*.flac'
+
+        $finalTrackPath = Join-Path $deepRoot $result.ArtistFolderName $result.ReleaseFolderName $result.TrackFileNames[$longTrack]
+        $finalTrackPath.Length | Should -BeLessOrEqual 250
+    }
+
+    It 'disambiguates two track names that would otherwise collide after truncation, and keeps the disambiguated name within budget' {
+        # A leading track number is preserved verbatim and is unique per track (continuous
+        # numbering), so it alone would prevent a collision - these deliberately have no
+        # recognizable numeric prefix (both start with "Hidden"), so their long, near-identical
+        # bodies genuinely truncate down to the same string.
+        $sharedText = 'Extremely ' * 20
+        $trackA = "Hidden ${sharedText}Alpha.flac"
+        $trackB = "Hidden ${sharedText}Beta.flac"
+        $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
+
+        $release = New-TruncationTestRelease -TrackFileNames @($trackA, $trackB)
+        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+
+        $result.Truncated | Should -Be $true
+        $result.TrackFileNames[$trackA] | Should -Not -Be $result.TrackFileNames[$trackB]
+
+        $pathA = Join-Path $deepRoot $result.ArtistFolderName $result.ReleaseFolderName $result.TrackFileNames[$trackA]
+        $pathB = Join-Path $deepRoot $result.ArtistFolderName $result.ReleaseFolderName $result.TrackFileNames[$trackB]
+        $pathA.Length | Should -BeLessOrEqual 250
+        $pathB.Length | Should -BeLessOrEqual 250
+    }
+
+    It 'preserves a dash-separated track-number prefix, not just the default space-separated form' {
+        $longDashTrack = '01 - ' + ('Extremely ' * 10) + 'Long Track Title.flac'
+        $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
+
+        $release = New-TruncationTestRelease -TrackFileNames @($longDashTrack)
+        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+
+        $result.Truncated | Should -Be $true
+        $result.TrackFileNames[$longDashTrack] | Should -BeLike '01 - *'
+    }
+
+    It 'does not treat a non-year 4-digit catalog-number prefix as an immune-from-truncation year prefix' {
+        # Both release names are squeezed under the same very tight budget (a huge artist name and
+        # a huge track name eat almost the whole MaxPathLength). A real year keeps its "yyyy "
+        # prefix protected (floor = 5 + 1 = 6); a catalog number that merely looks like one must
+        # not get that same protection (floor = 0 + 1 = 1) - Recognition.psm1 already guards the
+        # same pattern with a 1900-2100 bounds check for this exact reason (e.g. "3218 (Edition)").
+        $hugeArtist = 'A' * 1000
+        $hugeTrack = '01 ' + ('B' * 1000) + '.flac'
+        $root = 'C:\M'
+
+        $yearRelease = New-TruncationTestRelease -ArtistFolderName $hugeArtist -ReleaseFolderName '2010 Some Album' -TrackFileNames @($hugeTrack)
+        $yearResult = Resolve-TaggerTruncatedReleaseNames -Release $yearRelease -TargetRoot $root -MaxPathLength 250
+        $yearResult.ReleaseFolderName.Length | Should -Be 6
+        $yearResult.ReleaseFolderName | Should -BeLike '2010 *'
+
+        $catalogRelease = New-TruncationTestRelease -ArtistFolderName $hugeArtist -ReleaseFolderName '3218 Some Catalog Album' -TrackFileNames @($hugeTrack)
+        $catalogResult = Resolve-TaggerTruncatedReleaseNames -Release $catalogRelease -TargetRoot $root -MaxPathLength 250
+        $catalogResult.ReleaseFolderName.Length | Should -Be 1
+        $catalogResult.ReleaseFolderName | Should -Not -BeLike '3218*'
+    }
+}
+
 Describe 'Invoke-TaggerImplementation' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -312,6 +411,67 @@ Describe 'Invoke-TaggerImplementation' {
         $entry.errorMessage | Should -BeNullOrEmpty
         $entry.truncated | Should -Be $false
         $entry.sourceFileSetHash | Should -Not -BeNullOrEmpty
+    }
+
+    It 'truncates human-readable names and records it, when the fully-assembled target path would exceed the limit' {
+        $deepTargetRoot = Join-Path $script:targetRoot (('deeply' + ('\nested' * 15)))
+        $longArtist = 'The ' + ('Extremely ' * 10) + 'Long Band Name'
+        $longAlbum = '2010 ' + ('Extremely ' * 10) + 'Long Album Title'
+        $longTrackFileName = '01 ' + ('Extremely ' * 10) + 'Long Track Title.flac'
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'source.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName $longTrackFileName -ProposedTitle 'Track'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName $longArtist -ReleaseFolderName $longAlbum `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+
+        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.status | Should -Be 'applied'
+        $entry.truncated | Should -Be $true
+        $entry.targetPath.Length | Should -BeLessOrEqual 250
+        Test-Path -LiteralPath $entry.targetPath | Should -Be $true
+
+        $stagedFile = Get-ChildItem -LiteralPath $entry.targetPath -Filter '*.flac'
+        $stagedFile.Name | Should -BeLike '01 *'
+        $stagedFile.Name | Should -BeLike '*.flac'
+    }
+
+    It 'logs the truncated staged path, not the raw untruncated one, when the commit step fails after staging succeeded' {
+        Mock -ModuleName Tagger.Implementation Move-TaggerStagedReleaseToTarget { throw 'commit boom' }
+
+        $deepTargetRoot = Join-Path $script:targetRoot (('deeply' + ('\nested' * 15)))
+        $longArtist = 'The ' + ('Extremely ' * 10) + 'Long Band Name'
+        $longAlbum = '2010 ' + ('Extremely ' * 10) + 'Long Album Title'
+        $longTrackFileName = '01 ' + ('Extremely ' * 10) + 'Long Track Title.flac'
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'source.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName $longTrackFileName -ProposedTitle 'Track'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName $longArtist -ReleaseFolderName $longAlbum `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+
+        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.status | Should -Be 'failed'
+        $rawUntruncatedPath = Join-Path $deepTargetRoot $longArtist $longAlbum
+        $entry.targetPath | Should -Not -Be $rawUntruncatedPath
+        $entry.targetPath.Length | Should -BeLessOrEqual 250
+        $entry.truncated | Should -Be $true
     }
 
     It 'skips every release on a second, unchanged run and makes no ffmpeg/tag-writing calls' {

@@ -333,6 +333,176 @@ function Resolve-TaggerCompanionTargetPath {
     return Join-Path $ReleaseFolderPath $fileNameSan
 }
 
+# --- Path-length truncation -----------------------------------------------------------
+# ConvertTo-TaggerLongPath (Tagger.Common.psm1) already lifts the hard ~260-char Windows path
+# limit via the \\?\ prefix, but plan/10 also wants human-facing names kept short by construction:
+# some external tools and everyday Explorer/zip/cloud-sync use don't handle \\?\ consistently, so a
+# fully-assembled target path is still truncated above ~250 chars, with the cut always recorded
+# rather than silent. NOTE: the guarantee this produces (final path <= MaxPathLength) assumes
+# TargetRoot itself, which can never be truncated, still leaves room for at least the structural
+# prefixes/extension - an already-very-deep TargetRoot is a real, if narrow, ceiling on what this
+# can promise, same as it would be for any path-shortening scheme.
+
+function Split-TaggerTrackFileName {
+    # Splits a proposed track file name into its never-truncated leading track-number prefix (if
+    # any), the truncatable title body, and the extension. Mirrors both forms
+    # ConvertFrom-TaggerTrackFileName (Tagger.Common.psm1) already accepts - dash-separated
+    # ("01 - Title") and space-separated ("01 Title") - so the "never truncate the NN prefix"
+    # guarantee holds regardless of which TrackFileTemplate produced the name, not just the default.
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FileName
+    )
+
+    $extension = [System.IO.Path]::GetExtension($FileName)
+    $withoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
+
+    if ($withoutExtension -match '^(\d+\s*[-–]\s*)') {
+        $prefix = $Matches[1]
+    }
+    elseif ($withoutExtension -match '^(\d+\s+)') {
+        $prefix = $Matches[1]
+    }
+    else {
+        $prefix = ''
+    }
+
+    return [pscustomobject]@{
+        Prefix    = $prefix
+        Body      = $withoutExtension.Substring($prefix.Length)
+        Extension = $extension
+    }
+}
+
+function Get-TaggerRemainingPathBudget {
+    # MaxLength minus what's already consumed (including the separator leading into this segment)
+    # minus what must be reserved for every segment still to come (including their own leading
+    # separators) - centralizes the subtraction so each call site only has to state its own
+    # consumed/reserved tallies instead of re-deriving the whole formula independently.
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory)]
+        [int]$MaxLength,
+
+        [Parameter(Mandatory)]
+        [int]$Consumed,
+
+        [Parameter(Mandatory)]
+        [int]$Reserved
+    )
+
+    return [Math]::Max($MaxLength - $Consumed - $Reserved, 1)
+}
+
+function Resolve-TaggerTruncatedReleaseNames {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Release,
+
+        [Parameter(Mandatory)]
+        [string]$TargetRoot,
+
+        [int]$MaxPathLength = 250
+    )
+
+    $truncatedAny = $false
+    $root = $TargetRoot.TrimEnd('\', '/')
+
+    # Release folder (Level 2): preserve a leading "yyyy " prefix if the name has one. Bounds-
+    # checked to 1900-2100 like Tagger.Recognition.psm1's equivalent pattern, so a catalog-number-
+    # prefixed title (e.g. "3218 (Edition) Album Title") isn't mistaken for a year and protected
+    # from truncation it was never meant to have.
+    $releaseRaw = $Release.proposed.releaseFolderName
+    $releasePrefix = ''
+    $releaseBody = $releaseRaw
+    if ($releaseRaw -match '^(\d{4})(\s+)' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
+        $releasePrefix = $Matches[1] + $Matches[2]
+        $releaseBody = $releaseRaw.Substring($releasePrefix.Length)
+    }
+    # Never-truncated floor for the release folder (prefix + at least 1 body char) - reserved up
+    # front so the artist-folder truncation below never eats into the room the release folder needs.
+    $releaseFloor = $releasePrefix.Length + 1
+
+    # Parse every track's prefix/body/extension exactly once and reuse it below instead of
+    # re-parsing per track a second time in the main loop.
+    $parsedTracks = @($Release.tracks) | ForEach-Object {
+        [pscustomobject]@{
+            Original = $_.proposedFileName
+            Split    = Split-TaggerTrackFileName -FileName $_.proposedFileName
+        }
+    }
+
+    # Per-track floor (prefix + at least 1 body char + extension), plus a reserve for the '~N'
+    # disambiguation tag a name collision (see below) might still need to append - sized to the
+    # largest tag any track in this release could ever need (at most Count distinct collisions).
+    $maxTrackFloor = if ($parsedTracks) {
+        ($parsedTracks | ForEach-Object { $_.Split.Prefix.Length + 1 + $_.Split.Extension.Length } | Measure-Object -Maximum).Maximum
+    }
+    else { 1 }
+    $disambiguationReserve = 1 + [Math]::Max(1, $parsedTracks.Count).ToString().Length
+    $maxTrackFloor += $disambiguationReserve
+
+    # Artist folder (Level 1): no structural prefix defined for it, so the whole name is the body.
+    # Reserves room for '\' + release folder's floor + '\' + the largest track floor, so truncating
+    # the artist name can never starve the levels below it of their own minimum.
+    $artistBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1) `
+        -Reserved (1 + $releaseFloor + 1 + $maxTrackFloor)
+    $artistResult = ConvertTo-TaggerTruncatedSegment -Prefix '' -Body $Release.proposed.artistFolderName -Suffix '' -MaxLength $artistBudget
+    if ($artistResult.Truncated) { $truncatedAny = $true }
+    $artistFolderName = $artistResult.Value
+
+    # Release folder budget likewise reserves room for '\' + the largest track floor after it.
+    $releaseBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1 + $artistFolderName.Length + 1) `
+        -Reserved (1 + $maxTrackFloor)
+    $releaseResult = ConvertTo-TaggerTruncatedSegment -Prefix $releasePrefix -Body $releaseBody -Suffix '' `
+        -MaxLength ([Math]::Max($releaseBudget, $releaseFloor))
+    if ($releaseResult.Truncated) { $truncatedAny = $true }
+    $releaseFolderName = $releaseResult.Value
+
+    # Track file names: preserve the leading numeric track-order prefix and the file extension.
+    # Because the folder levels above reserved room for $maxTrackFloor (which already includes the
+    # disambiguation reserve), every track's own floor - and one collision retry - is guaranteed to
+    # fit in the budget computed here.
+    $releasePathLength = $root.Length + 1 + $artistFolderName.Length + 1 + $releaseFolderName.Length + 1
+    $trackBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed $releasePathLength -Reserved 0
+
+    $trackFileNames = @{}
+    $usedNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($parsedTrack in $parsedTracks) {
+        $prefix = $parsedTrack.Split.Prefix
+        $body = $parsedTrack.Split.Body
+        $extension = $parsedTrack.Split.Extension
+
+        # Attempt 1 has no disambiguation tag; a collision with an already-used name (only possible
+        # when two tracks share the same prefix - e.g. neither has a recognizable track-number
+        # prefix - and their bodies land on the same truncated text) retries with a "~2", "~3", ...
+        # tag appended before the extension instead of one track silently overwriting another in
+        # staging, per this project's "never silently overwritten" rule (plan/10's re-run table).
+        $attempt = 1
+        do {
+            $suffix = if ($attempt -eq 1) { $extension } else { "~$attempt$extension" }
+            $candidate = ConvertTo-TaggerTruncatedSegment -Prefix $prefix -Body $body -Suffix $suffix -MaxLength $trackBudget
+            if ($candidate.Truncated) { $truncatedAny = $true }
+            $finalName = $candidate.Value
+            $attempt++
+        } while (-not $usedNames.Add($finalName))
+
+        $trackFileNames[$parsedTrack.Original] = $finalName
+    }
+
+    return [pscustomobject]@{
+        ArtistFolderName  = $artistFolderName
+        ReleaseFolderName = $releaseFolderName
+        TrackFileNames    = $trackFileNames
+        Truncated         = $truncatedAny
+    }
+}
+
 # --- Per-release staging ---------------------------------------------------------------
 
 function Invoke-TaggerReleaseStaging {
@@ -354,9 +524,10 @@ function Invoke-TaggerReleaseStaging {
         [string]$TagLibSharpPath
     )
 
-    $finalTargetPath = Join-Path $TargetRoot $Release.proposed.artistFolderName $Release.proposed.releaseFolderName
+    $truncatedLayout = Resolve-TaggerTruncatedReleaseNames -Release $Release -TargetRoot $TargetRoot
+    $finalTargetPath = Join-Path $TargetRoot $truncatedLayout.ArtistFolderName $truncatedLayout.ReleaseFolderName
     $stagingReleasePath = Join-Path $StagingRoot $Release.stableKey
-    $truncated = $false
+    $truncated = $truncatedLayout.Truncated
 
     try {
         if ($PSCmdlet.ShouldProcess($stagingReleasePath, 'Create staging folder')) {
@@ -368,7 +539,7 @@ function Invoke-TaggerReleaseStaging {
         if ($Release.cueSheet) {
             $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks $Release.tracks
             foreach ($range in $ranges) {
-                $outputPath = Join-Path $stagingReleasePath $range.Track.proposedFileName
+                $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$range.Track.proposedFileName]
                 if ($PSCmdlet.ShouldProcess($outputPath, 'ffmpeg split track from cue source')) {
                     Invoke-TaggerFfmpegSplit -SourceAudioPath $Release.cueSheet.audioFilePath -StartTimestamp $range.StartTimestamp `
                         -EndTimestamp $range.EndTimestamp -OutputPath $outputPath -FfmpegPath $FfmpegPath
@@ -388,7 +559,7 @@ function Invoke-TaggerReleaseStaging {
         }
         else {
             foreach ($track in $Release.tracks) {
-                $outputPath = Join-Path $stagingReleasePath $track.proposedFileName
+                $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$track.proposedFileName]
                 if ($PSCmdlet.ShouldProcess($outputPath, 'Copy track')) {
                     Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-TaggerLongPath -Path $outputPath) -Force
                 }
@@ -549,6 +720,11 @@ function Invoke-TaggerImplementation {
         # "can't compute one" sentinel used elsewhere in this function for that case.
         $sourceHash = if ($needsApplyResult.Hash) { $needsApplyResult.Hash } else { 'unavailable-source-missing' }
 
+        # Reset before every iteration - the outer catch below falls back to this when a failure
+        # happens before staging assigns it, and a stale value from a *previous* release would
+        # otherwise leak through if that ever happened.
+        $stagingResult = $null
+
         try {
             $stagingResult = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $stagingRoot -TargetRoot $TargetRoot `
                 -FfmpegPath $FfmpegPath -TagLibSharpPath $TagLibSharpPath
@@ -609,10 +785,15 @@ function Invoke-TaggerImplementation {
             # failures, but this covers anything thrown outside it (the commit move itself, or
             # Set-TaggerLossyTrackingUpgraded) - one release's failure must never stop the batch.
             # $sourceHash was already resolved (real hash or the sentinel) before this try block.
+            # Prefer $stagingResult's (possibly-truncated) TargetPath/Truncated - it reflects what
+            # was actually staged/committed. $finalTargetPath (raw, untruncated names) is only a
+            # fallback for the case staging never got the chance to run at all.
+            $failureTargetPath = if ($stagingResult) { $stagingResult.TargetPath } else { $finalTargetPath }
+            $failureTruncated = if ($stagingResult) { $stagingResult.Truncated } else { $false }
             if ($PSCmdlet.ShouldProcess($release.stableKey, 'Record apply-log entry')) {
                 Add-TaggerApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'failed' `
-                    -TargetPath $finalTargetPath -SourceFileSetHash $sourceHash -ErrorMessage $_.Exception.Message `
-                    -Truncated $false -DataHome $DataHome | Out-Null
+                    -TargetPath $failureTargetPath -SourceFileSetHash $sourceHash -ErrorMessage $_.Exception.Message `
+                    -Truncated $failureTruncated -DataHome $DataHome | Out-Null
             }
             $failedCount++
         }
@@ -628,5 +809,5 @@ function Invoke-TaggerImplementation {
 
 Export-ModuleMember -Function Get-TaggerApplyLogPath, Get-TaggerApplyLog, Get-TaggerApplyLogEntry, Add-TaggerApplyLogEntry, `
     Test-TaggerReleaseNeedsApply, ConvertFrom-TaggerCueTrackRanges, Invoke-TaggerFfmpegSplit, Invoke-TaggerFfmpegResize, `
-    Invoke-TaggerCoverDownload, Set-TaggerAudioTags, Resolve-TaggerCompanionTargetPath, `
+    Invoke-TaggerCoverDownload, Set-TaggerAudioTags, Resolve-TaggerCompanionTargetPath, Resolve-TaggerTruncatedReleaseNames, `
     Invoke-TaggerReleaseStaging, Move-TaggerStagedReleaseToTarget, Invoke-TaggerImplementation

@@ -205,6 +205,51 @@ function ConvertTo-SafeFileName {
     }
 }
 
+function ConvertTo-TaggerTruncatedSegment {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Prefix,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Body,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Suffix,
+
+        [Parameter(Mandatory)]
+        [int]$MaxLength
+    )
+
+    $full = "$Prefix$Body$Suffix"
+    if ($full.Length -le $MaxLength) {
+        return [pscustomobject]@{ Value = $full; Truncated = $false }
+    }
+
+    # Prefix (e.g. a "yyyy "/"NN " structural prefix) and Suffix (e.g. a file extension) are never
+    # touched - only Body is shortened. A budget below 1 still keeps a single body character rather
+    # than colliding Prefix directly into Suffix, so the result stays visually recognizable as
+    # truncated instead of silently dropping the human-readable part entirely.
+    $bodyBudget = $MaxLength - $Prefix.Length - $Suffix.Length
+    if ($bodyBudget -lt 1) { $bodyBudget = 1 }
+    $cutLength = [Math]::Min($bodyBudget, $Body.Length)
+
+    # A body containing an astral-plane character (emoji, some CJK extensions) is stored as a UTF-16
+    # surrogate pair - cutting between the two halves would produce a malformed/unpaired surrogate.
+    # Back off by one char when the cut would land there.
+    if ($cutLength -gt 0 -and $cutLength -lt $Body.Length -and [char]::IsHighSurrogate($Body[$cutLength - 1])) {
+        $cutLength--
+    }
+
+    $truncatedBody = $Body.Substring(0, $cutLength).TrimEnd()
+
+    return [pscustomobject]@{ Value = "$Prefix$truncatedBody$Suffix"; Truncated = $true }
+}
+
 function Get-TaggerRelativePath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -321,4 +366,5 @@ function Import-TaggerTagLibSharp {
 Export-ModuleMember -Function Resolve-TaggerDataHome, Get-TaggerStableKey, ConvertTo-TaggerLongPath, `
     ConvertTo-TaggerNormalizedText, Get-TaggerSha256Hex, Test-TaggerIsAudioExtension, Test-TaggerIsLosslessFormat, `
     Get-TaggerAudioFilesInFolder, ConvertFrom-TaggerTrackFileName, ConvertTo-SafeFileName, Get-TaggerFileSetHash, `
-    Set-TaggerTagLibSharpContext, Import-TaggerTagLibSharp, Protect-TaggerSecret, Unprotect-TaggerSecret, Get-TaggerRelativePath
+    Set-TaggerTagLibSharpContext, Import-TaggerTagLibSharp, Protect-TaggerSecret, Unprotect-TaggerSecret, Get-TaggerRelativePath, `
+    ConvertTo-TaggerTruncatedSegment

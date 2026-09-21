@@ -184,6 +184,45 @@ Describe 'ConvertTo-SafeFileName' {
     }
 }
 
+Describe 'ConvertTo-TaggerTruncatedSegment' {
+    It 'leaves the segment unchanged when it already fits' {
+        $result = ConvertTo-TaggerTruncatedSegment -Prefix '2010 ' -Body 'A Short Album' -Suffix '' -MaxLength 250
+        $result.Value | Should -Be '2010 A Short Album'
+        $result.Truncated | Should -Be $false
+    }
+
+    It 'truncates only the body, keeping the prefix and suffix intact' {
+        $longBody = 'A' * 100
+        $result = ConvertTo-TaggerTruncatedSegment -Prefix '01 ' -Body $longBody -Suffix '.flac' -MaxLength 30
+
+        $result.Truncated | Should -Be $true
+        $result.Value.Length | Should -Be 30
+        $result.Value | Should -BeLike '01 *'
+        $result.Value | Should -BeLike '*.flac'
+    }
+
+    It 'keeps at least one body character when the budget is smaller than prefix+suffix' {
+        $result = ConvertTo-TaggerTruncatedSegment -Prefix '01 ' -Body 'Some Title' -Suffix '.flac' -MaxLength 5
+
+        $result.Truncated | Should -Be $true
+        $result.Value | Should -BeLike '01 *.flac'
+        { $result.Value } | Should -Not -Throw
+    }
+
+    It 'does not split a UTF-16 surrogate pair when the cut would land inside one' {
+        $emoji = [char]::ConvertFromUtf32(0x1F600)
+        $body = "Track $emoji Title"
+        # Cuts exactly between the emoji's high and low surrogate.
+        $cutIndex = $body.IndexOf($emoji[0]) + 1
+
+        $result = ConvertTo-TaggerTruncatedSegment -Prefix '' -Body $body -Suffix '' -MaxLength $cutIndex
+
+        $result.Truncated | Should -Be $true
+        $lastChar = $result.Value[$result.Value.Length - 1]
+        [char]::IsHighSurrogate($lastChar) | Should -Be $false
+    }
+}
+
 Describe 'Get-TaggerFileSetHash' {
     BeforeEach {
         $script:hashTestDir = Join-Path $TestDrive ([Guid]::NewGuid().ToString())
