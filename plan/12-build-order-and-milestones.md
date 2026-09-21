@@ -10,13 +10,15 @@ new design — every item below points back to the step file that defines it.
 ## Sequence
 
 **0. Scaffolding spike** — [01](01-repo-and-tooling-scaffolding.md).
-Verify mp3tag and ffmpeg are callable from `pwsh`, and that an mp3tag Action
-group can actually be invoked headlessly (`mp3tag.exe /fn:... /a:...`) before
-writing any Tagger code. This is the riskiest external dependency — worth
-confirming first. (cuetools/shntool/mp3splt were the original plan for
+Verify ffmpeg is callable from `pwsh`, and that TagLibSharp.dll loads via
+`Add-Type` and can both read and write tags/cover art in-process, before
+writing any Tagger code. (cuetools/shntool/mp3splt were the original plan for
 cue-sheet splitting but had no reliable Windows install path — ffmpeg alone
 handles this instead, see [01](01-repo-and-tooling-scaffolding.md) and
-[08](08-implementation-module.md).)
+[08](08-implementation-module.md). mp3tag was the original plan for tag
+*writing* specifically, but its Action-Group-from-a-file mechanism the plan
+assumed couldn't be confirmed as a real, scriptable feature — TagLibSharp,
+already a dependency for reading, writes tags too and needed no such spike.)
 
 **1. Discogs access + caching/throttling spike** — [02](02-discogs-account-and-api-access.md).
 Get a token, make one real search and one real release-detail call by hand

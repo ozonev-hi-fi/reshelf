@@ -30,6 +30,10 @@ Describe 'Schema examples validate against their schema' {
     It 'overrides-example.json validates against overrides.schema.json' {
         Test-Json -LiteralPath "$FixturesDir/overrides-example.json" -SchemaFile "$PSScriptRoot/../schemas/overrides.schema.json" | Should -Be $true
     }
+
+    It 'apply-log-example.json validates against apply-log.schema.json' {
+        Test-Json -LiteralPath "$FixturesDir/apply-log-example.json" -SchemaFile "$PSScriptRoot/../schemas/apply-log.schema.json" | Should -Be $true
+    }
 }
 
 Describe 'recognition.json can be extended into a valid proposal.json' {

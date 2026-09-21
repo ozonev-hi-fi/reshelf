@@ -20,7 +20,9 @@ param(
     [string]$SourceRoot,
     [switch]$SaveAsDefault,
     [string]$OverridesPath,
-    [int]$Port
+    [int]$Port,
+    [switch]$IncludeUnresolved,
+    [switch]$WhatIf
 )
 
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Common.psm1') -Force
@@ -30,6 +32,7 @@ Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Recognition.psm1') -Forc
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Discogs.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.LossyTracking.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.EditProposal.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Implementation.psm1') -Force
 
 switch ($Command) {
     'settings' {
@@ -40,7 +43,8 @@ switch ($Command) {
                     ConvertTo-Json -Depth 10
             }
             'set' { Set-TaggerSettings -Key $Key -Value $Value | ConvertTo-Json -Depth 10 }
-            default { throw "Unknown 'settings' subcommand '$SubCommand'. Use show, init, or set." }
+            'set-token' { Set-TaggerDiscogsToken | ConvertTo-Json -Depth 10 }
+            default { throw "Unknown 'settings' subcommand '$SubCommand'. Use show, init, set, or set-token." }
         }
     }
     'session' {
@@ -112,6 +116,26 @@ switch ($Command) {
             ReleaseCount     = $releases.Count
             MatchedCount     = @($releases | Where-Object { $_.discogsMatch.status -eq 'matched' }).Count
             NeedsReviewCount = @($releases | Where-Object { $_.humanReview.required }).Count
+        } | Format-List
+    }
+    'apply' {
+        if (-not $SessionId) {
+            throw "'apply' requires a session id. Usage: Tagger.ps1 apply -SessionId <id>"
+        }
+
+        $settings = Get-TaggerSettings
+        $dataHome = $settings.dataHome
+        $session = Get-TaggerSession -SessionId $SessionId -DataHome $dataHome
+
+        $result = Invoke-TaggerImplementation -SessionId $SessionId -ProposalPath $session.proposalPath `
+            -TargetRoot $settings.targetRoot -CopyMode $settings.copyMode -FfmpegPath $settings.ffmpegPath `
+            -TagLibSharpPath $settings.taglibSharpPath -DataHome $dataHome -IncludeUnresolved:$IncludeUnresolved -WhatIf:$WhatIf
+
+        [pscustomobject]@{
+            SessionId = $SessionId
+            Applied   = $result.Applied
+            Skipped   = $result.Skipped
+            Failed    = $result.Failed
         } | Format-List
     }
     'ui' {

@@ -9,10 +9,10 @@
   "trackNumberPadWidth": 2,
   "coverMaxDimension": 600,
   "discogsTokenEnvVar": "DISCOGS_ACCESS_TOKEN",
+  "discogsTokenEncrypted": "",
   "rateLimitPerMinute": 55,
   "cacheTtlDays": 30,
   "dataHome": "",
-  "mp3tagPath": "",
   "ffmpegPath": "",
   "taglibSharpPath": ""
 }

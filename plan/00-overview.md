@@ -19,7 +19,7 @@ Cases, Manual Setup (if any), Definition of Done.
 | 5 | [05-recognition-module.md](05-recognition-module.md) | Scan source, recognize releases, output `recognition.json` | 3, 4 | done |
 | 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 | done |
 | 7 | [07-editing-ui-module.md](07-editing-ui-module.md) | Static-site review/approval UI for `proposal.json` | 3, 6 | in progress |
-| 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | not started |
+| 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | in progress |
 | 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | not started |
 | 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 | not started |
 | 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | not started |
@@ -53,8 +53,7 @@ source folder(s)
 ## Tech stack
 
 - **Scripting**: PowerShell 7 (`pwsh`), one module per concern under `scripts/`.
-- **Tagging/cover art writing**: mp3tag CLI/action-based scripting (user's choice).
-- **Tag reading**: TagLibSharp (.NET library) — see [05](05-recognition-module.md) for why this differs from the writer.
+- **Tagging/cover art reading and writing**: TagLibSharp (.NET library, loaded in-process via `Add-Type`) — see [05](05-recognition-module.md) for why it was originally chosen for reading over mp3tag, and [08](08-implementation-module.md) for why writing moved to it too (zero manual setup, already a dependency, no external process).
 - **Cover resize + single-file/cue splitting** (both lossless and lossy): ffmpeg (`-c copy`, no re-encoding). cuetools/shntool/mp3splt were considered but dropped — no reliable winget/Windows install path, and ffmpeg alone covers both cases.
 - **Metadata source of truth**: Discogs API.
 - **Editing UI**: plain HTML/JS static site, File System Access API, no framework, no build step, served by a tiny local static file server (needed only because the API requires a secure context — not an application backend).

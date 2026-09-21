@@ -12,10 +12,10 @@
     "trackNumberPadWidth",
     "coverMaxDimension",
     "discogsTokenEnvVar",
+    "discogsTokenEncrypted",
     "rateLimitPerMinute",
     "cacheTtlDays",
     "dataHome",
-    "mp3tagPath",
     "ffmpegPath",
     "taglibSharpPath"
   ],
@@ -35,10 +35,10 @@
     "trackNumberPadWidth": { "type": "integer", "minimum": 2 },
     "coverMaxDimension": { "type": "integer", "minimum": 1 },
     "discogsTokenEnvVar": { "type": "string", "minLength": 1 },
+    "discogsTokenEncrypted": { "type": "string" },
     "rateLimitPerMinute": { "type": "integer", "minimum": 1 },
     "cacheTtlDays": { "type": "integer", "minimum": 0 },
     "dataHome": { "type": "string" },
-    "mp3tagPath": { "type": "string" },
     "ffmpegPath": { "type": "string" },
     "taglibSharpPath": { "type": "string" }
   }

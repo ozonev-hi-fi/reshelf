@@ -186,6 +186,20 @@ Describe 'Test-IsDiscFolder / Get-TaggerDiscFolders (private)' {
         }
     }
 
+    It 'recognizes a disc number followed by trailing text after a separator' {
+        InModuleScope Tagger.Recognition {
+            Test-IsDiscFolder -Name 'CD1. Forwards' | Should -Be $true
+            Test-IsDiscFolder -Name 'CD2. Sideways' | Should -Be $true
+            Test-IsDiscFolder -Name 'Disc 2 - Bonus' | Should -Be $true
+        }
+    }
+
+    It 'does not match a disc number that runs straight into trailing text with no separator' {
+        InModuleScope Tagger.Recognition {
+            Test-IsDiscFolder -Name 'CD10Something' | Should -Be $false
+        }
+    }
+
     It 'sorts disc folders numerically, not lexically' {
         InModuleScope Tagger.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
             param($fixturesDir)
@@ -193,6 +207,28 @@ Describe 'Test-IsDiscFolder / Get-TaggerDiscFolders (private)' {
             $discs.Count | Should -Be 2
             $discs[0].Name | Should -Be 'CD 1'
             $discs[1].Name | Should -Be 'CD 2'
+        }
+    }
+}
+
+Describe 'Get-TaggerDiscNumber (private)' {
+    It 'parses an exact CD-number/Disc-number name with no trailing text' {
+        InModuleScope Tagger.Recognition {
+            Get-TaggerDiscNumber -Name 'CD1' | Should -Be 1
+            Get-TaggerDiscNumber -Name 'Disc 2' | Should -Be 2
+        }
+    }
+
+    It 'parses a disc number followed by trailing text after a separator' {
+        InModuleScope Tagger.Recognition {
+            Get-TaggerDiscNumber -Name 'CD1. Forwards' | Should -Be 1
+            Get-TaggerDiscNumber -Name 'CD2. Sideways' | Should -Be 2
+        }
+    }
+
+    It 'returns $null for a disc number that runs straight into trailing text with no separator' {
+        InModuleScope Tagger.Recognition {
+            Get-TaggerDiscNumber -Name 'CD10Something' | Should -BeNullOrEmpty
         }
     }
 }
@@ -263,40 +299,6 @@ Describe 'Get-TaggerCompanionFiles (private)' {
             $result.Companions | Where-Object { $_.sourcePath -like '*CD 1*' -or $_.sourcePath -like '*CD 2*' } | Should -BeNullOrEmpty
             $playlistInDisc = $result.Ignored | Where-Object { $_.sourcePath -like '*CD 1*setlist.m3u' }
             $playlistInDisc | Should -Not -BeNullOrEmpty
-        }
-    }
-}
-
-Describe 'Import-TaggerTagLibSharp (private)' {
-    AfterEach {
-        InModuleScope Tagger.Recognition {
-            $script:TaggerDataHome = $null
-            $script:TaggerTagLibSharpPath = $null
-        }
-    }
-
-    It 'falls back to the script-scoped DataHome (set by Invoke-TaggerRecognition) for auto-discovery' {
-        InModuleScope Tagger.Recognition {
-            $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-            $expectedPath = Join-Path $dataHome 'lib' 'TagLibSharp.dll'
-            New-Item -ItemType Directory -Path (Split-Path $expectedPath) -Force | Out-Null
-            New-Item -ItemType File -Path $expectedPath -Force | Out-Null
-
-            $script:TaggerDataHome = $dataHome
-            Mock Add-Type { }
-
-            Import-TaggerTagLibSharp
-
-            Should -Invoke Add-Type -ParameterFilter { $Path -eq $expectedPath }
-        }
-    }
-
-    It 'throws a clear error naming the resolved path when the DLL is missing there' {
-        InModuleScope Tagger.Recognition {
-            $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-            $script:TaggerDataHome = $dataHome
-
-            { Import-TaggerTagLibSharp } | Should -Throw '*TagLibSharp.dll not found*'
         }
     }
 }
@@ -462,6 +464,54 @@ Describe 'Invoke-TaggerRecognition' {
         $resolved = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-9' -DataHome $dataHome -OverridesPath $overridesPath
         $someArtist = $resolved.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
         $someArtist | Should -Not -BeNullOrEmpty
+    }
+
+    It 'splits a flat "Artist - Album" release folder (no artist wrapper) into a review-flagged release' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-18' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'PULSAR OLYMP' }
+        $artist | Should -Not -BeNullOrEmpty
+        $artist.releases.Count | Should -Be 1
+
+        $release = $artist.releases[0]
+        $release.recognizedTitle | Should -Be '94Shine'
+        $release.tracks.Count | Should -Be 2
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'artist-name-split-from-folder-name'
+
+        # Not part of PULSAR OLYMP's own on-disk folder name, so it must not be misclassified as
+        # its own artist bucket.
+        ($result.artists.recognizedName) | Should -Not -Contain 'PULSAR OLYMP - 94Shine'
+    }
+
+    It 'still flags a flat release folder with no " - " separator as unrecognized (regression)' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-19' -DataHome $dataHome
+
+        $entry = $result.unrecognized | Where-Object { $_.path -like '*1999 Loose Album' }
+        $entry | Should -Not -BeNullOrEmpty
+        $entry.reason | Should -Be 'release-without-artist-suspected'
+        ($result.artists.recognizedName) | Should -Not -Contain '1999 Loose Album'
+    }
+
+    It 'does not misparse a leading 4-digit non-year number (e.g. a catalog number) as recognizedYear' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-21' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Isidor' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedYear | Should -BeNullOrEmpty
+        $release.recognizedTitle | Should -Be '3218 (Soldier of Fortune Edition - Artwork)'
+    }
+
+    It 'does not split a release title containing " - " when a real artist context already exists' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-20' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Live Wire' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedTitle | Should -Be 'Live - The Tour'
+        $release.needsReview | Should -Be $false
+        $release.reviewReasons | Should -Not -Contain 'artist-name-split-from-folder-name'
     }
 
     It 'flags an empty artist folder (no audio anywhere) as unrecognized' {

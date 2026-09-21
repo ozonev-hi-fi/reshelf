@@ -11,6 +11,23 @@ BeforeAll {
         $httpResponse = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]::Unauthorized)
         return [Microsoft.PowerShell.Commands.HttpResponseException]::new('Unauthorized', $httpResponse)
     }
+
+    # Tagger.Discogs.psm1 re-imports Tagger.Common.psm1 internally as part of loading, which turns
+    # it into a nested module of Tagger.Discogs - PowerShell then hides its commands from this
+    # script's own top-level scope (same gotcha noted in Tagger.EditProposal.Tests.ps1 and
+    # Tagger.LossyTracking.Tests.ps1). Routing through Discogs' own module scope, which always has
+    # it, avoids that fragility.
+    function Get-TestProtectedSecret {
+        param(
+            [Parameter(Mandatory)]
+            [string]$PlainText
+        )
+
+        return InModuleScope Tagger.Discogs -Parameters @{ p = $PlainText } {
+            param($p)
+            Protect-TaggerSecret -PlainText $p
+        }
+    }
 }
 
 Describe 'Get-DiscogsToken' {
@@ -75,8 +92,47 @@ Describe 'Get-DiscogsToken' {
 
     It 'throws naming both sources when neither is set' {
         $missingEnvFile = Join-Path $TestDrive 'still-missing.env'
+        $emptyDataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
 
-        { Get-DiscogsToken -EnvFilePath $missingEnvFile } | Should -Throw -ExpectedMessage '*DISCOGS_ACCESS_TOKEN*'
+        { Get-DiscogsToken -EnvFilePath $missingEnvFile -DataHome $emptyDataHome } | Should -Throw -ExpectedMessage '*DISCOGS_ACCESS_TOKEN*'
+    }
+
+    It 'falls through to the DPAPI-encrypted settings.json token when no env var and no .env file exist' {
+        $missingEnvFile = Join-Path $TestDrive 'no-env-file.env'
+        $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dataHome -Force | Out-Null
+        $settings = [pscustomobject]@{ discogsTokenEncrypted = (Get-TestProtectedSecret -PlainText 'token-from-settings') }
+        $settings | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataHome 'settings.json') -Encoding utf8
+
+        $result = Get-DiscogsToken -EnvFilePath $missingEnvFile -DataHome $dataHome
+
+        $result | Should -Be 'token-from-settings'
+    }
+
+    It 'still prefers the environment variable over an encrypted settings.json token (regression)' {
+        $env:DISCOGS_ACCESS_TOKEN = 'token-from-env-var'
+        $missingEnvFile = Join-Path $TestDrive 'no-env-file-2.env'
+        $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dataHome -Force | Out-Null
+        $settings = [pscustomobject]@{ discogsTokenEncrypted = (Get-TestProtectedSecret -PlainText 'token-from-settings') }
+        $settings | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataHome 'settings.json') -Encoding utf8
+
+        $result = Get-DiscogsToken -EnvFilePath $missingEnvFile -DataHome $dataHome
+
+        $result | Should -Be 'token-from-env-var'
+    }
+
+    It 'still prefers the .env file over an encrypted settings.json token (regression)' {
+        $envFile = Join-Path $TestDrive 'fallback-2.env'
+        Set-Content -LiteralPath $envFile -Value @('DISCOGS_ACCESS_TOKEN=token-from-file')
+        $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dataHome -Force | Out-Null
+        $settings = [pscustomobject]@{ discogsTokenEncrypted = (Get-TestProtectedSecret -PlainText 'token-from-settings') }
+        $settings | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataHome 'settings.json') -Encoding utf8
+
+        $result = Get-DiscogsToken -EnvFilePath $envFile -DataHome $dataHome
+
+        $result | Should -Be 'token-from-file'
     }
 }
 

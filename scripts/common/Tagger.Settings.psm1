@@ -136,6 +136,17 @@ function Initialize-TaggerSettings {
         throw "Invalid copy mode '$CopyMode'. Must be 'copy' or 'move'."
     }
 
+    # Never a param (only ever prompted, never accepted as a plain command-line -Value) - a token
+    # passed on the command line would leak into shell history/process list, defeating the whole
+    # point of storing it encrypted. Skippable and settable later via 'settings set-token'.
+    $discogsTokenEncrypted = ''
+    if (Test-TaggerHostIsInteractive) {
+        $secureToken = Read-Host -Prompt 'Discogs Personal Access Token (press Enter to skip, set later with: Tagger.ps1 settings set-token)' -AsSecureString
+        if ($secureToken -and $secureToken.Length -gt 0) {
+            $discogsTokenEncrypted = ConvertFrom-SecureString -SecureString $secureToken
+        }
+    }
+
     Assert-TaggerPathWritable -Path $TargetRoot
 
     $defaultsPath = Join-Path $PSScriptRoot '..' '..' 'config' 'settings.default.json'
@@ -145,7 +156,34 @@ function Initialize-TaggerSettings {
     $settings.targetRoot = $TargetRoot
     $settings.copyMode = $CopyMode
     $settings.dataHome = $DataHome
+    $settings.discogsTokenEncrypted = $discogsTokenEncrypted
 
+    Set-TaggerJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
+
+    return $settings
+}
+
+function Set-TaggerDiscogsToken {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [string]$DataHome
+    )
+
+    if (-not $DataHome) {
+        $DataHome = Resolve-TaggerDataHome
+    }
+
+    if (-not (Test-TaggerHostIsInteractive)) {
+        throw "'settings set-token' requires an interactive host - a token is never accepted as a plain command-line argument (it would leak into shell history/process list)."
+    }
+
+    $settings = Get-TaggerSettings -DataHome $DataHome
+
+    $secureToken = Read-Host -Prompt 'Discogs Personal Access Token' -AsSecureString
+    $settings.discogsTokenEncrypted = if ($secureToken -and $secureToken.Length -gt 0) { ConvertFrom-SecureString -SecureString $secureToken } else { '' }
+
+    $settingsPath = Join-Path $DataHome 'settings.json'
     Set-TaggerJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
 
     return $settings
@@ -398,5 +436,5 @@ function Set-TaggerSessionStage {
     return $session
 }
 
-Export-ModuleMember -Function Get-TaggerSettings, Initialize-TaggerSettings, Set-TaggerSettings, `
+Export-ModuleMember -Function Get-TaggerSettings, Initialize-TaggerSettings, Set-TaggerSettings, Set-TaggerDiscogsToken, `
     New-TaggerSession, Resume-TaggerSession, Complete-TaggerSession, Get-TaggerSession, Set-TaggerSessionStage

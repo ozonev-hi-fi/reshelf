@@ -697,6 +697,15 @@ function New-TaggerProposedRelease {
     $notes = [System.Collections.Generic.List[string]]::new()
     $requiresReview = $false
 
+    # Recognition's own ambiguity flags (grouping-folder cases, band-member-as-artist cases,
+    # artist-name-split-from-folder-name, etc.) must carry through to the one general "does a
+    # human need to look at this" gate Implementation actually checks - they were previously
+    # silently dropped unless one of this function's own unrelated checks happened to also trip.
+    if ($Release.needsReview) {
+        $requiresReview = $true
+        if ($Release.reviewReasons) { $notes.AddRange([string[]]@($Release.reviewReasons)) }
+    }
+
     $match = Resolve-TaggerDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
         -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 

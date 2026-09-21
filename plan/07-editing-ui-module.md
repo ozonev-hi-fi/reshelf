@@ -34,8 +34,7 @@ HTML with minimal JS" philosophy (§8).
   application logic; all reading/writing of `proposal.json` still happens
   client-side via the File System Access API talking directly to disk.
 - Only Chromium-based browsers (Chrome, Edge) support this API — acceptable
-  since the user is on Windows and already using mp3tag (Windows-only tool)
-  in the pipeline.
+  since the user is on Windows.
 
 ### Save behavior
 
@@ -61,11 +60,19 @@ HTML with minimal JS" philosophy (§8).
 
 ### Approval gate
 
-By default, [08-implementation-module.md](08-implementation-module.md) only
-applies releases where `discogsMatch.status != "ambiguous"` **or**
-`humanReview.resolved == true`. Everything else is skipped unless
-Implementation is explicitly run with `-IncludeUnresolved`. This keeps a
-"run implementation now" action from silently applying an unreviewed guess.
+`humanReview.required`/`.resolved` is the one general "does a human need to
+look at this before applying" signal - set whenever
+[06-edit-proposal-module.md](06-edit-proposal-module.md)'s
+`New-TaggerProposedRelease` flags a release for any reason (an ambiguous
+Discogs match, an unresolved year, a tracklist mismatch, missing cover art, a
+target conflict, or a carried-over Recognition ambiguity such as a
+grouping-folder or artist-name-split guess) - not just an ambiguous Discogs
+match specifically. By default,
+[08-implementation-module.md](08-implementation-module.md) skips every
+release where `humanReview.resolved != true`, for whatever reason it was set,
+unless Implementation is explicitly run with `-IncludeUnresolved`. This keeps
+a "run implementation now" action from silently applying an unreviewed guess
+or overwriting a target-conflict release that still needs a human decision.
 
 ## Decisions & rationale
 

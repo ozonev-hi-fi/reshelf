@@ -59,10 +59,14 @@ so tests never hit the real network or consume rate limit budget.
 1. Run with `-WhatIf` first — assert zero filesystem writes occurred
    (compare directory listing before/after).
 2. Run for real against a scratch temp target directory.
-3. Verify the resulting layout and tags by reading them back with
-   **TagLibSharp** — deliberately not by trusting mp3tag's own success exit
-   code, so the read path and write path are independently verified against
-   each other.
+3. Verify the resulting layout and tags by re-opening each file fresh with
+   **TagLibSharp** and checking the persisted values — this still catches a
+   "the write silently didn't save" class of bug, but it's an honest
+   trade-off, not the independent-tool check the plan originally described:
+   now that both reading (05) and writing (08) go through the same library,
+   this can't catch a systematic TagLibSharp bug the way reading back with a
+   genuinely different tool would have. Accepted because it removes all
+   manual setup for this step (see [08](08-implementation-module.md)).
 
 ### UI verification
 
@@ -85,10 +89,13 @@ optional/stretch, not required. Instead, a manual checklist run in Chrome:
   messy-folder heuristics and numbering math are exactly the places a subtle
   bug would silently corrupt a personal music collection — cheap to test in
   isolation, expensive to debug after the fact against real files.
-- **Verify Implementation's output independently of the tool that wrote it**:
-  reading tags back with TagLibSharp instead of trusting mp3tag's exit code
-  catches a class of bug where the write "succeeds" per mp3tag but the
-  actual tag values are wrong.
+- **Re-verify by reading the file back, not by trusting a save call's success**:
+  reading tags back with TagLibSharp after writing them catches a class of
+  bug where `.Save()` returns without error but the persisted values are
+  wrong. This is weaker than an independent-tool check (both directions now
+  share one library, so a systematic TagLibSharp bug could pass both sides) —
+  an explicit, accepted trade-off for a zero-manual-setup writer (see
+  [08](08-implementation-module.md)).
 - **No UI automation for v1**: proportionate effort for a personal tool used
   by one person — a documented manual checklist is enough, and can be
   revisited if the UI grows more complex.

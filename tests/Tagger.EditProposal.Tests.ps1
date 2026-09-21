@@ -172,7 +172,11 @@ BeforeAll {
             [Parameter(Mandatory)]
             [object[]]$Tracks,
 
-            [object[]]$CompanionFiles = @()
+            [object[]]$CompanionFiles = @(),
+
+            [bool]$NeedsReview = $false,
+
+            [string[]]$ReviewReasons = @()
         )
 
         [pscustomobject]@{
@@ -187,8 +191,8 @@ BeforeAll {
             cueSheet              = $null
             recognitionConfidence = 1.0
             recognitionFlags      = @()
-            needsReview           = $false
-            reviewReasons         = @()
+            needsReview           = $NeedsReview
+            reviewReasons         = @($ReviewReasons)
         }
     }
 
@@ -774,6 +778,33 @@ Describe 'Invoke-TaggerEditProposal' {
             $entry = Get-TestLossyTrackingEntry -StableKey $stableKey -DataHome $script:dataHome
             $entry.status | Should -Be 'ignored'
         }
+    }
+
+    It 'carries Recognition''s own needsReview/reviewReasons into humanReview.required, even with a clean Discogs match' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
+        $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Airbag.flac' -DetectedTrackNumberInDisc 1))
+        $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Radiohead' -Album 'OK Computer' -Year 1997) `
+            -RecognizedTitle 'OK Computer' -RecognizedYear 1997 -SourceFolderPath (Split-Path $t1) -Tracks $tracks `
+            -NeedsReview $true -ReviewReasons @('artist-name-split-from-folder-name')
+
+        New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+            [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+        )
+
+        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search') { return $script:SearchFixture }
+            return $script:ReleaseFixture
+        }
+
+        $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $releaseResult = $result.artists[0].releases[0]
+
+        # This fixture's Discogs mock is a clean, matching, threshold-passing result (same as the
+        # "produces correct names and tags" test above) - proving the carryover fires independently
+        # of EditProposal's own checks, not just when one of them happens to also require review.
+        $releaseResult.discogsMatch.status | Should -Be 'matched'
+        $releaseResult.humanReview.required | Should -Be $true
+        $releaseResult.humanReview.notes | Should -BeLike '*artist-name-split-from-folder-name*'
     }
 
     It 'writes a proposal.json that validates against the proposal schema' {

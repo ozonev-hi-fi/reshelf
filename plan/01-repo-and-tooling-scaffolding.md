@@ -33,8 +33,6 @@ tagger/
       Invoke-EditProposal.ps1
     03-implementation/
       Invoke-Implementation.ps1
-    mp3tag/
-      TaggerApply.mta            exported mp3tag Action group, checked in for reference
     Tagger.ps1                   dispatcher: settings|session|recognize|propose|apply|lossy
   ui/
     index.html
@@ -76,8 +74,11 @@ automated by any script, since this is a personal single-user tool:
 
 | Tool | Purpose | Used by |
 |------|---------|---------|
-| [mp3tag](https://www.mp3tag.de/) | Write tags + embed cover art via CLI/Action scripting | [08](08-implementation-module.md) |
 | [ffmpeg](https://ffmpeg.org/) | Resize cover art to 600×600, and split single-file+cue releases into tracks (both lossless and lossy) | [08](08-implementation-module.md) |
+
+Tag reading and writing (including cover art embedding) both go through **TagLibSharp**, a .NET
+library loaded in-process via `Add-Type` — not an externally-installed tool, see
+[05](05-recognition-module.md) and [08](08-implementation-module.md).
 
 Confirmed during the scaffolding spike (2026-09-19): cuetools/shntool/mp3splt
 have no winget package and no reliable Windows install path, so the plan uses
@@ -87,7 +88,6 @@ re-encoding) for both flac-family and mp3-family sources. See
 [08](08-implementation-module.md) for the exact approach.
 
 Install:
-- mp3tag: `winget install MP3tag.MP3tag` (or already installed manually)
 - ffmpeg: `winget install Gyan.FFmpeg`
 
 ### Dev tooling
@@ -117,28 +117,14 @@ this entry is a safety net rather than the primary control.)
 - **One `.psm1` per concern**: matches the manifesto's "independently developed
   modules" intent (§7) while staying inside a single PowerShell project instead
   of five separate ones — simpler for a single maintainer.
-- **mp3tag Action group checked into the repo**: the action definition
-  (`TaggerApply.mta`) is small, text-based, and needed for `Invoke-Implementation.ps1`
-  to work reproducibly on another machine — worth versioning even though it's
-  authored through mp3tag's GUI once and exported.
-
 ## Edge cases
 
 None specific to this step — see [10](10-error-handling-and-edge-cases.md) for
 cross-cutting concerns.
 
-**mp3tag is GUI-launched, not headless** (confirmed during the scaffolding
-spike, 2026-09-19): running `mp3tag.exe` with switches like `/fn:` or `/?`
-opens its GUI window rather than printing to stdout — it has no true
-console-only mode. `Invoke-Implementation.ps1` ([08](08-implementation-module.md))
-must launch it as a process, let it run its action against the supplied file
-list, and wait for it to exit (mp3tag has an option to auto-close after
-running a command-line action — confirm this setting when the Action group is
-authored) rather than expecting captured console output.
-
 ## Manual setup
 
-1. Install PowerShell 7, mp3tag, ffmpeg.
+1. Install PowerShell 7, ffmpeg.
 2. Install Pester 5 and PSScriptAnalyzer (`Install-Module Pester -MinimumVersion 5.0`, `Install-Module PSScriptAnalyzer`).
 3. Create the folder tree above.
 4. Set `TAGGER_HOME` if the default `%LOCALAPPDATA%\Tagger` location isn't wanted.
@@ -146,6 +132,6 @@ authored) rather than expecting captured console output.
 ## Definition of done
 
 - Folder tree exists and matches the layout above.
-- Each external tool is callable from a fresh `pwsh` shell (`mp3tag.exe`,
-  `ffmpeg` resolve on `PATH` or via a documented full path in `settings.json`).
+- `ffmpeg` resolves on `PATH` or via a documented full path in `settings.json`,
+  callable from a fresh `pwsh` shell.
 - `Resolve-TaggerDataHome` returns a real, writable directory.

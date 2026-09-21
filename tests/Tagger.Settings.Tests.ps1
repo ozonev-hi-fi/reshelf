@@ -17,6 +17,44 @@ BeforeAll {
         $session.stage = $Stage
         $session | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $sessionFile -Encoding utf8
     }
+
+    # An empty SecureString (what Read-Host -AsSecureString actually returns for a bare Enter
+    # keypress) can't be built via ConvertTo-SecureString -String '' -AsPlainText -Force - that
+    # cmdlet's own -String parameter rejects empty input outright, regardless of -AsPlainText/-Force.
+    function New-EmptySecureString {
+        return [System.Security.SecureString]::new()
+    }
+
+    # Tagger.Settings.psm1 re-imports Tagger.Common.psm1 internally as part of loading, which turns
+    # it into a nested module of Tagger.Settings - PowerShell then hides its commands from this
+    # script's own top-level scope (same gotcha noted in Tagger.EditProposal.Tests.ps1 and
+    # Tagger.LossyTracking.Tests.ps1). Routing through Settings' own module scope, which always has
+    # it, avoids that fragility.
+    function Get-TestUnprotectedSecret {
+        param(
+            [Parameter(Mandatory)]
+            [string]$EncryptedText
+        )
+
+        return InModuleScope Tagger.Settings -Parameters @{ enc = $EncryptedText } {
+            param($enc)
+            Unprotect-TaggerSecret -EncryptedText $enc
+        }
+    }
+
+    function New-TestSecureString {
+        # Same intentional plaintext-to-SecureString pattern as Tagger.Common.psm1's
+        # Protect-TaggerSecret - here it's simulating what Read-Host -AsSecureString returns, from a
+        # known fake test value.
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
+            Justification = 'Test fixture: builds a SecureString from a known fake value to mock what Read-Host -AsSecureString returns.')]
+        param(
+            [Parameter(Mandatory)]
+            [string]$PlainText
+        )
+
+        return ConvertTo-SecureString -String $PlainText -AsPlainText -Force
+    }
 }
 
 Describe 'Initialize-TaggerSettings' {
@@ -26,6 +64,11 @@ Describe 'Initialize-TaggerSettings' {
     }
 
     It 'writes valid settings using only supplied params without prompting' {
+        # Test-TaggerHostIsInteractive is mocked false, not just relied on the real (non-interactive
+        # test-runner) console state, so this stays deterministic on any machine - the Discogs token
+        # prompt is unconditional on interactivity (it has no -Value param to pre-supply), so without
+        # this it would fire and hit the "should not be called" mock below on a real interactive host.
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
         Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called.' }
 
         $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'move' -DataHome $dataHome
@@ -33,6 +76,7 @@ Describe 'Initialize-TaggerSettings' {
         $result.targetRoot | Should -Be $targetRoot
         $result.defaultSourceRoot | Should -Be 'D:\source'
         $result.copyMode | Should -Be 'move'
+        $result.discogsTokenEncrypted | Should -Be ''
         (Join-Path $dataHome 'settings.json') | Should -Exist
     }
 
@@ -40,12 +84,43 @@ Describe 'Initialize-TaggerSettings' {
         Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
         Mock -ModuleName Tagger.Settings Read-Host { 'D:\prompted-source' } -ParameterFilter { $Prompt -like 'Default source root*' }
         Mock -ModuleName Tagger.Settings Read-Host { 'copy' } -ParameterFilter { $Prompt -like 'Copy mode*' }
+        Mock -ModuleName Tagger.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
         $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
 
         $result.defaultSourceRoot | Should -Be 'D:\prompted-source'
         $result.copyMode | Should -Be 'copy'
-        Should -Invoke -ModuleName Tagger.Settings Read-Host -Times 2
+        $result.discogsTokenEncrypted | Should -Be ''
+        Should -Invoke -ModuleName Tagger.Settings Read-Host -Times 3
+    }
+
+    It 'encrypts and stores a Discogs token entered at the prompt, round-trippable back to the original value' {
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
+        Mock -ModuleName Tagger.Settings Read-Host { New-TestSecureString -PlainText 'my-real-token' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+
+        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
+
+        $result.discogsTokenEncrypted | Should -Not -BeNullOrEmpty
+        $result.discogsTokenEncrypted | Should -Not -Be 'my-real-token'
+        (Get-TestUnprotectedSecret -EncryptedText $result.discogsTokenEncrypted) | Should -Be 'my-real-token'
+    }
+
+    It 'leaves the token empty when skipped (empty response) at the prompt' {
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
+        Mock -ModuleName Tagger.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+
+        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
+
+        $result.discogsTokenEncrypted | Should -Be ''
+    }
+
+    It 'leaves the token empty and never prompts for it in a non-interactive host' {
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
+        Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called for the token prompt.' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+
+        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
+
+        $result.discogsTokenEncrypted | Should -Be ''
     }
 
     It 'fails fast with a clear message when TargetRoot is missing in a non-interactive host' {
@@ -94,6 +169,35 @@ Describe 'Initialize-TaggerSettings' {
         Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
 
         Test-Json -LiteralPath (Join-Path $dataHome 'settings.json') -SchemaFile "$PSScriptRoot/../schemas/settings.schema.json" | Should -Be $true
+    }
+}
+
+Describe 'Set-TaggerDiscogsToken' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $script:targetRoot = Join-Path $TestDrive 'target'
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
+        Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome | Out-Null
+    }
+
+    It 'updates an existing settings.json token and leaves every other field untouched' {
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
+        Mock -ModuleName Tagger.Settings Read-Host { New-TestSecureString -PlainText 'updated-token' }
+
+        $before = Get-TaggerSettings -DataHome $dataHome
+        $result = Set-TaggerDiscogsToken -DataHome $dataHome
+
+        (Get-TestUnprotectedSecret -EncryptedText $result.discogsTokenEncrypted) | Should -Be 'updated-token'
+        $result.targetRoot | Should -Be $before.targetRoot
+        $result.defaultSourceRoot | Should -Be $before.defaultSourceRoot
+        $result.copyMode | Should -Be $before.copyMode
+    }
+
+    It 'throws and never prompts when the host is not interactive' {
+        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
+        Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called.' }
+
+        { Set-TaggerDiscogsToken -DataHome $dataHome } | Should -Throw '*interactive*'
     }
 }
 

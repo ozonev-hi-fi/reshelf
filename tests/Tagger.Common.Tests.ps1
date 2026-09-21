@@ -238,3 +238,58 @@ Describe 'Get-TaggerFileSetHash' {
         $first | Should -Be $second
     }
 }
+
+Describe 'Protect-TaggerSecret / Unprotect-TaggerSecret' {
+    It 'round-trips plain text through DPAPI encryption' {
+        $encrypted = Protect-TaggerSecret -PlainText 'my-discogs-token'
+        $encrypted | Should -Not -Be 'my-discogs-token'
+
+        $decrypted = Unprotect-TaggerSecret -EncryptedText $encrypted
+        $decrypted | Should -Be 'my-discogs-token'
+    }
+
+    It 'produces an encrypted string that does not contain the original plain text' {
+        $encrypted = Protect-TaggerSecret -PlainText 'super-secret-value'
+        $encrypted | Should -Not -BeLike '*super-secret-value*'
+    }
+
+    It 'throws for an empty string (ConvertTo-SecureString itself rejects empty plain text)' {
+        # Not a Tagger-specific limitation - documents real ConvertTo-SecureString -String behavior.
+        # Callers that may have an empty/skipped secret (e.g. Tagger.Settings.psm1's token prompt)
+        # check for that before ever calling Protect-TaggerSecret, rather than passing it through.
+        { Protect-TaggerSecret -PlainText '' } | Should -Throw
+    }
+}
+
+Describe 'Import-TaggerTagLibSharp' {
+    AfterEach {
+        InModuleScope Tagger.Common {
+            Set-TaggerTagLibSharpContext -TagLibSharpPath $null -DataHome $null
+        }
+    }
+
+    It 'falls back to the script-scoped DataHome (set by Set-TaggerTagLibSharpContext) for auto-discovery' {
+        InModuleScope Tagger.Common {
+            $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $expectedPath = Join-Path $dataHome 'lib' 'TagLibSharp.dll'
+            New-Item -ItemType Directory -Path (Split-Path $expectedPath) -Force | Out-Null
+            New-Item -ItemType File -Path $expectedPath -Force | Out-Null
+
+            Set-TaggerTagLibSharpContext -DataHome $dataHome
+            Mock Add-Type { }
+
+            Import-TaggerTagLibSharp
+
+            Should -Invoke Add-Type -ParameterFilter { $Path -eq $expectedPath }
+        }
+    }
+
+    It 'throws a clear error naming the resolved path when the DLL is missing there' {
+        InModuleScope Tagger.Common {
+            $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            Set-TaggerTagLibSharpContext -DataHome $dataHome
+
+            { Import-TaggerTagLibSharp } | Should -Throw '*TagLibSharp.dll not found*'
+        }
+    }
+}

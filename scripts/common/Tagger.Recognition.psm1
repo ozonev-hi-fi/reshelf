@@ -4,8 +4,6 @@ Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
 
 $script:TaggerCategoryFolderNames = @('EPs', 'Singles', 'Lives', 'Live', 'Compilations', 'Bootlegs')
-$script:TaggerTagLibSharpPath = $null
-$script:TaggerDataHome = $null
 
 # --- Heuristics -------------------------------------------------------------
 
@@ -17,7 +15,7 @@ function Test-IsDiscFolder {
         [string]$Name
     )
 
-    return [bool]($Name -match '(?i)^(CD|Disc|Disk)\s*\.?\s*(\d+)$')
+    return [bool]($Name -match '(?i)^(CD|Disc|Disk)\s*\.?\s*(\d+)(\.|\s|-|$)')
 }
 
 function Get-TaggerDiscNumber {
@@ -27,7 +25,7 @@ function Get-TaggerDiscNumber {
         [string]$Name
     )
 
-    if ($Name -match '(?i)^(CD|Disc|Disk)\s*\.?\s*(\d+)$') {
+    if ($Name -match '(?i)^(CD|Disc|Disk)\s*\.?\s*(\d+)(\.|\s|-|$)') {
         return [int]$Matches[2]
     }
     return $null
@@ -313,33 +311,8 @@ function Get-TaggerCompanionFiles {
 }
 
 # --- TagLibSharp --------------------------------------------------------------
-
-function Import-TaggerTagLibSharp {
-    [CmdletBinding()]
-    param(
-        [string]$TagLibSharpPath,
-
-        [string]$DataHome
-    )
-
-    if ('TagLib.File' -as [type]) {
-        return
-    }
-
-    if (-not $TagLibSharpPath) { $TagLibSharpPath = $script:TaggerTagLibSharpPath }
-
-    if (-not $TagLibSharpPath) {
-        if (-not $DataHome) { $DataHome = $script:TaggerDataHome }
-        if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
-        $TagLibSharpPath = Join-Path $DataHome 'lib' 'TagLibSharp.dll'
-    }
-
-    if (-not (Test-Path -LiteralPath $TagLibSharpPath -PathType Leaf)) {
-        throw "TagLibSharp.dll not found at '$TagLibSharpPath'. Download the TagLibSharp NuGet package (e.g. 'dotnet add package TagLibSharp' in a throwaway project), copy TagLibSharp.dll from its lib/netstandard2.0 folder to that path, or set settings.taglibSharpPath to its location."
-    }
-
-    Add-Type -Path $TagLibSharpPath
-}
+# Import-TaggerTagLibSharp itself now lives in Tagger.Common.psm1 (shared with
+# Tagger.Implementation.psm1's tag-writing) - already imported above, no new import needed.
 
 function Get-TaggerAudioTags {
     [CmdletBinding()]
@@ -432,24 +405,8 @@ function Resolve-TaggerFolderOverride {
     } | Select-Object -First 1
 }
 
-function Get-TaggerRelativePath {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$SourceRoot,
-
-        [Parameter(Mandatory)]
-        [string]$Path
-    )
-
-    $normalizedRoot = $SourceRoot.TrimEnd('\', '/')
-    if (-not $Path.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-        return $Path
-    }
-
-    $relative = $Path.Substring($normalizedRoot.Length).TrimStart('\', '/')
-    return ($relative -replace '\\', '/')
-}
+# Get-TaggerRelativePath itself now lives in Tagger.Common.psm1 (shared with
+# Tagger.Implementation.psm1's companion-path resolution) - already imported above.
 
 # --- Orchestration ---------------------------------------------------------------
 
@@ -581,11 +538,20 @@ function New-TaggerReleaseRecord {
         [string]$Path,
 
         [Parameter(Mandatory)]
-        [string]$ArtistName
+        [string]$ArtistName,
+
+        # When set, used instead of $Path's own leaf name for year/title parsing - needed when the
+        # caller already stripped an artist-name prefix off the real on-disk folder name (see
+        # Invoke-TaggerFolderWalk's 'release' branch) and the real $Path can't reflect that.
+        [string]$FolderNameOverride
     )
 
-    $leafName = Split-Path -Leaf $Path
-    if ($leafName -match '^(\d{4})\s+(.+)$') {
+    $leafName = if ($FolderNameOverride) { $FolderNameOverride } else { Split-Path -Leaf $Path }
+    # The leading-4-digits-is-a-year guess only makes sense within the schema's own recognizedYear
+    # range (1900-2100, proposal/recognition.schema.json) - without this bound, a folder name that
+    # merely starts with a 4-digit catalog number (e.g. a split "Artist - 3218 (Edition)" folder
+    # name, real-world case) would misparse "3218" as a year and fail schema validation outright.
+    if ($leafName -match '^(\d{4})\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
         $year = [int]$Matches[1]
         $title = $Matches[2].Trim()
     }
@@ -807,6 +773,21 @@ function Invoke-TaggerFolderWalk {
             'release' {
                 $targetArtist = if ($ArtistName) { $ArtistName } elseif ($kind.OverrideArtistName) { $kind.OverrideArtistName } else { $null }
                 if (-not $targetArtist) {
+                    # No artist context and no override - see if the folder name itself is a flat
+                    # "Artist - Album" pairing (e.g. "PULSAR OLYMP - 94Shine") before giving up. A
+                    # guessed split is never silently trusted: it always forces human review (see
+                    # plan/10's "nothing ambiguous is auto-guessed" principle).
+                    if ($child.Name -match '^(.+?)\s+-\s+(.+)$') {
+                        $splitArtist = $Matches[1].Trim()
+                        $splitFolderName = $Matches[2].Trim()
+                        if ($splitArtist -and $splitFolderName) {
+                            $release = New-TaggerReleaseRecord -Path $child.FullName -ArtistName $splitArtist -FolderNameOverride $splitFolderName
+                            $release.needsReview = $true
+                            $release.reviewReasons = @($release.reviewReasons) + 'artist-name-split-from-folder-name'
+                            Merge-TaggerArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                            continue
+                        }
+                    }
                     $childNames = @((Get-ChildItem -LiteralPath $child.FullName -ErrorAction SilentlyContinue).Name)
                     $UnrecognizedList.Add((New-TaggerUnrecognizedEntry -Path $child.FullName -Reason 'release-without-artist-suspected' -Children $childNames))
                     continue
@@ -907,8 +888,7 @@ function Invoke-TaggerRecognition {
     }
     $resolvedSourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
 
-    $script:TaggerTagLibSharpPath = $TagLibSharpPath
-    $script:TaggerDataHome = $DataHome
+    Set-TaggerTagLibSharpContext -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
     $overridesParams = @{ SourceRoot = $resolvedSourceRoot }
     if ($OverridesPath) { $overridesParams['OverridesPath'] = $OverridesPath } else { $overridesParams['DataHome'] = $DataHome }

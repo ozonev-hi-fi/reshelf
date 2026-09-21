@@ -4,6 +4,12 @@ $script:TaggerAudioExtensions = @('.flac', '.mp3', '.m4a', '.wav', '.ogg', '.wma
 $script:TaggerInvalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars() + @('<', '>', ':', '"', '/', '\', '|', '?', '*')
 $script:TaggerReservedDeviceNames = @('CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9')
 
+# Set once per Recognition/Implementation run (via Set-TaggerTagLibSharpContext) so the many deep,
+# per-file callers of Import-TaggerTagLibSharp don't each need -TagLibSharpPath/-DataHome threaded
+# all the way down their call chains.
+$script:TaggerTagLibSharpPath = $null
+$script:TaggerDataHome = $null
+
 function Resolve-TaggerDataHome {
     [CmdletBinding()]
     param()
@@ -199,6 +205,26 @@ function ConvertTo-SafeFileName {
     }
 }
 
+function Get-TaggerRelativePath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourceRoot,
+
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $normalizedRoot = $SourceRoot.TrimEnd('\', '/')
+    if (-not $Path.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $Path
+    }
+
+    $relative = $Path.Substring($normalizedRoot.Length).TrimStart('\', '/')
+    return ($relative -replace '\\', '/')
+}
+
 function Get-TaggerFileSetHash {
     [CmdletBinding()]
     [OutputType([string])]
@@ -219,6 +245,80 @@ function Get-TaggerFileSetHash {
     return Get-TaggerSha256Hex -Text $joined
 }
 
+# --- Secrets at rest ------------------------------------------------------------
+# Windows DPAPI via the built-in SecureString cmdlets - only decryptable by this Windows user, on
+# this machine. Generic (not Discogs-specific): any secret this tool needs to persist should use
+# these two, not hand-roll its own encoding.
+
+function Protect-TaggerSecret {
+    [CmdletBinding()]
+    [OutputType([string])]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
+        Justification = 'Intentional: turning a plaintext secret into a SecureString so ConvertFrom-SecureString can DPAPI-encrypt it for storage is this function''s entire purpose.')]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$PlainText
+    )
+
+    return (ConvertTo-SecureString -String $PlainText -AsPlainText -Force) | ConvertFrom-SecureString
+}
+
+function Unprotect-TaggerSecret {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$EncryptedText
+    )
+
+    return (ConvertTo-SecureString -String $EncryptedText) | ConvertFrom-SecureString -AsPlainText
+}
+
+# --- TagLibSharp --------------------------------------------------------------
+# Shared by Tagger.Recognition.psm1 (reading tags) and Tagger.Implementation.psm1 (writing tags) -
+# both go through the same TagLibSharp.dll load, so there is exactly one Add-Type call site.
+
+function Set-TaggerTagLibSharpContext {
+    [CmdletBinding()]
+    param(
+        [string]$TagLibSharpPath,
+
+        [string]$DataHome
+    )
+
+    $script:TaggerTagLibSharpPath = $TagLibSharpPath
+    $script:TaggerDataHome = $DataHome
+}
+
+function Import-TaggerTagLibSharp {
+    [CmdletBinding()]
+    param(
+        [string]$TagLibSharpPath,
+
+        [string]$DataHome
+    )
+
+    if ('TagLib.File' -as [type]) {
+        return
+    }
+
+    if (-not $TagLibSharpPath) { $TagLibSharpPath = $script:TaggerTagLibSharpPath }
+
+    if (-not $TagLibSharpPath) {
+        if (-not $DataHome) { $DataHome = $script:TaggerDataHome }
+        if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+        $TagLibSharpPath = Join-Path $DataHome 'lib' 'TagLibSharp.dll'
+    }
+
+    if (-not (Test-Path -LiteralPath $TagLibSharpPath -PathType Leaf)) {
+        throw "TagLibSharp.dll not found at '$TagLibSharpPath'. Download the TagLibSharp NuGet package (e.g. 'dotnet add package TagLibSharp' in a throwaway project), copy TagLibSharp.dll from its lib/netstandard2.0 folder to that path, or set settings.taglibSharpPath to its location."
+    }
+
+    Add-Type -Path $TagLibSharpPath
+}
+
 Export-ModuleMember -Function Resolve-TaggerDataHome, Get-TaggerStableKey, ConvertTo-TaggerLongPath, `
     ConvertTo-TaggerNormalizedText, Get-TaggerSha256Hex, Test-TaggerIsAudioExtension, Test-TaggerIsLosslessFormat, `
-    Get-TaggerAudioFilesInFolder, ConvertFrom-TaggerTrackFileName, ConvertTo-SafeFileName, Get-TaggerFileSetHash
+    Get-TaggerAudioFilesInFolder, ConvertFrom-TaggerTrackFileName, ConvertTo-SafeFileName, Get-TaggerFileSetHash, `
+    Set-TaggerTagLibSharpContext, Import-TaggerTagLibSharp, Protect-TaggerSecret, Unprotect-TaggerSecret, Get-TaggerRelativePath

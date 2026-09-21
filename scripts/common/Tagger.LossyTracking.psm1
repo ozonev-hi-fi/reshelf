@@ -107,4 +107,38 @@ function Add-TaggerLossyTrackingEntry {
     return $ledger
 }
 
-Export-ModuleMember -Function Get-TaggerLossyTrackingLedger, Get-TaggerLossyTrackingEntry, Add-TaggerLossyTrackingEntry
+function Set-TaggerLossyTrackingUpgraded {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [string]$DataHome,
+
+        [datetime]$Now = (Get-Date)
+    )
+
+    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+
+    $ledger = @(Get-TaggerLossyTrackingLedger -DataHome $DataHome)
+    $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+
+    if (-not $existing) {
+        # Defensive, not a hard assumption - an upgrade should always have a prior pending-upgrade
+        # row from Step 6, but a missing row here shouldn't block Implementation from finishing.
+        Write-Warning "No lossy-tracking entry found for stable key '$StableKey' - nothing to mark upgraded."
+        return $ledger
+    }
+
+    $existing.status = 'upgraded'
+    $existing.upgradedUtc = $Now.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+
+    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
+    Set-TaggerJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+
+    return $ledger
+}
+
+Export-ModuleMember -Function Get-TaggerLossyTrackingLedger, Get-TaggerLossyTrackingEntry, Add-TaggerLossyTrackingEntry, `
+    Set-TaggerLossyTrackingUpgraded

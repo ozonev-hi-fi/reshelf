@@ -8,7 +8,9 @@ $script:DiscogsLowRemainingSignal = $false
 function Get-DiscogsToken {
     [CmdletBinding()]
     param(
-        [string]$EnvFilePath = (Join-Path $PSScriptRoot '..' '..' '.env')
+        [string]$EnvFilePath = (Join-Path $PSScriptRoot '..' '..' '.env'),
+
+        [string]$DataHome
     )
 
     if ($env:DISCOGS_ACCESS_TOKEN) {
@@ -40,7 +42,19 @@ function Get-DiscogsToken {
         }
     }
 
-    throw "Discogs access token not found. Checked environment variable 'DISCOGS_ACCESS_TOKEN' and .env file at '$EnvFilePath'."
+    # Third, friendlier fallback: a token entered via 'settings init' or 'settings set-token' and
+    # stored DPAPI-encrypted in settings.json. Checked last so nothing already working today (the
+    # env var or .env file) changes priority.
+    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    $settingsPath = Join-Path $DataHome 'settings.json'
+    if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+        $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+        if ($settings.discogsTokenEncrypted) {
+            return Unprotect-TaggerSecret -EncryptedText $settings.discogsTokenEncrypted
+        }
+    }
+
+    throw "Discogs access token not found. Checked environment variable 'DISCOGS_ACCESS_TOKEN', .env file at '$EnvFilePath', and settings.json's discogsTokenEncrypted at '$settingsPath'. Set one of these, or run 'Tagger.ps1 settings set-token'."
 }
 
 function Get-DiscogsQueryPair {
