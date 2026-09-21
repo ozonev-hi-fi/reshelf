@@ -158,3 +158,39 @@ Describe 'Add-TaggerLossyTrackingEntry' {
         Test-LossyTrackingDocumentJson -Path $ledgerPath | Should -Be $true
     }
 }
+
+Describe 'Set-TaggerLossyTrackingIgnored' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
+    }
+
+    It 'sets status to ignored for an existing entry' {
+        Add-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        Set-TaggerLossyTrackingIgnored -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome | Out-Null
+
+        $entry = Get-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.status | Should -Be 'ignored'
+    }
+
+    It 'warns and returns the ledger unchanged when the stable key does not exist' {
+        Add-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        $result = Set-TaggerLossyTrackingIgnored -StableKey 'doesnotexist0000' -DataHome $script:dataHome -WarningAction SilentlyContinue
+
+        @($result).Count | Should -Be 1
+        $result[0].status | Should -Be 'pending-upgrade'
+    }
+
+    It 'writes a ledger file that validates against the lossy-tracking schema' {
+        Add-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+        Set-TaggerLossyTrackingIgnored -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome | Out-Null
+
+        $ledgerPath = Join-Path $script:dataHome 'lossy-tracking.json'
+        Test-LossyTrackingDocumentJson -Path $ledgerPath | Should -Be $true
+    }
+}

@@ -140,5 +140,33 @@ function Set-TaggerLossyTrackingUpgraded {
     return $ledger
 }
 
+function Set-TaggerLossyTrackingIgnored {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [string]$DataHome
+    )
+
+    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+
+    $ledger = @(Get-TaggerLossyTrackingLedger -DataHome $DataHome)
+    $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+
+    if (-not $existing) {
+        Write-Warning "No lossy-tracking entry found for stable key '$StableKey' - nothing to ignore."
+        return $ledger
+    }
+
+    $existing.status = 'ignored'
+
+    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
+    Set-TaggerJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+
+    return $ledger
+}
+
 Export-ModuleMember -Function Get-TaggerLossyTrackingLedger, Get-TaggerLossyTrackingEntry, Add-TaggerLossyTrackingEntry, `
-    Set-TaggerLossyTrackingUpgraded
+    Set-TaggerLossyTrackingUpgraded, Set-TaggerLossyTrackingIgnored

@@ -20,7 +20,7 @@ Cases, Manual Setup (if any), Definition of Done.
 | 6 | [06-edit-proposal-module.md](06-edit-proposal-module.md) | Discogs lookup, propose renames/tags, output `proposal.json` | 2, 3, 5 | done |
 | 7 | [07-editing-ui-module.md](07-editing-ui-module.md) | Static-site review/approval UI for `proposal.json` | 3, 6 | in progress |
 | 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | in progress |
-| 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | not started |
+| 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | done |
 | 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 | not started |
 | 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | not started |
 | 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 | not started |

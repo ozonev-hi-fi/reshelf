@@ -20,6 +20,8 @@ param(
     [string]$SourceRoot,
     [switch]$SaveAsDefault,
     [string]$OverridesPath,
+    [ValidateSet('pending-upgrade', 'upgraded', 'ignored')]
+    [string]$Status,
     [int]$Port,
     [switch]$IncludeUnresolved,
     [switch]$WhatIf
@@ -30,9 +32,12 @@ Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Json.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Settings.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Recognition.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Discogs.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.LossyTracking.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.EditProposal.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Implementation.psm1') -Force
+# Re-imported last: Tagger.EditProposal.psm1 and Tagger.Implementation.psm1 both import this module
+# internally too, which reparents it as one of their nested modules and hides its exports from this
+# script's scope - importing it again here restores top-level visibility for the 'lossy' command.
+Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.LossyTracking.psm1') -Force
 
 switch ($Command) {
     'settings' {
@@ -145,6 +150,26 @@ switch ($Command) {
                 if ($Port) { & $uiServerScript -Port $Port } else { & $uiServerScript }
             }
             default { throw "Unknown 'ui' subcommand '$SubCommand'. Use start." }
+        }
+    }
+    'lossy' {
+        switch ($SubCommand) {
+            'list' {
+                $ledger = @(Get-TaggerLossyTrackingLedger)
+                if ($Status) { $ledger = @($ledger | Where-Object { $_.status -eq $Status }) }
+                $ledger | Select-Object stableKey, artist, album, year, format, status, targetPath | Format-Table
+            }
+            'ignore' {
+                $stableKey = $SessionId
+                if (-not $stableKey) { throw "'lossy ignore' requires a stable key." }
+                Set-TaggerLossyTrackingIgnored -StableKey $stableKey | Out-Null
+            }
+            'mark-upgraded' {
+                $stableKey = $SessionId
+                if (-not $stableKey) { throw "'lossy mark-upgraded' requires a stable key." }
+                Set-TaggerLossyTrackingUpgraded -StableKey $stableKey | Out-Null
+            }
+            default { throw "Unknown 'lossy' subcommand '$SubCommand'. Use list, ignore, or mark-upgraded." }
         }
     }
     default {

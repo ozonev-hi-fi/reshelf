@@ -63,11 +63,58 @@ Describe 'Tagger.ps1 settings/session dispatch' {
         $result.ExitCode | Should -Be 0
     }
 
-    It 'apply and lossy emit a not-implemented warning and exit 1' {
-        foreach ($command in @('apply', 'lossy')) {
-            $result = Invoke-Tagger $command
-            $result.ExitCode | Should -Be 1
-        }
+    It 'apply without a session id exits 1' {
+        $result = Invoke-Tagger apply
+        $result.ExitCode | Should -Be 1
+    }
+
+    It 'lossy list with an empty ledger runs without throwing' {
+        $result = Invoke-Tagger lossy list
+
+        $result.ExitCode | Should -Be 0
+    }
+
+    It 'lossy ignore without a stable key fails with a clear error' {
+        $result = Invoke-Tagger lossy ignore
+
+        $result.ExitCode | Should -Not -Be 0
+        ($result.Output -join "`n") | Should -BeLike '*requires a stable key*'
+    }
+
+    It 'lossy mark-upgraded without a stable key fails with a clear error' {
+        $result = Invoke-Tagger lossy mark-upgraded
+
+        $result.ExitCode | Should -Not -Be 0
+        ($result.Output -join "`n") | Should -BeLike '*requires a stable key*'
+    }
+
+    It 'lossy list -Status filters to matching entries only' {
+        Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
+
+        Add-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $dataHome | Out-Null
+        Set-TaggerLossyTrackingUpgraded -StableKey 'a1b2c3d4e5f60708' -DataHome $dataHome | Out-Null
+        Add-TaggerLossyTrackingEntry -StableKey 'b2c3d4e5f6070819' -Artist 'ZZ Top' -Album 'YYY' -Year 2001 `
+            -TargetPath 'E:\Music\ZZ Top\2001 YYY' -Format 'mp3' -DataHome $dataHome | Out-Null
+
+        $result = Invoke-Tagger lossy list -Status pending-upgrade
+        $output = $result.Output -join "`n"
+
+        $output | Should -BeLike '*b2c3d4e5f6070819*'
+        $output | Should -Not -BeLike '*a1b2c3d4e5f60708*'
+    }
+
+    It 'lossy ignore then mark-upgraded flip an entry status via the CLI' {
+        Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
+
+        Add-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $dataHome | Out-Null
+
+        Invoke-Tagger lossy ignore a1b2c3d4e5f60708 | Out-Null
+        (Get-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $dataHome).status | Should -Be 'ignored'
+
+        Invoke-Tagger lossy mark-upgraded a1b2c3d4e5f60708 | Out-Null
+        (Get-TaggerLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $dataHome).status | Should -Be 'upgraded'
     }
 
     It 'propose fails with a clear error when no session id is given' {
