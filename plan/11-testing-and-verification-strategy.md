@@ -68,7 +68,12 @@ so tests never hit the real network or consume rate limit budget.
 ### Implementation module verification
 
 1. Run with `-WhatIf` first — assert zero filesystem writes occurred
-   (compare directory listing before/after).
+   (compare a before/after snapshot of every file's path, size and last-write
+   time under the source root, data home and target root — `Get-TreeSnapshot`
+   in `tests/Tagger.Implementation.Tests.ps1` and `tests/Tagger.Pipeline.Tests.ps1`;
+   folders are deliberately left out of the snapshot, since a folder's own
+   last-write time can tick forward on Windows for reasons unrelated to this
+   tool, e.g. background indexing).
 2. Run for real against a scratch temp target directory.
 3. Verify the resulting layout and tags by re-opening each file fresh with
    **TagLibSharp** and checking the persisted values — this still catches a
@@ -89,6 +94,33 @@ so tests never hit the real network or consume rate limit budget.
    `Import-TaggerTagLibSharp` gives; a missing `ffmpeg` throws directly. A
    silent skip would let this coverage gap reopen unnoticed, so this is an
    intentional hard requirement, not an oversight.
+
+### Golden files for the whole fixture tree
+
+`tests/Tagger.Pipeline.Tests.ps1` also compares the full `recognition.json`,
+`proposal.json`, and the target folder layout from a real
+`-IncludeUnresolved` apply, against reviewed golden files in
+`tests/fixtures/expected/`. The per-pattern assertions already in that file
+stay as readable documentation of intent; the golden files are what actually
+pin down the exact output for every planted pattern (the Definition of Done
+below).
+
+Run-specific values (the three per-test `$TestDrive` roots, the date-based
+session id, the `generatedAtUtc` timestamp) are normalized to fixed
+placeholders (`<SOURCE_ROOT>`, `<TARGET_ROOT>`, `<DATA_HOME>`,
+`<SESSION_ID>`, `<GENERATED_AT>`) before comparing, so the golden files
+themselves stay stable across machines and runs.
+
+To regenerate after a deliberate behavior change: run the tests once with
+`$env:TAGGER_UPDATE_GOLDEN = '1'`, then review the diff with `git diff`
+before committing it — a regenerated golden file is only as correct as the
+review it got. Two known non-determinism traps to watch for when
+regenerating: a plain `@{ ... }` hashtable literal serializes to JSON with a
+process-random key order (fixed once already, in `Tagger.Recognition.psm1`'s
+`existingTags`, by using `[pscustomobject]@{ ... }` instead — the same
+pattern every other record in this codebase already uses); and comparing
+folder timestamps (not just file timestamps) in a tree snapshot is flaky on
+Windows for the same background-indexing reason noted above.
 
 ### UI verification
 
@@ -123,10 +155,23 @@ tracked in [tests/manual/ui-checklist.md](../tests/manual/ui-checklist.md):
   by one person — a documented manual checklist is enough, and can be
   revisited if the UI grows more complex.
 
+## Test runner
+
+`tests/Invoke-TaggerTests.ps1 [-SkipIntegration] [-Path <paths>]` wraps
+`Invoke-Pester` with one convenience: `-SkipIntegration` excludes the
+`Integration`-tagged tests in `tests/Tagger.TagLibSharp.Integration.Tests.ps1`
+(via `Filter.ExcludeTag`), which need a real `TagLibSharp.dll` and a real
+`ffmpeg` on the machine running the tests. Excluding the tag this way also
+skips that file's top-level `BeforeAll` entirely — confirmed empirically,
+not just assumed — so the "fail if the DLL/ffmpeg is missing" throws never
+fire when the tag is excluded.
+
 ## Definition of done
 
-- `Invoke-Pester` runs green across all unit tests.
+- `Invoke-Pester` (or `tests/Invoke-TaggerTests.ps1`) runs green across all
+  unit tests.
 - The fixture source tree, run through the full pipeline end-to-end
   (`-WhatIf` then real), produces the exact expected `recognition.json` /
-  `proposal.json` / target layout for every planted pattern.
+  `proposal.json` / target layout for every planted pattern — enforced by
+  the golden-file comparison above, not just the schema/structure checks.
 - The manual UI checklist has been run at least once and passed.

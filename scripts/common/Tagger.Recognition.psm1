@@ -551,7 +551,9 @@ function New-TaggerReleaseRecord {
     # range (1900-2100, proposal/recognition.schema.json) - without this bound, a folder name that
     # merely starts with a 4-digit catalog number (e.g. a split "Artist - 3218 (Edition)" folder
     # name, real-world case) would misparse "3218" as a year and fail schema validation outright.
-    if ($leafName -match '^(\d{4})\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
+    # The optional whitespace-surrounded dash/en-dash covers the manifesto section 1 source format
+    # "yyyy - Release Name"; an unspaced dash ("1999-2003 Anthology") is deliberately not a separator.
+    if ($leafName -match '^(\d{4})(?:\s+[-–])?\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
         $year = [int]$Matches[1]
         $title = $Matches[2].Trim()
     }
@@ -589,7 +591,7 @@ function New-TaggerReleaseRecord {
                         originalFileName          = $audioFile.Name
                         detectedTrackNumberInDisc = 1
                         inferredTrackOrder        = $true
-                        existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -605,7 +607,7 @@ function New-TaggerReleaseRecord {
                             originalFileName          = $audioFile.Name
                             detectedTrackNumberInDisc = $cueTrack.Number
                             inferredTrackOrder        = $false
-                            existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $cueTrack.Title }
+                            existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $cueTrack.Title }
                             format                    = $audioTags.Format
                             isLossless                = $audioTags.IsLossless
                             durationSeconds           = $audioTags.DurationSeconds
@@ -626,7 +628,7 @@ function New-TaggerReleaseRecord {
                         originalFileName          = $item.File.Name
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
-                        existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -656,7 +658,7 @@ function New-TaggerReleaseRecord {
                         originalFileName          = $audioFile.Name
                         detectedTrackNumberInDisc = 1
                         inferredTrackOrder        = $true
-                        existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -676,7 +678,7 @@ function New-TaggerReleaseRecord {
                         originalFileName          = $item.File.Name
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
-                        existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -704,7 +706,7 @@ function New-TaggerReleaseRecord {
                         originalFileName          = $item.File.Name
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
-                        existingTags              = @{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds

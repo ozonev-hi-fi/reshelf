@@ -165,18 +165,28 @@ Describe 'ConvertTo-SafeFileName' {
         $result.WasChanged | Should -Be $true
     }
 
-    It 'suffixes a reserved device name case-insensitively' {
-        foreach ($name in @('CON', 'con', 'PRN', 'AUX', 'NUL', 'COM1', 'LPT9')) {
+    It 'suffixes every reserved device name case-insensitively' {
+        $reserved = @('CON', 'PRN', 'AUX', 'NUL') + (1..9 | ForEach-Object { "COM$_" }) + (1..9 | ForEach-Object { "LPT$_" })
+        foreach ($name in $reserved + @('con', 'Nul', 'lpt3')) {
             $result = ConvertTo-SafeFileName -Name $name
             $result.SafeName | Should -Be "${name}_"
             $result.WasChanged | Should -Be $true
         }
     }
 
+    It 'suffixes a reserved device name that has an extension, keeping the extension' {
+        (ConvertTo-SafeFileName -Name 'CON.flac').SafeName | Should -Be 'CON_.flac'
+        (ConvertTo-SafeFileName -Name 'nul.txt').SafeName | Should -Be 'nul_.txt'
+        (ConvertTo-SafeFileName -Name 'COM1.tar.gz').SafeName | Should -Be 'COM1_.tar.gz'
+        (ConvertTo-SafeFileName -Name 'CON.flac').Substitutions | Should -Be @("reserved device name 'CON' suffixed with '_'")
+    }
+
     It 'does not treat a reserved name as reserved when it is only part of the name' {
-        $result = ConvertTo-SafeFileName -Name 'CONcert'
-        $result.SafeName | Should -Be 'CONcert'
-        $result.WasChanged | Should -Be $false
+        foreach ($name in @('CONcert', 'CONcert.flac', '01 CON.flac', 'COM10', '.CON')) {
+            $result = ConvertTo-SafeFileName -Name $name
+            $result.SafeName | Should -Be $name
+            $result.WasChanged | Should -Be $false
+        }
     }
 
     It 'records multiple substitutions for combined issues' {

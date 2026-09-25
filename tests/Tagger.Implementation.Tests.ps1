@@ -26,6 +26,26 @@ BeforeAll {
         }
     }
 
+    # plan/11 "-WhatIf ... compare directory listing before/after": one sorted line per file (path,
+    # size, last write time) under every root, plus a marker for whether each root exists, so any
+    # created, deleted or rewritten file anywhere - not just in the target - shows up as a diff.
+    # Files only, not folders: an intermediate folder's own LastWriteTimeUtc can tick forward on
+    # Windows for reasons that have nothing to do with this tool (background indexing, AV scans),
+    # so comparing it would make this assertion flaky without catching any write this tool didn't
+    # already make through one of its files. Same helper as in Tagger.Pipeline.Tests.ps1 (no shared
+    # test-helper module exists yet).
+    function Get-TreeSnapshot {
+        param([Parameter(Mandatory)] [string[]]$Path)
+        $lines = foreach ($root in $Path) {
+            if (-not (Test-Path -LiteralPath $root)) { "[$root] missing"; continue }
+            "[$root] exists"
+            Get-ChildItem -LiteralPath $root -Recurse -Force -File | ForEach-Object {
+                "[$root]$($_.FullName.Substring($root.Length))|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)"
+            }
+        }
+        return @($lines | Sort-Object)
+    }
+
     function New-TestProposalFile {
         param(
             [Parameter(Mandatory)] [string]$Path,
@@ -346,9 +366,13 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId 'whatif-session' -SourceRoot $script:sourceRoot -Releases @($release))
 
+        $roots = @($script:sourceRoot, $script:dataHome, $script:targetRoot)
+        $before = Get-TreeSnapshot -Path $roots
+
         $result = Invoke-TaggerImplementation -SessionId 'whatif-session' -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -WhatIf
 
+        Get-TreeSnapshot -Path $roots | Should -Be $before
         $result.Applied | Should -Be 1
         $result.Skipped | Should -Be 0
         $result.Failed | Should -Be 0
@@ -394,7 +418,7 @@ Describe 'Invoke-TaggerImplementation' {
         Should -Invoke -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize -Times 1
         $script:audioTagsCalls.Count | Should -Be 1
         $expectedFilePath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '01 Track.flac'
-        $expectedCoverPath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' 'cover.jpg'
+        $expectedCoverPath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '.tagger-cover-resized.jpg'
         $script:audioTagsCalls[0].Path | Should -Be $expectedFilePath
         $script:audioTagsCalls[0].CoverImagePath | Should -Be $expectedCoverPath
         $script:audioTagsCalls[0].Tags.artist | Should -Be 'Some Band'
@@ -411,6 +435,32 @@ Describe 'Invoke-TaggerImplementation' {
         $entry.errorMessage | Should -BeNullOrEmpty
         $entry.truncated | Should -Be $false
         $entry.sourceFileSetHash | Should -Not -BeNullOrEmpty
+    }
+
+    It 'keeps a loose companion literally named cover.jpg (manifesto section 4.5) alongside a downloaded Discogs cover' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $looseCover = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'cover.jpg')
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $companion = [pscustomobject]@{ sourcePath = $looseCover; kind = 'cover'; placement = 'loose' }
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion) `
+            -CoverCandidateUrl 'https://example.com/cover.jpg'
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+
+        # The Discogs cover is embedded and cleaned up as a working file; the source's own loose
+        # "cover.jpg" companion is a real target-layout file (manifesto section 4.5) and must survive.
+        $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+        Test-Path -LiteralPath (Join-Path $finalReleasePath 'cover.jpg') | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $finalReleasePath '.tagger-cover-resized.jpg') | Should -Be $false
     }
 
     It 'truncates human-readable names and records it, when the fully-assembled target path would exceed the limit' {
@@ -472,6 +522,46 @@ Describe 'Invoke-TaggerImplementation' {
         $entry.targetPath | Should -Not -Be $rawUntruncatedPath
         $entry.targetPath.Length | Should -BeLessOrEqual 250
         $entry.truncated | Should -Be $true
+    }
+
+    It 'removes the now-empty .tagger-staging folder after every release applies, but leaves a failed release staged for inspection' {
+        Mock -ModuleName Tagger.Implementation Move-TaggerStagedReleaseToTarget { throw 'commit boom' }
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+        # plan/08 "Edge cases": a failed release's staging folder is left in place for inspection -
+        # so .tagger-staging itself must still exist, and this one release's subfolder inside it too.
+        $stagingRoot = Join-Path $script:targetRoot '.tagger-staging'
+        Test-Path -LiteralPath $stagingRoot | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $stagingRoot 'a1b2c3d4e5f60708') | Should -Be $true
+    }
+
+    It 'removes the empty .tagger-staging folder once every release in the run has applied successfully' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        Test-Path -LiteralPath (Join-Path $script:targetRoot '.tagger-staging') | Should -Be $false
     }
 
     It 'skips every release on a second, unchanged run and makes no ffmpeg/tag-writing calls' {

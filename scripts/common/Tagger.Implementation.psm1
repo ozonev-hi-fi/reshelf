@@ -569,7 +569,10 @@ function Invoke-TaggerReleaseStaging {
 
         $coverOutputPath = $null
         if ($Release.coverArt.chosenCandidateUrl) {
-            $coverOutputPath = Join-Path $stagingReleasePath 'cover.jpg'
+            # A dot-prefixed tool-specific name, never a plain 'cover.jpg': a loose companion named
+            # 'cover.jpg' (valid per manifesto SS4.5) is copied into this same staging folder below,
+            # and a shared name let the working-file cleanup delete that real companion with it.
+            $coverOutputPath = Join-Path $stagingReleasePath '.tagger-cover-resized.jpg'
             $sourceForResize = $Release.coverArt.chosenCandidateUrl
 
             if ($sourceForResize -match '^https?://') {
@@ -604,10 +607,11 @@ function Invoke-TaggerReleaseStaging {
             }
         }
 
-        # cover.jpg / the raw cover download are working files that only exist to get embedded into
-        # each track's tags - manifesto SS4 defines an exact target layout (tracks + companions
-        # only; cover art lives embedded, not as a loose file), so neither may survive into the
-        # moved-to-target release folder.
+        # The resized cover / the raw cover download are working files that only exist to get
+        # embedded into each track's tags - manifesto SS4 defines an exact target layout (tracks +
+        # companions only; a Discogs cover lives embedded, not as a loose file), so neither may
+        # survive into the moved-to-target release folder. A source companion file is not a
+        # working file and is left alone.
         if ($Release.coverArt.chosenCandidateUrl -and $PSCmdlet.ShouldProcess($coverOutputPath, 'Remove cover-art working files')) {
             Remove-Item -LiteralPath $coverOutputPath -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath (Join-Path $stagingReleasePath 'cover-source.download') -Force -ErrorAction SilentlyContinue
@@ -796,6 +800,16 @@ function Invoke-TaggerImplementation {
                     -Truncated $failureTruncated -DataHome $DataHome | Out-Null
             }
             $failedCount++
+        }
+    }
+
+    # Every successfully-applied release already moved itself out of staging (step 8, plan/08); a
+    # failed release's staging folder is deliberately left behind for inspection (plan/08 "Edge
+    # cases"). So this only ever removes the empty .tagger-staging wrapper itself, never a release
+    # that is still sitting there because it failed.
+    if ((Test-Path -LiteralPath $stagingRoot) -and -not (Get-ChildItem -LiteralPath $stagingRoot -Force -ErrorAction SilentlyContinue)) {
+        if ($PSCmdlet.ShouldProcess($stagingRoot, 'Remove empty staging folder')) {
+            Remove-Item -LiteralPath $stagingRoot -Force -ErrorAction SilentlyContinue
         }
     }
 

@@ -12,6 +12,76 @@ BeforeAll {
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
 
     $script:FixturesDir = (Resolve-Path "$PSScriptRoot/fixtures/sample-source-tree").Path
+    $script:ExpectedDir = Join-Path $PSScriptRoot 'fixtures' 'expected'
+
+    # Same helper as in Tagger.Implementation.Tests.ps1 (no shared test-helper module exists yet):
+    # one sorted line per file (path, size, last write time) under every root, plus a marker for
+    # whether each root exists. Files only - see that file's comment for why folders are excluded.
+    function Get-TreeSnapshot {
+        param([Parameter(Mandatory)] [string[]]$Path)
+        $lines = foreach ($root in $Path) {
+            if (-not (Test-Path -LiteralPath $root)) { "[$root] missing"; continue }
+            "[$root] exists"
+            Get-ChildItem -LiteralPath $root -Recurse -Force -File | ForEach-Object {
+                "[$root]$($_.FullName.Substring($root.Length))|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)"
+            }
+        }
+        return @($lines | Sort-Object)
+    }
+
+    # Makes a generated JSON document comparable across runs: every run-specific value (the three
+    # per-test $TestDrive roots, the date-based session id, the generation timestamp) is replaced by
+    # a fixed placeholder. Done on the raw text, not via ConvertFrom-Json, so the golden file keeps
+    # the product's exact serialization and no date-looking string gets silently re-formatted.
+    function ConvertTo-NormalizedPipelineJson {
+        param(
+            [Parameter(Mandatory)] [string]$Path,
+            [Parameter(Mandatory)] [string]$SourceRoot,
+            [Parameter(Mandatory)] [string]$TargetRoot,
+            [Parameter(Mandatory)] [string]$DataHome,
+            [Parameter(Mandatory)] [string]$SessionId
+        )
+        $text = (Get-Content -LiteralPath $Path -Raw) -replace "`r`n", "`n"
+        $roots = [ordered]@{ '<SOURCE_ROOT>' = $SourceRoot; '<TARGET_ROOT>' = $TargetRoot; '<DATA_HOME>' = $DataHome }
+        foreach ($placeholder in $roots.Keys) {
+            # JSON escapes each '\' as '\\'.
+            $text = $text.Replace($roots[$placeholder].Replace('\', '\\'), $placeholder)
+        }
+        $text = $text.Replace($SessionId, '<SESSION_ID>')
+        $text = $text -replace '("generatedAtUtc"\s*:\s*)"[^"]*"', '$1"<GENERATED_AT>"'
+        return $text.TrimEnd("`n")
+    }
+
+    # Sorted relative paths of every folder (trailing '/') and file under $Root, '/'-separated.
+    function Get-TargetLayout {
+        param([Parameter(Mandatory)] [string]$Root)
+        $lines = Get-ChildItem -LiteralPath $Root -Recurse -Force | ForEach-Object {
+            $relative = $_.FullName.Substring($Root.Length).TrimStart('\').Replace('\', '/')
+            if ($_.PSIsContainer) { "$relative/" } else { $relative }
+        }
+        return (@($lines | Sort-Object -Culture 'en-US') -join "`n")
+    }
+
+    # Golden-file compare. $env:TAGGER_UPDATE_GOLDEN = '1' rewrites the file instead (then review
+    # the change with 'git diff' before committing it - a regenerated golden file is only as correct
+    # as the review it got).
+    function Assert-Golden {
+        param(
+            [Parameter(Mandatory)] [string]$Name,
+            [Parameter(Mandatory)] [AllowEmptyString()] [string]$Actual
+        )
+        $goldenPath = Join-Path $script:ExpectedDir $Name
+        if ($env:TAGGER_UPDATE_GOLDEN -eq '1') {
+            New-Item -ItemType Directory -Path $script:ExpectedDir -Force | Out-Null
+            [System.IO.File]::WriteAllText($goldenPath, "$Actual`n", [System.Text.UTF8Encoding]::new($false))
+            return
+        }
+        if (-not (Test-Path -LiteralPath $goldenPath)) {
+            throw "Golden file '$goldenPath' is missing. Run the tests once with `$env:TAGGER_UPDATE_GOLDEN = '1' to create it, then review it."
+        }
+        $expected = ((Get-Content -LiteralPath $goldenPath -Raw) -replace "`r`n", "`n").TrimEnd("`n")
+        $Actual | Should -BeExactly $expected -Because "output must match golden file '$Name' (set TAGGER_UPDATE_GOLDEN=1 to regenerate, then review with git diff)"
+    }
 }
 
 # End-to-end: chains the real Recognition/EditProposal/Implementation modules over the full
@@ -24,13 +94,16 @@ BeforeAll {
 # audio files are 0-byte dummies never meant to be opened by a real tag/audio library.
 Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     BeforeAll {
+        # Title is $null, like a real untagged file: the fixture files are 0-byte dummies with no
+        # tags, and a non-null Title here would stop EditProposal from ever using its real
+        # filename-parsing fallback (it would propose "01 01 - Track One.flac" from a fake title).
         Mock -ModuleName Tagger.Recognition Get-TaggerAudioTags {
             param($Path, $TagLibSharpPath, $DataHome)
             $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
             return @{
                 Artist          = $null
                 Album           = $null
-                Title           = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Title           = $null
                 Format          = $ext
                 IsLossless      = ($ext -in @('flac', 'wav'))
                 DurationSeconds = 200
@@ -107,9 +180,13 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     }
 
     It '-WhatIf with -IncludeUnresolved makes zero filesystem writes' {
+        $roots = @($script:sourceRoot, $script:dataHome, $script:targetRoot)
+        $before = Get-TreeSnapshot -Path $roots
+
         $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved -WhatIf
 
+        Get-TreeSnapshot -Path $roots | Should -Be $before
         $result.Applied | Should -BeGreaterThan 0
         Test-Path -LiteralPath $script:targetRoot | Should -Be $false
         Test-Path -LiteralPath (Join-Path $script:dataHome 'apply-log.json') | Should -Be $false
@@ -123,16 +200,18 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $result.Applied | Should -BeGreaterThan 0
 
         # Normal single-disc release. Its loose "cover.jpg" companion is also the release's only
-        # cover-art candidate, so it gets consumed as the embed-into-tags source and cleaned up as a
-        # working file afterwards (Invoke-TaggerReleaseStaging's "Remove cover-art working files"
-        # step, Tagger.Implementation.psm1:607-614) rather than surviving as a standalone file -
-        # matches the same working-file-cleanup contract already covered for a differently-named
-        # cover in Tagger.Implementation.Tests.ps1.
+        # cover-art candidate: it is both embedded into each track's tags (Invoke-TaggerFfmpegResize
+        # reads it directly, since a local sourcePath - unlike a Discogs URL - needs no separate
+        # download step first) and copied to the target as the ordinary loose companion it also is
+        # (manifesto section 4.5) - only the tool's own resize working file
+        # (".tagger-cover-resized.jpg") gets cleaned up, matching the same working-file-cleanup
+        # contract covered in Tagger.Implementation.Tests.ps1.
         $xxx = Get-PipelineRelease -ArtistName 'ZZ Top' -RecognizedTitle 'XXX'
         $xxxPath = Join-Path $script:targetRoot $xxx.proposed.artistFolderName $xxx.proposed.releaseFolderName
         Test-Path -LiteralPath $xxxPath | Should -Be $true
         (Get-ChildItem -LiteralPath $xxxPath -Filter '*.flac').Count | Should -Be 2
-        Test-Path -LiteralPath (Join-Path $xxxPath 'cover.jpg') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $xxxPath 'cover.jpg') | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $xxxPath '.tagger-cover-resized.jpg') | Should -Be $false
         Test-Path -LiteralPath (Join-Path $xxxPath 'cover-source.download') | Should -Be $false
 
         # Multi-disc release: continuous cross-disc file numbering, no CD1/CD2 subfolders in the
@@ -171,5 +250,28 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $rerun.Applied | Should -Be 0
         $rerun.Skipped | Should -Be $result.Applied
         $rerun.Failed | Should -Be 0
+    }
+
+    # plan/11 Definition of Done: the exact expected recognition.json / proposal.json / target
+    # layout for every planted pattern, checked against reviewed golden files in fixtures/expected/.
+    # The per-pattern Its above stay as readable intent; these make the whole output exact.
+    It 'recognition.json matches the golden file' {
+        $actual = ConvertTo-NormalizedPipelineJson -Path $script:recognitionPath -SourceRoot $script:sourceRoot `
+            -TargetRoot $script:targetRoot -DataHome $script:dataHome -SessionId $script:sessionId
+        Assert-Golden -Name 'recognition.json' -Actual $actual
+    }
+
+    It 'proposal.json matches the golden file' {
+        $actual = ConvertTo-NormalizedPipelineJson -Path $script:proposalPath -SourceRoot $script:sourceRoot `
+            -TargetRoot $script:targetRoot -DataHome $script:dataHome -SessionId $script:sessionId
+        Assert-Golden -Name 'proposal.json' -Actual $actual
+    }
+
+    It 'target layout after a real -IncludeUnresolved run matches the golden file' {
+        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
+        $result.Failed | Should -Be 0
+
+        Assert-Golden -Name 'target-layout.txt' -Actual (Get-TargetLayout -Root $script:targetRoot)
     }
 }

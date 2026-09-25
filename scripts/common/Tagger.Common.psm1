@@ -194,9 +194,14 @@ function ConvertTo-SafeFileName {
         $result = $trimmed
     }
 
-    if ($script:TaggerReservedDeviceNames -icontains $result) {
-        $substitutions.Add("reserved device name '$result' suffixed with '_'")
-        $result = "${result}_"
+    # Win32 reserves a device name even with an extension after it ("CON.flac", "nul.tar.gz"), so
+    # only the part before the first dot is checked; the suffix goes right after that part so the
+    # extension survives unchanged.
+    $dotIndex = $result.IndexOf('.')
+    $stem = if ($dotIndex -ge 0) { $result.Substring(0, $dotIndex) } else { $result }
+    if ($script:TaggerReservedDeviceNames -icontains $stem) {
+        $substitutions.Add("reserved device name '$stem' suffixed with '_'")
+        $result = "${stem}_" + $result.Substring($stem.Length)
     }
 
     return [pscustomobject]@{

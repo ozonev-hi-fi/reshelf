@@ -1,0 +1,1342 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "<SESSION_ID>",
+  "sourceRoot": "<SOURCE_ROOT>",
+  "generatedAtUtc": "<GENERATED_AT>",
+  "artists": [
+    {
+      "recognizedName": "Cranberries",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Cranberries"
+      ],
+      "releases": [
+        {
+          "stableKey": "fc6337eecc96a4aa",
+          "recognizedTitle": "Everybody Else Is Doing It",
+          "recognizedYear": 1993,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Cranberries\\1993 - Everybody Else Is Doing It",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Cranberries\\1993 - Everybody Else Is Doing It\\01 - I Still Do.flac",
+              "discFolder": null,
+              "originalFileName": "01 - I Still Do.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 I Still Do.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "I Still Do",
+              "tags": {
+                "artist": "Cranberries",
+                "albumArtist": "Cranberries",
+                "album": "Everybody Else Is Doing It",
+                "year": 1993,
+                "discNumber": 1,
+                "track": 1,
+                "title": "I Still Do"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Cranberries",
+            "releaseFolderName": "1993 Everybody Else Is Doing It",
+            "year": 1993,
+            "album": "Everybody Else Is Doing It"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "Isidor",
+      "sourcePaths": [
+        "<SOURCE_ROOT>"
+      ],
+      "releases": [
+        {
+          "stableKey": "3453b2f3261203cf",
+          "recognizedTitle": "3218 (Soldier of Fortune Edition - Artwork)",
+          "recognizedYear": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Isidor - 3218 (Soldier of Fortune Edition - Artwork)",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Isidor - 3218 (Soldier of Fortune Edition - Artwork)\\01 - Track One.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Track One.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track One",
+              "tags": {
+                "artist": "Isidor",
+                "albumArtist": "Isidor",
+                "album": "3218 (Soldier of Fortune Edition - Artwork)",
+                "year": 1900,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Track One"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": true,
+          "reviewReasons": [
+            "artist-name-split-from-folder-name"
+          ],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Isidor",
+            "releaseFolderName": "1900 3218 (Soldier of Fortune Edition - Artwork)",
+            "year": 1900,
+            "album": "3218 (Soldier of Fortune Edition - Artwork)"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "artist-name-split-from-folder-name; Discogs match status: not-found; UNRESOLVED YEAR: placeholder value used, must be corrected before applying.; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "Live Wire",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Live Wire"
+      ],
+      "releases": [
+        {
+          "stableKey": "03142c65679e3cb1",
+          "recognizedTitle": "Live - The Tour",
+          "recognizedYear": 1990,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Live Wire\\1990 Live - The Tour",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Live Wire\\1990 Live - The Tour\\01 - Track.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Track.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track",
+              "tags": {
+                "artist": "Live Wire",
+                "albumArtist": "Live Wire",
+                "album": "Live - The Tour",
+                "year": 1990,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Track"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Live Wire",
+            "releaseFolderName": "1990 Live - The Tour",
+            "year": 1990,
+            "album": "Live - The Tour"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "Pink Floyd",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Pink Floyd"
+      ],
+      "releases": [
+        {
+          "stableKey": "7518170a0f4071fb",
+          "recognizedTitle": "Live In Concert (Bootleg)",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac",
+              "discFolder": null,
+              "originalFileName": "Live In Concert.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "Speak To Me"
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": "00:00:00",
+              "isCueVirtualTrack": true,
+              "proposedFileName": "01 Speak To Me.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Speak To Me",
+              "tags": {
+                "artist": "Pink Floyd",
+                "albumArtist": "Pink Floyd",
+                "album": "Live In Concert (Bootleg)",
+                "year": 1994,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Speak To Me"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac",
+              "discFolder": null,
+              "originalFileName": "Live In Concert.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "Breathe"
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": "03:12:45",
+              "isCueVirtualTrack": true,
+              "proposedFileName": "02 Breathe.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Breathe",
+              "tags": {
+                "artist": "Pink Floyd",
+                "albumArtist": "Pink Floyd",
+                "album": "Live In Concert (Bootleg)",
+                "year": 1994,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Breathe"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\playlist.m3u",
+              "reason": "playlist-file"
+            }
+          ],
+          "cueSheet": {
+            "cueFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.cue",
+            "audioFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac"
+          },
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Pink Floyd",
+            "releaseFolderName": "1994 Live In Concert (Bootleg)",
+            "year": 1994,
+            "album": "Live In Concert (Bootleg)"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "PULSAR OLYMP",
+      "sourcePaths": [
+        "<SOURCE_ROOT>"
+      ],
+      "releases": [
+        {
+          "stableKey": "5fe14d4b511bc9b4",
+          "recognizedTitle": "94Shine",
+          "recognizedYear": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine\\01 - Track One.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Track One.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track One",
+              "tags": {
+                "artist": "PULSAR OLYMP",
+                "albumArtist": "PULSAR OLYMP",
+                "album": "94Shine",
+                "year": 1900,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Track One"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine\\02 - Track Two.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Track Two.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Track Two.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Track Two",
+              "tags": {
+                "artist": "PULSAR OLYMP",
+                "albumArtist": "PULSAR OLYMP",
+                "album": "94Shine",
+                "year": 1900,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Track Two"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": true,
+          "reviewReasons": [
+            "artist-name-split-from-folder-name"
+          ],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "PULSAR OLYMP",
+            "releaseFolderName": "1900 94Shine",
+            "year": 1900,
+            "album": "94Shine"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "artist-name-split-from-folder-name; Discogs match status: not-found; UNRESOLVED YEAR: placeholder value used, must be corrected before applying.; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "Talking Heads",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Talking Heads"
+      ],
+      "releases": [
+        {
+          "stableKey": "f7aa981a4217ce47",
+          "recognizedTitle": "Remain In Light",
+          "recognizedYear": 1980,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light\\01 - Born Under Punches.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Born Under Punches.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Born Under Punches.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Born Under Punches",
+              "tags": {
+                "artist": "Talking Heads",
+                "albumArtist": "Talking Heads",
+                "album": "Remain In Light",
+                "year": 1980,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Born Under Punches"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light\\02 - Crosseyed And Painless.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Crosseyed And Painless.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Crosseyed And Painless.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Crosseyed And Painless",
+              "tags": {
+                "artist": "Talking Heads",
+                "albumArtist": "Talking Heads",
+                "album": "Remain In Light",
+                "year": 1980,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Crosseyed And Painless"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Talking Heads",
+            "releaseFolderName": "1980 Remain In Light",
+            "year": 1980,
+            "album": "Remain In Light"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "David Byrne",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Talking Heads\\David Byrne"
+      ],
+      "releases": [
+        {
+          "stableKey": "05331763253f3533",
+          "recognizedTitle": "David Byrne",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Talking Heads\\David Byrne\\1994 David Byrne",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\David Byrne\\1994 David Byrne\\01 - Angels.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Angels.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Angels.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Angels",
+              "tags": {
+                "artist": "David Byrne",
+                "albumArtist": "David Byrne",
+                "album": "David Byrne",
+                "year": 1994,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Angels"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "David Byrne",
+            "releaseFolderName": "1994 David Byrne",
+            "year": 1994,
+            "album": "David Byrne"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "Unnumbered",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Unnumbered"
+      ],
+      "releases": [
+        {
+          "stableKey": "01b1e1a15b338444",
+          "recognizedTitle": "No Numbers",
+          "recognizedYear": 2015,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers\\Alpha Song.flac",
+              "discFolder": null,
+              "originalFileName": "Alpha Song.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Alpha Song.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Alpha Song",
+              "tags": {
+                "artist": "Unnumbered",
+                "albumArtist": "Unnumbered",
+                "album": "No Numbers",
+                "year": 2015,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Alpha Song"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers\\Beta Song.flac",
+              "discFolder": null,
+              "originalFileName": "Beta Song.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Beta Song.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Beta Song",
+              "tags": {
+                "artist": "Unnumbered",
+                "albumArtist": "Unnumbered",
+                "album": "No Numbers",
+                "year": 2015,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Beta Song"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 0.8,
+          "recognitionFlags": [
+            "no-track-number"
+          ],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "Unnumbered",
+            "releaseFolderName": "2015 No Numbers",
+            "year": 2015,
+            "album": "No Numbers"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    },
+    {
+      "recognizedName": "ZZ Top",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\ZZ Top",
+        "<SOURCE_ROOT>\\ZZ Top\\EPs",
+        "<SOURCE_ROOT>\\ZZ Top\\Lives"
+      ],
+      "releases": [
+        {
+          "stableKey": "bdc1ea9a86d2bc52",
+          "recognizedTitle": "XXX",
+          "recognizedYear": 1999,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\01 - Poke Chop Sandwich.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Poke Chop Sandwich.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Poke Chop Sandwich.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Poke Chop Sandwich",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "XXX",
+                "year": 1999,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Poke Chop Sandwich"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\02 Crucifixx A Flatt.flac",
+              "discFolder": null,
+              "originalFileName": "02 Crucifixx A Flatt.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Crucifixx A Flatt.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Crucifixx A Flatt",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "XXX",
+                "year": 1999,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Crucifixx A Flatt"
+              }
+            }
+          ],
+          "companionFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\cover.jpg",
+              "kind": "cover",
+              "placement": "loose"
+            }
+          ],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "1999 XXX",
+            "year": 1999,
+            "album": "XXX"
+          },
+          "coverArt": {
+            "candidates": [
+              {
+                "url": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\cover.jpg",
+                "sourceEdition": "existing (local)",
+                "width": 1,
+                "height": 1
+              }
+            ],
+            "chosenCandidateUrl": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\cover.jpg",
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found"
+          }
+        },
+        {
+          "stableKey": "73db97be52aaa1f4",
+          "recognizedTitle": "Mescalero",
+          "recognizedYear": 2003,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero",
+          "discFolderCount": 2,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\01 - Track One.mp3",
+              "discFolder": "CD 1",
+              "originalFileName": "01 - Track One.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Track One.mp3",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track One",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Track One"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\02 - Track Two.mp3",
+              "discFolder": "CD 1",
+              "originalFileName": "02 - Track Two.mp3",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Track Two.mp3",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Track Two",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Track Two"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\01 - Track One.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "01 - Track One.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "03 Track One.mp3",
+              "proposedDiscNumber": 2,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track One",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 2,
+                "track": 1,
+                "title": "Track One"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\02 - Track Two.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "02 - Track Two.mp3",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "04 Track Two.mp3",
+              "proposedDiscNumber": 2,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Track Two",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 2,
+                "track": 2,
+                "title": "Track Two"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\03 - Track Three.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "03 - Track Three.mp3",
+              "detectedTrackNumberInDisc": 3,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "05 Track Three.mp3",
+              "proposedDiscNumber": 2,
+              "proposedTrackNumber": 3,
+              "proposedTitle": "Track Three",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 2,
+                "track": 3,
+                "title": "Track Three"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\Stray Bonus Track.mp3",
+              "discFolder": null,
+              "originalFileName": "Stray Bonus Track.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "06 Stray Bonus Track.mp3",
+              "proposedDiscNumber": 3,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Stray Bonus Track",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Mescalero",
+                "year": 2003,
+                "discNumber": 3,
+                "track": 1,
+                "title": "Stray Bonus Track"
+              }
+            }
+          ],
+          "companionFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\scans\\back.jpg",
+              "kind": "booklet",
+              "placement": "nested"
+            }
+          ],
+          "ignoredFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\setlist.m3u",
+              "reason": "playlist-file"
+            }
+          ],
+          "cueSheet": null,
+          "recognitionConfidence": 0.5,
+          "recognitionFlags": [
+            "no-track-number"
+          ],
+          "needsReview": true,
+          "reviewReasons": [
+            "track-outside-disc-folder-suspected"
+          ],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "2003 Mescalero",
+            "year": 2003,
+            "album": "Mescalero"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": true,
+            "action": "log-for-upgrade"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "track-outside-disc-folder-suspected; Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        },
+        {
+          "stableKey": "4f78b73faeff40d3",
+          "recognizedTitle": "One Foot In The Blues",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues\\01 - Song A.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Song A.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Song A.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Song A",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "One Foot In The Blues",
+                "year": 1994,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Song A"
+              }
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues\\02 - Song B.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Song B.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "02 Song B.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 2,
+              "proposedTitle": "Song B",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "One Foot In The Blues",
+                "year": 1994,
+                "discNumber": 1,
+                "track": 2,
+                "title": "Song B"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "1994 One Foot In The Blues",
+            "year": 1994,
+            "album": "One Foot In The Blues"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        },
+        {
+          "stableKey": "8fe8bb96e24993e0",
+          "recognizedTitle": "Live From Texas",
+          "recognizedYear": 2005,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\Lives\\2005 Live From Texas",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\Lives\\2005 Live From Texas\\01 - Track.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Track.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Track",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Live From Texas",
+                "year": 2005,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Track"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "2005 Live From Texas",
+            "year": 2005,
+            "album": "Live From Texas"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        }
+      ]
+    }
+  ],
+  "unrecognized": [
+    {
+      "path": "<SOURCE_ROOT>\\1999 Loose Album",
+      "reason": "release-without-artist-suspected",
+      "children": [
+        "01 - Track.flac"
+      ]
+    },
+    {
+      "path": "<SOURCE_ROOT>\\Empty Artist",
+      "reason": "no-audio-files",
+      "children": [
+        "2010 Nothing Here"
+      ]
+    },
+    {
+      "path": "<SOURCE_ROOT>\\Godspeeds and their projects",
+      "reason": "grouping-folder-suspected",
+      "children": [
+        "Godspeed You! Black Emperor",
+        "Silver Mountain Zion"
+      ]
+    }
+  ]
+}

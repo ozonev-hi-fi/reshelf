@@ -1,0 +1,724 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "<SESSION_ID>",
+  "sourceRoot": "<SOURCE_ROOT>",
+  "generatedAtUtc": "<GENERATED_AT>",
+  "artists": [
+    {
+      "recognizedName": "Cranberries",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Cranberries"
+      ],
+      "releases": [
+        {
+          "stableKey": "fc6337eecc96a4aa",
+          "recognizedTitle": "Everybody Else Is Doing It",
+          "recognizedYear": 1993,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Cranberries\\1993 - Everybody Else Is Doing It",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Cranberries\\1993 - Everybody Else Is Doing It\\01 - I Still Do.flac",
+              "discFolder": null,
+              "originalFileName": "01 - I Still Do.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "Isidor",
+      "sourcePaths": [
+        "<SOURCE_ROOT>"
+      ],
+      "releases": [
+        {
+          "stableKey": "3453b2f3261203cf",
+          "recognizedTitle": "3218 (Soldier of Fortune Edition - Artwork)",
+          "recognizedYear": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Isidor - 3218 (Soldier of Fortune Edition - Artwork)",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Isidor - 3218 (Soldier of Fortune Edition - Artwork)\\01 - Track One.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": true,
+          "reviewReasons": [
+            "artist-name-split-from-folder-name"
+          ]
+        }
+      ]
+    },
+    {
+      "recognizedName": "Live Wire",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Live Wire"
+      ],
+      "releases": [
+        {
+          "stableKey": "03142c65679e3cb1",
+          "recognizedTitle": "Live - The Tour",
+          "recognizedYear": 1990,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Live Wire\\1990 Live - The Tour",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Live Wire\\1990 Live - The Tour\\01 - Track.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "Pink Floyd",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Pink Floyd"
+      ],
+      "releases": [
+        {
+          "stableKey": "7518170a0f4071fb",
+          "recognizedTitle": "Live In Concert (Bootleg)",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac",
+              "discFolder": null,
+              "originalFileName": "Live In Concert.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "Speak To Me"
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": "00:00:00",
+              "isCueVirtualTrack": true
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac",
+              "discFolder": null,
+              "originalFileName": "Live In Concert.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "Breathe"
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": "03:12:45",
+              "isCueVirtualTrack": true
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\playlist.m3u",
+              "reason": "playlist-file"
+            }
+          ],
+          "cueSheet": {
+            "cueFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.cue",
+            "audioFilePath": "<SOURCE_ROOT>\\Pink Floyd\\1994 Live In Concert (Bootleg)\\Live In Concert.flac"
+          },
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "PULSAR OLYMP",
+      "sourcePaths": [
+        "<SOURCE_ROOT>"
+      ],
+      "releases": [
+        {
+          "stableKey": "5fe14d4b511bc9b4",
+          "recognizedTitle": "94Shine",
+          "recognizedYear": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine\\01 - Track One.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\PULSAR OLYMP - 94Shine\\02 - Track Two.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Track Two.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": true,
+          "reviewReasons": [
+            "artist-name-split-from-folder-name"
+          ]
+        }
+      ]
+    },
+    {
+      "recognizedName": "Talking Heads",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Talking Heads"
+      ],
+      "releases": [
+        {
+          "stableKey": "f7aa981a4217ce47",
+          "recognizedTitle": "Remain In Light",
+          "recognizedYear": 1980,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light\\01 - Born Under Punches.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Born Under Punches.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\1980 Remain In Light\\02 - Crosseyed And Painless.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Crosseyed And Painless.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "David Byrne",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Talking Heads\\David Byrne"
+      ],
+      "releases": [
+        {
+          "stableKey": "05331763253f3533",
+          "recognizedTitle": "David Byrne",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Talking Heads\\David Byrne\\1994 David Byrne",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Talking Heads\\David Byrne\\1994 David Byrne\\01 - Angels.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Angels.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "Unnumbered",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Unnumbered"
+      ],
+      "releases": [
+        {
+          "stableKey": "01b1e1a15b338444",
+          "recognizedTitle": "No Numbers",
+          "recognizedYear": 2015,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers\\Alpha Song.flac",
+              "discFolder": null,
+              "originalFileName": "Alpha Song.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Unnumbered\\2015 No Numbers\\Beta Song.flac",
+              "discFolder": null,
+              "originalFileName": "Beta Song.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 0.8,
+          "recognitionFlags": [
+            "no-track-number"
+          ],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
+      "recognizedName": "ZZ Top",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\ZZ Top",
+        "<SOURCE_ROOT>\\ZZ Top\\EPs",
+        "<SOURCE_ROOT>\\ZZ Top\\Lives"
+      ],
+      "releases": [
+        {
+          "stableKey": "bdc1ea9a86d2bc52",
+          "recognizedTitle": "XXX",
+          "recognizedYear": 1999,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\01 - Poke Chop Sandwich.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Poke Chop Sandwich.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\02 Crucifixx A Flatt.flac",
+              "discFolder": null,
+              "originalFileName": "02 Crucifixx A Flatt.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\cover.jpg",
+              "kind": "cover",
+              "placement": "loose"
+            }
+          ],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        },
+        {
+          "stableKey": "73db97be52aaa1f4",
+          "recognizedTitle": "Mescalero",
+          "recognizedYear": 2003,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero",
+          "discFolderCount": 2,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\01 - Track One.mp3",
+              "discFolder": "CD 1",
+              "originalFileName": "01 - Track One.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\02 - Track Two.mp3",
+              "discFolder": "CD 1",
+              "originalFileName": "02 - Track Two.mp3",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\01 - Track One.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "01 - Track One.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\02 - Track Two.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "02 - Track Two.mp3",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 2\\03 - Track Three.mp3",
+              "discFolder": "CD 2",
+              "originalFileName": "03 - Track Three.mp3",
+              "detectedTrackNumberInDisc": 3,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\Stray Bonus Track.mp3",
+              "discFolder": null,
+              "originalFileName": "Stray Bonus Track.mp3",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": true,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "mp3",
+              "isLossless": false,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\scans\\back.jpg",
+              "kind": "booklet",
+              "placement": "nested"
+            }
+          ],
+          "ignoredFiles": [
+            {
+              "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\CD 1\\setlist.m3u",
+              "reason": "playlist-file"
+            }
+          ],
+          "cueSheet": null,
+          "recognitionConfidence": 0.5,
+          "recognitionFlags": [
+            "no-track-number"
+          ],
+          "needsReview": true,
+          "reviewReasons": [
+            "track-outside-disc-folder-suspected"
+          ]
+        },
+        {
+          "stableKey": "4f78b73faeff40d3",
+          "recognizedTitle": "One Foot In The Blues",
+          "recognizedYear": 1994,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues\\01 - Song A.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Song A.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\EPs\\1994 One Foot In The Blues\\02 - Song B.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Song B.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        },
+        {
+          "stableKey": "8fe8bb96e24993e0",
+          "recognizedTitle": "Live From Texas",
+          "recognizedYear": 2005,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\Lives\\2005 Live From Texas",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\Lives\\2005 Live From Texas\\01 - Track.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    }
+  ],
+  "unrecognized": [
+    {
+      "path": "<SOURCE_ROOT>\\1999 Loose Album",
+      "reason": "release-without-artist-suspected",
+      "children": [
+        "01 - Track.flac"
+      ]
+    },
+    {
+      "path": "<SOURCE_ROOT>\\Empty Artist",
+      "reason": "no-audio-files",
+      "children": [
+        "2010 Nothing Here"
+      ]
+    },
+    {
+      "path": "<SOURCE_ROOT>\\Godspeeds and their projects",
+      "reason": "grouping-folder-suspected",
+      "children": [
+        "Godspeed You! Black Emperor",
+        "Silver Mountain Zion"
+      ]
+    }
+  ]
+}

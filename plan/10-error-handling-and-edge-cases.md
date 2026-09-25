@@ -77,7 +77,9 @@ gate or edits code.
 - Windows-invalid characters: `< > : " / \ | ? *`
 - Trailing dots/spaces (silently stripped by Windows, but explicit handling
   avoids surprises).
-- Reserved device names: `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`.
+- Reserved device names: `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` —
+  checked against the part of the name before its first dot, so `CON.flac`
+  is caught too, not just a bare `CON`.
 
 Every substitution this function makes is recorded (e.g. in
 `recognitionFlags`/`proposal` notes) and surfaced in

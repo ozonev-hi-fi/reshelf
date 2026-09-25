@@ -77,6 +77,8 @@ Describe 'Test-IsCategorySubfolder (private)' {
             Test-IsCategorySubfolder -Name 'EPs' | Should -Be $true
             Test-IsCategorySubfolder -Name 'eps' | Should -Be $true
             Test-IsCategorySubfolder -Name 'Singles' | Should -Be $true
+            Test-IsCategorySubfolder -Name 'Lives' | Should -Be $true
+            Test-IsCategorySubfolder -Name 'lives' | Should -Be $true
         }
     }
 
@@ -425,8 +427,56 @@ Describe 'Invoke-TaggerRecognition' {
         $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-4' -DataHome $dataHome
 
         $zzTop = $result.artists | Where-Object { $_.recognizedName -eq 'ZZ Top' }
-        $zzTop.releases.Count | Should -Be 3
+        $zzTop.releases.Count | Should -Be 4
         ($zzTop.releases.recognizedTitle) | Should -Contain 'One Foot In The Blues'
+
+        # "Lives" is a second category name, planted separately from "EPs".
+        $live = $zzTop.releases | Where-Object { $_.recognizedTitle -eq 'Live From Texas' }
+        $live | Should -Not -BeNullOrEmpty
+        $live.recognizedYear | Should -Be 2005
+        ($result.artists.recognizedName) | Should -Not -Contain 'Lives'
+    }
+
+    It 'parses a numbered track filename with no dash separator in the fixture tree' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-2b' -DataHome $dataHome
+
+        $zzTop = $result.artists | Where-Object { $_.recognizedName -eq 'ZZ Top' }
+        $release = $zzTop.releases | Where-Object { $_.recognizedTitle -eq 'XXX' }
+        $noDash = $release.tracks | Where-Object { $_.originalFileName -eq '02 Crucifixx A Flatt.flac' }
+        $noDash.detectedTrackNumberInDisc | Should -Be 2
+        $noDash.inferredTrackOrder | Should -Be $false
+    }
+
+    It 'strips the dash from a "yyyy - Release Name" source folder in the fixture tree' {
+        $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-2c' -DataHome $dataHome
+
+        $cranberries = $result.artists | Where-Object { $_.recognizedName -eq 'Cranberries' }
+        $cranberries.releases.Count | Should -Be 1
+        $cranberries.releases[0].recognizedYear | Should -Be 1993
+        $cranberries.releases[0].recognizedTitle | Should -Be 'Everybody Else Is Doing It'
+    }
+
+    It 'parses year and title for each supported release folder name form' {
+        # Each case is an artist folder with one release folder; en dash written as [char]0x2013 to
+        # keep this file ASCII.
+        $cases = @(
+            @{ Folder = '1999 XXX'; Year = 1999; Title = 'XXX' }
+            @{ Folder = '1999 - XXX'; Year = 1999; Title = 'XXX' }
+            @{ Folder = "1999 $([char]0x2013) XXX"; Year = 1999; Title = 'XXX' }
+            @{ Folder = '1990 Live - The Tour'; Year = 1990; Title = 'Live - The Tour' }
+            @{ Folder = '1999-2003 Anthology'; Year = $null; Title = '1999-2003 Anthology' }
+        )
+
+        foreach ($case in $cases) {
+            $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            New-Item -ItemType File -Path (Join-Path $sourceRoot 'Some Artist' $case.Folder '01 - Track.flac') -Force | Out-Null
+
+            $result = Invoke-TaggerRecognition -SourceRoot $sourceRoot -SessionId 'session-2d' -DataHome $dataHome
+
+            $release = ($result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }).releases[0]
+            $release.recognizedYear | Should -Be $case.Year -Because "folder '$($case.Folder)'"
+            $release.recognizedTitle | Should -Be $case.Title -Because "folder '$($case.Folder)'"
+        }
     }
 
     It 'creates a new artist bucket for a band-member folder instead of merging into the parent' {

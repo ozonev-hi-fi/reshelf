@@ -445,11 +445,11 @@ Describe 'Invoke-TaggerEditProposal' {
             $releaseResult.humanReview.required | Should -Be $false
         }
 
-        It 'numbers a multi-disc release continuously across discs while tags.track restarts per disc' {
+        It 'numbers a multi-disc release continuously across discs while tags.track restarts per disc (manifesto section 5 table)' {
             $discs = @('CD 1', 'CD 1', 'CD 2', 'CD 2', 'CD 3', 'CD 3')
-            $titles = @('Song A1', 'Song A2', 'Song B1', 'Song B2', 'Song C1', 'Song C2')
+            $titles = @('First Track', 'Second Track', 'Third Track', 'Fourth Track', 'Fifth Track', 'Sixth Track')
             $tracks = for ($i = 0; $i -lt $discs.Count; $i++) {
-                $fileName = "$($i + 1) - $($titles[$i]).flac"
+                $fileName = "$([int]($i % 2) + 1) - $($titles[$i]).flac"
                 $path = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2001 Box Set' $discs[$i] $fileName)
                 New-TestTrack -SourceFilePath $path -OriginalFileName $fileName -DiscFolder $discs[$i] -DetectedTrackNumberInDisc ([int]($i % 2) + 1)
             }
@@ -469,16 +469,26 @@ Describe 'Invoke-TaggerEditProposal' {
             $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseTracks = $result.artists[0].releases[0].tracks
 
-            $expectedDiscNumbers = @(1, 1, 2, 2, 3, 3)
-            $expectedTrackNumbers = @(1, 2, 1, 2, 1, 2)
-            $expectedFileNumbers = @('01', '02', '03', '04', '05', '06')
+            # Copied row by row from MANIFESTO.md section 5: File Name | Disc Number | Track | Title.
+            $expected = @(
+                @{ FileName = '01 First Track.flac'; Disc = 1; Track = 1; Title = 'First Track' }
+                @{ FileName = '02 Second Track.flac'; Disc = 1; Track = 2; Title = 'Second Track' }
+                @{ FileName = '03 Third Track.flac'; Disc = 2; Track = 1; Title = 'Third Track' }
+                @{ FileName = '04 Fourth Track.flac'; Disc = 2; Track = 2; Title = 'Fourth Track' }
+                @{ FileName = '05 Fifth Track.flac'; Disc = 3; Track = 1; Title = 'Fifth Track' }
+                @{ FileName = '06 Sixth Track.flac'; Disc = 3; Track = 2; Title = 'Sixth Track' }
+            )
 
-            for ($i = 0; $i -lt 6; $i++) {
-                $releaseTracks[$i].proposedDiscNumber | Should -Be $expectedDiscNumbers[$i]
-                $releaseTracks[$i].proposedTrackNumber | Should -Be $expectedTrackNumbers[$i]
-                $releaseTracks[$i].tags.discNumber | Should -Be $expectedDiscNumbers[$i]
-                $releaseTracks[$i].tags.track | Should -Be $expectedTrackNumbers[$i]
-                $releaseTracks[$i].proposedFileName | Should -BeLike "$($expectedFileNumbers[$i]) *"
+            $releaseTracks.Count | Should -Be $expected.Count
+            for ($i = 0; $i -lt $expected.Count; $i++) {
+                $row = $expected[$i]
+                $releaseTracks[$i].proposedFileName | Should -Be $row.FileName
+                $releaseTracks[$i].proposedDiscNumber | Should -Be $row.Disc
+                $releaseTracks[$i].proposedTrackNumber | Should -Be $row.Track
+                $releaseTracks[$i].proposedTitle | Should -Be $row.Title
+                $releaseTracks[$i].tags.discNumber | Should -Be $row.Disc
+                $releaseTracks[$i].tags.track | Should -Be $row.Track
+                $releaseTracks[$i].tags.title | Should -Be $row.Title
             }
         }
 
