@@ -58,7 +58,7 @@ source folder(s)
 - **Metadata source of truth**: Discogs API.
 - **Editing UI**: plain HTML/JS static site, File System Access API, no framework, no build step, served by a tiny local static file server (needed only because the API requires a secure context — not an application backend).
 - **Data documents**: JSON, validated with PowerShell's `Test-Json` against schemas in `schemas/`.
-- **Data location**: all generated/user data lives outside the repo, under `%LOCALAPPDATA%\Tagger` (override via `TAGGER_HOME`).
+- **Data location**: all generated/user data lives in a git-ignored `.data/` folder inside the repo by default (override via `TAGGER_HOME`).
 
 ## Glossary
 

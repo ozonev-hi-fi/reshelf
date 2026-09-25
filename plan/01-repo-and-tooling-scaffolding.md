@@ -51,21 +51,23 @@ tagger/
     lossy-tracking.schema.json
   config/
     settings.default.json
+  .data/                         (git-ignored; default data home, see below)
 ```
 
-### Data directory (outside the repo)
+### Data directory (git-ignored, not committed)
 
 All *user data* — real settings, sessions, generated `recognition.json` /
 `proposal.json`, the lossy-tracking ledger, the Discogs cache, and logs — lives
-outside the repo:
+in a folder that is never tracked by git:
 
-- Default: `%LOCALAPPDATA%\Tagger`
-- Override: `TAGGER_HOME` environment variable
-- Resolved by `Resolve-TaggerDataHome` in `Tagger.Settings.psm1` (see [04](04-settings-module.md))
+- Default: `.data/` inside the repo root
+- Override: `TAGGER_HOME` environment variable (any location, inside or outside the repo)
+- Resolved by `Resolve-TaggerDataHome` in `Tagger.Common.psm1` (see [04](04-settings-module.md))
 
-Reason: the repo is source code + plan + schemas + test fixtures only. Real music
-folder paths, a Discogs token, and session state are machine-specific and must
-never end up in git history.
+Reason: real music folder paths, a Discogs token, and session state are
+machine-specific and must never end up in git history — but keeping the
+default location inside the repo (git-ignored) instead of the user profile
+keeps everything for one project in one place.
 
 ### External tools to install manually
 
@@ -104,16 +106,21 @@ token:
 ```
 config/settings.json
 *.local.json
+.env
+.data/
 ```
 
 (`config/settings.default.json` — a template with placeholder values — is
-committed; the real `settings.json` lives under `TAGGER_HOME`, not the repo, so
-this entry is a safety net rather than the primary control.)
+committed; the real `settings.json` lives under the data home, by default the
+git-ignored `.data/` folder, so this entry is a safety net rather than the
+primary control.)
 
 ## Decisions & rationale
 
-- **Data outside the repo**: keeps the git history free of personal file paths
-  and secrets, and survives a `git clone`/reinstall cleanly.
+- **Data git-ignored, not committed**: keeps the git history free of personal
+  file paths and secrets. Defaulting its location inside the repo (rather than
+  the user profile) still survives a `git clone`/reinstall cleanly, since
+  `.data/` is just never tracked.
 - **One `.psm1` per concern**: matches the manifesto's "independently developed
   modules" intent (§7) while staying inside a single PowerShell project instead
   of five separate ones — simpler for a single maintainer.
@@ -127,7 +134,7 @@ cross-cutting concerns.
 1. Install PowerShell 7, ffmpeg.
 2. Install Pester 5 and PSScriptAnalyzer (`Install-Module Pester -MinimumVersion 5.0`, `Install-Module PSScriptAnalyzer`).
 3. Create the folder tree above.
-4. Set `TAGGER_HOME` if the default `%LOCALAPPDATA%\Tagger` location isn't wanted.
+4. Set `TAGGER_HOME` if the default `.data/` folder inside the repo isn't wanted.
 
 ## Definition of done
 

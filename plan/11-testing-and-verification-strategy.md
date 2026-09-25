@@ -47,6 +47,17 @@ tests), covering every messy pattern named in the manifesto:
 - A deeply nested path approaching the Windows path-length limit.
 - A filename with invalid characters and a folder named `CON`.
 
+`CON` and a deeply-nested near-path-limit tree aren't checked into the static
+fixture tree above — Git for Windows can't index a folder literally named
+`CON`, and `core.longpaths` makes a checked-in near-limit path fragile across
+clones. Both are instead built at test time, in
+`tests/Tagger.Recognition.Tests.ps1`. A filename with invalid characters can't
+exist on a real Windows filesystem either; it's covered directly by
+`ConvertTo-SafeFileName`'s own unit tests, and end-to-end (through a full
+Recognition → EditProposal → Implementation run, not just the sanitizer in
+isolation) via a mocked Discogs title in
+`tests/Tagger.TagLibSharp.Integration.Tests.ps1`.
+
 ### Discogs mocking
 
 `tests/fixtures/discogs-responses/` holds captured JSON for a handful of
@@ -68,10 +79,22 @@ so tests never hit the real network or consume rate limit budget.
    genuinely different tool would have. Accepted because it removes all
    manual setup for this step (see [08](08-implementation-module.md)).
 
+   Step 3 lives in `tests/Tagger.TagLibSharp.Integration.Tests.ps1`, tagged
+   `Integration`. Every other test file mocks `Set-TaggerAudioTags` /
+   `Get-TaggerAudioTags`; this file is the only one that loads the real
+   `TagLibSharp.dll` and calls a real `ffmpeg` to generate throwaway audio/cover
+   media, then reads tags back with a fresh `[TagLib.File]::Create()` call. It
+   needs both on the machine running the tests and **fails** (not skips) if
+   either is missing — a missing DLL throws the same install hint
+   `Import-TaggerTagLibSharp` gives; a missing `ffmpeg` throws directly. A
+   silent skip would let this coverage gap reopen unnoticed, so this is an
+   intentional hard requirement, not an oversight.
+
 ### UI verification
 
 No automated browser test suite for v1 — Playwright/similar is explicitly
-optional/stretch, not required. Instead, a manual checklist run in Chrome:
+optional/stretch, not required. Instead, a manual checklist run in Chrome,
+tracked in [tests/manual/ui-checklist.md](../tests/manual/ui-checklist.md):
 
 1. Open a session folder via the picker.
 2. Edit a proposed release/track name.

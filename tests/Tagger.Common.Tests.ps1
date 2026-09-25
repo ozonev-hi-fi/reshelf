@@ -40,11 +40,17 @@ Describe 'Resolve-TaggerDataHome' {
         { Resolve-TaggerDataHome } | Should -Throw
     }
 
-    It 'throws when neither TAGGER_HOME nor LOCALAPPDATA is set' {
+    It 'defaults to a .data folder inside the repo when TAGGER_HOME is not set' {
         Remove-Item Env:\TAGGER_HOME -ErrorAction SilentlyContinue
-        Remove-Item Env:\LOCALAPPDATA -ErrorAction SilentlyContinue
 
-        { Resolve-TaggerDataHome } | Should -Throw
+        # This really resolves (and, if missing, creates) the repo's actual '.data' folder - the
+        # same path production code defaults to - not a $TestDrive path, since the default is
+        # defined relative to the module's own location. Left in place afterward on purpose: it's
+        # the real target folder going forward, not test scratch to clean up.
+        $result = Resolve-TaggerDataHome
+
+        $expected = (Resolve-Path (Join-Path $PSScriptRoot '..' '.data')).Path.TrimEnd('\')
+        $result.TrimEnd('\') | Should -Be $expected
     }
 }
 

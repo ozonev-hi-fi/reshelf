@@ -14,14 +14,15 @@ function Resolve-TaggerDataHome {
     [CmdletBinding()]
     param()
 
+    # Default is a git-ignored '.data' folder inside the repo (same $PSScriptRoot '..' '..' pattern
+    # Tagger.Json.psm1 and Tagger.Settings.psm1 use for schemas/config) - keeps all generated/user
+    # data next to the code instead of scattered in the profile, while staying untracked by git.
+    # TAGGER_HOME still overrides this for anyone who wants a different location.
     if ($env:TAGGER_HOME) {
         $dataHome = $env:TAGGER_HOME
     }
-    elseif ($env:LOCALAPPDATA) {
-        $dataHome = Join-Path $env:LOCALAPPDATA 'Tagger'
-    }
     else {
-        throw 'Cannot resolve Tagger data home: neither TAGGER_HOME nor LOCALAPPDATA is set.'
+        $dataHome = Join-Path $PSScriptRoot '..' '..' '.data'
     }
 
     if (Test-Path -LiteralPath $dataHome) {
