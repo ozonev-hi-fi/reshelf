@@ -193,4 +193,30 @@ Describe 'Tagger.ps1 settings/session dispatch' {
         $result.ExitCode | Should -Not -Be 0
         ($result.Output -join "`n") | Should -BeLike '*requires a session id*'
     }
+
+    It 'session mark-reviewed without a session id fails with a clear error' {
+        $result = Invoke-Tagger session mark-reviewed
+
+        $result.ExitCode | Should -Not -Be 0
+        ($result.Output -join "`n") | Should -BeLike '*requires a session id*'
+    }
+
+    It 'session mark-reviewed sets stage to reviewed and resume reflects it' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        Invoke-Tagger settings init -TargetRoot $targetRoot | Out-Null
+
+        $sourceRoot = Join-Path $TestDrive 'source-for-mark-reviewed'
+        New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+
+        $session = New-TaggerSession -SourceRoot $sourceRoot -DataHome $dataHome
+        Set-TaggerSessionStage -SessionId $session.sessionId -Stage 'proposed' -DataHome $dataHome | Out-Null
+
+        $result = Invoke-Tagger session mark-reviewed -SessionId $session.sessionId
+        $result.ExitCode | Should -Be 0
+
+        (Get-TaggerSession -SessionId $session.sessionId -DataHome $dataHome).stage | Should -Be 'reviewed'
+
+        $resumeResult = Invoke-Tagger session resume -SessionId $session.sessionId
+        ($resumeResult.Output -join "`n") | Should -BeLike "*apply -SessionId $($session.sessionId)*"
+    }
 }

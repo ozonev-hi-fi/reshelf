@@ -63,7 +63,13 @@ switch ($Command) {
                 if (-not $SessionId) { throw "'session resume' requires a session id." }
                 Resume-TaggerSession -SessionId $SessionId | Format-List
             }
-            default { throw "Unknown 'session' subcommand '$SubCommand'. Use list, show, or resume." }
+            'mark-reviewed' {
+                if (-not $SessionId) { throw "'session mark-reviewed' requires a session id." }
+                $settings = Get-TaggerSettings
+                Set-TaggerSessionStage -SessionId $SessionId -Stage 'reviewed' -DataHome $settings.dataHome | Out-Null
+                Get-TaggerSession -SessionId $SessionId -DataHome $settings.dataHome | Format-List
+            }
+            default { throw "Unknown 'session' subcommand '$SubCommand'. Use list, show, resume, or mark-reviewed." }
         }
     }
     'recognize' {

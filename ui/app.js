@@ -400,6 +400,33 @@ function onEditReleaseFolderName(release, value) {
   markDirty(release);
 }
 
+// Mirrors ConvertTo-SafeFileName (Tagger.Common.psm1) so a title edit here produces
+// the same safe filename the Implementation module would derive from it.
+const INVALID_FILENAME_CHARS = /[\x00-\x1f<>:"/\\|?*]/g;
+const RESERVED_DEVICE_NAMES = new Set([
+  'CON', 'PRN', 'AUX', 'NUL',
+  'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+  'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9',
+]);
+
+function toSafeFileName(name) {
+  let result = name.replace(INVALID_FILENAME_CHARS, '_').replace(/[. ]+$/, '');
+  if (RESERVED_DEVICE_NAMES.has(result.toUpperCase())) result += '_';
+  return result;
+}
+
+// The leading "NN " / "NN - " prefix is the continuous cross-disc filename number
+// (never the per-disc proposedTrackNumber), so it's kept as-is and only the title
+// body is replaced - mirrors Split-TaggerTrackFileName (Tagger.Implementation.psm1).
+function deriveTrackFileName(currentFileName, newTitle) {
+  const dot = currentFileName.lastIndexOf('.');
+  const extension = dot >= 0 ? currentFileName.slice(dot) : '';
+  const withoutExtension = dot >= 0 ? currentFileName.slice(0, dot) : currentFileName;
+  const prefixMatch = withoutExtension.match(/^(\d+\s*[-–]\s*|\d+\s+)/);
+  const prefix = prefixMatch ? prefixMatch[0] : '';
+  return prefix + toSafeFileName(newTitle) + extension;
+}
+
 function onEditTrackField(release, track, field, value) {
   if (field === 'proposedDiscNumber' || field === 'proposedTrackNumber') {
     // Unlike year, these are non-nullable integers (>= 1) in the schema, so an
@@ -420,8 +447,8 @@ function onEditTrackField(release, track, field, value) {
   } else if (field === 'proposedTitle') {
     track.proposedTitle = value;
     track.tags.title = value;
-  } else if (field === 'proposedFileName') {
-    track.proposedFileName = value;
+    track.proposedFileName = deriveTrackFileName(track.proposedFileName, value);
+    renderBeforeAfterTable(release);
   }
   markDirty(release);
 }
