@@ -21,6 +21,32 @@ body {
   margin: 0;
 }
 
+#session-id-label {
+  color: #777;
+  font-size: 0.8rem;
+}
+
+#view-switch {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.view-btn {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f5f5f5;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.view-btn-active {
+  background: #1a73e8;
+  color: white;
+  border-color: #1a73e8;
+}
+
 #session-history {
   padding: 8px 16px;
   border-bottom: 1px solid #eee;
@@ -127,11 +153,23 @@ body {
 #track-fields-table th,
 #track-fields-table td,
 #companion-table th,
-#companion-table td {
+#companion-table td,
+#lossy-table th,
+#lossy-table td {
   border: 1px solid #ddd;
   padding: 4px 8px;
   text-align: left;
   font-size: 0.9rem;
+}
+
+/* A table-cell input/select must fill the cell - the cell (not the browser's intrinsic input
+   width) is what should decide how much room a long value gets. */
+#track-fields-table td input,
+#companion-table td input,
+#lossy-table td input,
+#lossy-table td select {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #companion-empty {
@@ -284,4 +322,71 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.badge-unrecognized {
+  background: #616161;
+}
+
+#unrecognized-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+#unrecognized-fields {
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+
+#unrecognized-fields th,
+#unrecognized-fields td {
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+#unrecognized-override-fields {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+#unrecognized-override-fields label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  gap: 4px;
+}
+
+/* Needed because the rule above already sets `display` with higher specificity than the
+   `[hidden]` attribute selector's UA-default `display: none` (same gotcha fixed for #main-layout
+   in app.js's switchView) - without this, setting .hidden on the label has no visible effect. */
+#unrecognized-override-fields label[hidden] {
+  display: none;
+}
+
+#unrecognized-override-json {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+#lossy-view {
+  padding: 16px;
+}
+
+#lossy-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+#lossy-table {
+  width: 100%;
+  border-collapse: collapse;
 }

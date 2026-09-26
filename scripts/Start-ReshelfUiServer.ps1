@@ -12,6 +12,7 @@ param(
 
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.UiServer.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Settings.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.LossyTracking.psm1') -Force
 
 $resolvedUiRoot = (Resolve-Path -LiteralPath $UiRoot -ErrorAction SilentlyContinue).Path
 if (-not $resolvedUiRoot) {
@@ -27,7 +28,11 @@ function Write-ReshelfUiJsonResponse {
 
     $Response.StatusCode = $StatusCode
     $Response.ContentType = 'application/json'
-    $json = $Payload | ConvertTo-Json -Depth 20
+    # -InputObject, never `$Payload | ConvertTo-Json`: piping an array unrolls it into individual
+    # pipeline items, so ConvertTo-Json only ever sees "one object" for a 0- or 1-element array and
+    # serializes a bare "[]"/"{...}" instead of the real "[]"/"[{...}]" - breaking any browser-side
+    # code (e.g. ui/app.js) that expects an Array back for a route like /api/lossy.
+    $json = ConvertTo-Json -InputObject $Payload -Depth 20
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
     $Response.ContentLength64 = $bytes.Length
     $Response.OutputStream.Write($bytes, 0, $bytes.Length)
@@ -109,7 +114,7 @@ function Invoke-ReshelfUiApiRequest {
             Write-ReshelfUiRawJsonResponse -Response $Response -StatusCode 200 -Json $json
         }
         'ListSessions' {
-            $summary = Get-ReshelfUiSessionsSummary -DataHome $DataHome
+            $summary = @(Get-ReshelfUiSessionsSummary -DataHome $DataHome)
             Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload $summary
         }
         'GetProposal' {
@@ -165,6 +170,48 @@ function Invoke-ReshelfUiApiRequest {
             }
             catch {
                 Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
+            }
+        }
+        'NamingTemplates' {
+            $settings = Get-ReshelfSettings
+            Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{
+                releaseFolder       = $settings.namingTemplates.releaseFolder
+                trackFile           = $settings.namingTemplates.trackFile
+                trackNumberPadWidth = $settings.trackNumberPadWidth
+            }
+        }
+        'ListLossy' {
+            $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
+            Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload $ledger
+        }
+        'UpdateLossy' {
+            try {
+                $body = Read-ReshelfUiRequestBody -Request $Request | ConvertFrom-Json
+                if ($null -eq $body.status) {
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message "Request body must include 'status'."
+                    return
+                }
+                $params = @{ StableKey = $Route.StableKey; Status = $body.status; DataHome = $DataHome }
+                if ($null -ne $body.notes) { $params['Notes'] = [string]$body.notes }
+                $ledger = Set-ReshelfLossyTrackingStatus @params -WarningAction Stop
+                $entry = $ledger | Where-Object { $_.stableKey -eq $Route.StableKey } | Select-Object -First 1
+                if (-not $entry) {
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 404 -Message "No lossy-tracking entry found for stable key '$($Route.StableKey)'."
+                    return
+                }
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload $entry
+            }
+            catch {
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
+            }
+        }
+        'DeleteLossy' {
+            try {
+                Remove-ReshelfLossyTrackingEntry -StableKey $Route.StableKey -DataHome $DataHome -WarningAction Stop | Out-Null
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{ removed = $true }
+            }
+            catch {
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 404 -Message $_.Exception.Message
             }
         }
     }

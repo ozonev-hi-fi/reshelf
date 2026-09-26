@@ -126,6 +126,23 @@ function Get-ReshelfUiApiRoute {
         return [pscustomobject]@{ Action = 'SaveManualCover'; SessionId = $sessionId }
     }
 
+    if ($Method -eq 'GET' -and $Path -eq '/api/naming-templates') {
+        return [pscustomobject]@{ Action = 'NamingTemplates' }
+    }
+
+    if ($Method -eq 'GET' -and $Path -eq '/api/lossy') {
+        return [pscustomobject]@{ Action = 'ListLossy' }
+    }
+    if ($Path -match '^/api/lossy/([0-9a-f]{16})$') {
+        $stableKey = $Matches[1]
+        if ($Method -eq 'PUT') {
+            return [pscustomobject]@{ Action = 'UpdateLossy'; StableKey = $stableKey }
+        }
+        if ($Method -eq 'DELETE') {
+            return [pscustomobject]@{ Action = 'DeleteLossy'; StableKey = $stableKey }
+        }
+    }
+
     return $null
 }
 

@@ -214,6 +214,55 @@ Describe 'Set-ReshelfLossyTrackingTargetPath' {
     }
 }
 
+Describe 'Set-ReshelfLossyTrackingStatus' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+    }
+
+    It 'sets status to ignored' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'ignored' -DataHome $script:dataHome | Out-Null
+        (Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome).status | Should -Be 'ignored'
+    }
+
+    It 'sets status to upgraded and stamps upgradedUtc' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'upgraded' -DataHome $script:dataHome | Out-Null
+        $entry = Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.status | Should -Be 'upgraded'
+        $entry.upgradedUtc | Should -Not -BeNullOrEmpty
+    }
+
+    It 'clears upgradedUtc when moved back off upgraded' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'upgraded' -DataHome $script:dataHome | Out-Null
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'pending-upgrade' -DataHome $script:dataHome | Out-Null
+        (Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome).upgradedUtc | Should -BeNullOrEmpty
+    }
+
+    It 'updates notes alongside status when -Notes is given' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'ignored' -Notes 'not chasing this one' -DataHome $script:dataHome | Out-Null
+        (Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome).notes | Should -Be 'not chasing this one'
+    }
+
+    It 'leaves notes untouched when -Notes is not given' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'ignored' -Notes 'first note' -DataHome $script:dataHome | Out-Null
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'pending-upgrade' -DataHome $script:dataHome | Out-Null
+        (Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome).notes | Should -Be 'first note'
+    }
+
+    It 'warns and returns the ledger unchanged when the stable key does not exist' {
+        $result = Set-ReshelfLossyTrackingStatus -StableKey 'doesnotexist0000' -Status 'ignored' -DataHome $script:dataHome -WarningAction SilentlyContinue
+        @($result).Count | Should -Be 1
+        $result[0].status | Should -Be 'pending-upgrade'
+    }
+
+    It 'writes a ledger file that validates against the lossy-tracking schema' {
+        Set-ReshelfLossyTrackingStatus -StableKey 'a1b2c3d4e5f60708' -Status 'ignored' -DataHome $script:dataHome | Out-Null
+        Test-LossyTrackingDocumentJson -Path (Join-Path $script:dataHome 'lossy-tracking.json') | Should -Be $true
+    }
+}
+
 Describe 'Remove-ReshelfLossyTrackingEntry' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))

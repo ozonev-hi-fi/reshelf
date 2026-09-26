@@ -3,9 +3,16 @@ const state = {
   sessions: [], // [{ sessionId, sourceRoot, stage, updatedAtUtc, hasProposal }]
   proposal: null,
   selectedReleaseKey: null,
+  selectedUnrecognizedIndex: null,
   filters: { needsReviewOnly: false, ambiguousOnly: false },
   dirtyReleaseKeys: new Set(),
   lastError: null,
+  // {releaseFolder, trackFile, trackNumberPadWidth} from settings.json's namingTemplates, fetched
+  // once at startup - lets an Artist/Album/Year edit preview the same folder name Step 6 would
+  // actually propose, without waiting for a re-run of 'propose'.
+  namingTemplates: { releaseFolder: '{year} {album}', trackFile: '{trackNumber} {title}' },
+  view: 'releases', // 'releases' | 'lossy'
+  lossy: { entries: [], filterStatus: '' },
 };
 
 function isDirty() {
@@ -52,6 +59,19 @@ function wireStaticControls() {
   document.getElementById('save-btn-top').addEventListener('click', saveProposal);
   document.getElementById('manual-cover-input').addEventListener('change', onManualCoverFileChosen);
 
+  document.getElementById('view-btn-releases').addEventListener('click', () => switchView('releases'));
+  document.getElementById('view-btn-lossy').addEventListener('click', () => switchView('lossy'));
+  document.getElementById('lossy-filter-status').addEventListener('change', (e) => {
+    state.lossy.filterStatus = e.target.value;
+    renderLossyTable();
+  });
+  document.getElementById('lossy-export-csv-btn').addEventListener('click', () => exportLossyLedger('csv'));
+  document.getElementById('lossy-export-json-btn').addEventListener('click', () => exportLossyLedger('json'));
+
+  document.getElementById('unrecognized-override-kind').addEventListener('change', renderUnrecognizedOverrideJson);
+  document.getElementById('unrecognized-override-artist-name').addEventListener('input', renderUnrecognizedOverrideJson);
+  document.getElementById('unrecognized-copy-btn').addEventListener('click', onCopyUnrecognizedOverride);
+
   const coverModal = document.getElementById('cover-modal');
   document.getElementById('cover-modal-close').addEventListener('click', () => coverModal.close());
   coverModal.addEventListener('click', (e) => {
@@ -61,6 +81,14 @@ function wireStaticControls() {
 
 function setSessionStatus(text) {
   document.getElementById('session-status').textContent = text;
+}
+
+// Deliberately separate from #session-status (which never includes the raw session id - it reads
+// as source root + date + stage, meaningful to a person) - this is a second, small label purely so
+// a person can name exactly which session they're looking at, e.g. to tell someone else "I reviewed
+// 2026-09-26-0002".
+function setSessionIdLabel(sessionId) {
+  document.getElementById('session-id-label').textContent = sessionId ? `Session ${sessionId}` : '';
 }
 
 function showRetry(message) {
@@ -79,7 +107,21 @@ function describeSession(session) {
 
 function clearReleaseView() {
   document.getElementById('detail-panel').hidden = true;
+  document.getElementById('unrecognized-panel').hidden = true;
   document.getElementById('release-list').innerHTML = '';
+}
+
+function switchView(view) {
+  state.view = view;
+  // #main-layout carries its own explicit `display: flex` in styles.css (needed for its two-pane
+  // layout), which - since an ID selector outranks the `[hidden]` attribute selector's UA-default
+  // `display: none` - would otherwise keep it visible even with the hidden attribute set. Toggled
+  // via inline style instead; #lossy-view has no such conflicting rule, so `hidden` works for it.
+  document.getElementById('main-layout').style.display = view === 'releases' ? 'flex' : 'none';
+  document.getElementById('lossy-view').hidden = view !== 'lossy';
+  document.getElementById('view-btn-releases').classList.toggle('view-btn-active', view === 'releases');
+  document.getElementById('view-btn-lossy').classList.toggle('view-btn-active', view === 'lossy');
+  if (view === 'lossy') loadLossyLedger();
 }
 
 // --- Loading the current session on page load, and switching between sessions --------
@@ -94,6 +136,7 @@ async function loadCurrentSession() {
       state.currentSessionId = null;
       state.proposal = null;
       setSessionStatus(data.message);
+      setSessionIdLabel(null);
       clearReleaseView();
     } else {
       state.currentSessionId = data.sessionId;
@@ -102,6 +145,7 @@ async function loadCurrentSession() {
       state.dirtyReleaseKeys.clear();
       updateSaveIndicator();
       setSessionStatus(describeSession(data));
+      setSessionIdLabel(data.sessionId);
       document.getElementById('detail-panel').hidden = true;
       renderList();
     }
@@ -154,6 +198,7 @@ async function onSelectHistorySession(sessionId) {
     state.currentSessionId = sessionId;
     state.proposal = null;
     setSessionStatus(`${session.sourceRoot} has no proposal.json yet.`);
+    setSessionIdLabel(sessionId);
     clearReleaseView();
     return;
   }
@@ -167,6 +212,7 @@ async function onSelectHistorySession(sessionId) {
     state.dirtyReleaseKeys.clear();
     updateSaveIndicator();
     setSessionStatus(describeSession(session));
+    setSessionIdLabel(sessionId);
     document.getElementById('detail-panel').hidden = true;
     renderList();
   } catch (err) {
@@ -259,12 +305,123 @@ function renderList() {
 
     container.appendChild(section);
   }
+
+  const unrecognized = state.proposal.unrecognized ?? [];
+  if (unrecognized.length > 0 && activeStatusFilters.length === 0) {
+    const section = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = `Unrecognized (${unrecognized.length})`;
+    section.appendChild(heading);
+
+    unrecognized.forEach((entry, index) => {
+      const row = document.createElement('div');
+      row.className = 'release-row';
+      row.dataset.unrecognizedIndex = String(index);
+      row.classList.toggle('selected', index === state.selectedUnrecognizedIndex);
+
+      const label = document.createElement('span');
+      label.className = 'release-label';
+      label.textContent = entry.path.split(/[\\/]/).filter(Boolean).pop() ?? entry.path;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-unrecognized';
+      badge.textContent = 'unrecognized';
+
+      row.appendChild(label);
+      row.appendChild(badge);
+      row.addEventListener('click', () => selectUnrecognized(index));
+
+      section.appendChild(row);
+    });
+
+    container.appendChild(section);
+  }
 }
 
 function selectRelease(stableKey) {
   state.selectedReleaseKey = stableKey;
+  state.selectedUnrecognizedIndex = null;
+  document.getElementById('unrecognized-panel').hidden = true;
   renderList();
   renderDetail();
+}
+
+function selectUnrecognized(index) {
+  state.selectedUnrecognizedIndex = index;
+  state.selectedReleaseKey = null;
+  document.getElementById('detail-panel').hidden = true;
+  renderList();
+  renderUnrecognizedDetail(state.proposal.unrecognized[index]);
+}
+
+// Mirrors Get-ReshelfRelativePath (Reshelf.Common.psm1) closely enough for building an
+// overrides.json relativePath from the source root and this entry's absolute path.
+function getSourceRootRelativePath(sourceRoot, absolutePath) {
+  const root = sourceRoot.replace(/[\\/]+$/, '');
+  if (absolutePath.toLowerCase().startsWith(root.toLowerCase())) {
+    return absolutePath.slice(root.length).replace(/^[\\/]+/, '');
+  }
+  return absolutePath;
+}
+
+function guessOverrideKind(reason) {
+  if (reason === 'grouping-folder-suspected') return 'grouping';
+  return 'artist';
+}
+
+function renderUnrecognizedDetail(entry) {
+  const panel = document.getElementById('unrecognized-panel');
+  panel.hidden = false;
+
+  document.getElementById('unrecognized-title').textContent = entry.path.split(/[\\/]/).filter(Boolean).pop() ?? entry.path;
+  document.getElementById('unrecognized-path').textContent = entry.path;
+  document.getElementById('unrecognized-reason').textContent = entry.reason;
+
+  const list = document.getElementById('unrecognized-children');
+  list.innerHTML = '';
+  for (const child of entry.children ?? []) {
+    const li = document.createElement('li');
+    li.textContent = child;
+    list.appendChild(li);
+  }
+
+  const kindSelect = document.getElementById('unrecognized-override-kind');
+  kindSelect.value = guessOverrideKind(entry.reason);
+  const artistNameInput = document.getElementById('unrecognized-override-artist-name');
+  artistNameInput.value = document.getElementById('unrecognized-title').textContent;
+
+  renderUnrecognizedOverrideJson();
+}
+
+function renderUnrecognizedOverrideJson() {
+  const entry = state.proposal?.unrecognized?.[state.selectedUnrecognizedIndex];
+  if (!entry) return;
+
+  const kind = document.getElementById('unrecognized-override-kind').value;
+  const artistName = document.getElementById('unrecognized-override-artist-name').value;
+  const needsArtistName = kind === 'artist' || kind === 'band-member';
+
+  const override = {
+    relativePath: getSourceRootRelativePath(state.proposal.sourceRoot, entry.path),
+    kind,
+    parentArtistName: null,
+    artistName: needsArtistName ? (artistName || null) : null,
+    notes: '',
+  };
+
+  document.getElementById('unrecognized-artist-name-field').hidden = !needsArtistName;
+  document.getElementById('unrecognized-override-json').textContent = JSON.stringify(override, null, 2);
+}
+
+async function onCopyUnrecognizedOverride() {
+  const status = document.getElementById('unrecognized-copy-status');
+  const text = document.getElementById('unrecognized-override-json').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    status.textContent = 'Copied.';
+  } catch (err) {
+    status.textContent = `Could not copy automatically: ${err.message}`;
+  }
 }
 
 function renderDetail() {
@@ -712,11 +869,41 @@ function updateSaveIndicator() {
   document.getElementById('unsaved-count-top').textContent = text;
 }
 
+// Mirrors New-ReshelfProposedReleaseNames/Expand-ReshelfNamingTemplate (Reshelf.EditProposal.psm1):
+// the artist folder name is just the sanitized artist, and the release folder name is the
+// {year}/{album} template with the sanitized album substituted in. toSafeFileName (below) mirrors
+// ConvertTo-SafeFileName closely enough for a live preview - it doesn't reproduce the
+// reserved-device-name suffixing, which 'propose' still applies for real on Save.
+function deriveProposedFolderNames(artist, album, year) {
+  const artistFolderName = toSafeFileName(artist);
+  const releaseFolderName = state.namingTemplates.releaseFolder
+    .replaceAll('{year}', year ?? '')
+    .replaceAll('{album}', toSafeFileName(album))
+    .trim();
+  return { artistFolderName, releaseFolderName };
+}
+
+// Called after every Artist/Album/Year edit - a folder name typed by hand is overwritten by the
+// next one of these, same as re-running 'propose' would recompute it from scratch.
+function updateProposedFolderNames(release) {
+  const artist = document.getElementById('field-artist').value;
+  const album = document.getElementById('field-album').value;
+  const year = document.getElementById('field-year').value;
+  const { artistFolderName, releaseFolderName } = deriveProposedFolderNames(artist, album, year);
+
+  release.proposed.artistFolderName = artistFolderName;
+  release.proposed.releaseFolderName = releaseFolderName;
+  document.getElementById('field-artist-folder').value = artistFolderName;
+  document.getElementById('field-release-folder').value = releaseFolderName;
+  renderBeforeAfterTable(release);
+}
+
 function onEditArtist(release, value) {
   for (const track of release.tracks) {
     track.tags.artist = value;
     track.tags.albumArtist = value;
   }
+  updateProposedFolderNames(release);
   markDirty(release);
 }
 
@@ -725,6 +912,7 @@ function onEditAlbum(release, value) {
   for (const track of release.tracks) {
     track.tags.album = value;
   }
+  updateProposedFolderNames(release);
   markDirty(release);
 }
 
@@ -734,16 +922,19 @@ function onEditYear(release, value) {
   for (const track of release.tracks) {
     track.tags.year = year;
   }
+  updateProposedFolderNames(release);
   markDirty(release);
 }
 
 function onEditArtistFolderName(release, value) {
   release.proposed.artistFolderName = value;
+  renderBeforeAfterTable(release);
   markDirty(release);
 }
 
 function onEditReleaseFolderName(release, value) {
   release.proposed.releaseFolderName = value;
+  renderBeforeAfterTable(release);
   markDirty(release);
 }
 
@@ -901,7 +1092,172 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// --- Lossy tracker view --------------------------------------------------------------
+
+async function loadLossyLedger() {
+  const status = document.getElementById('lossy-status');
+  try {
+    status.textContent = 'Loading...';
+    state.lossy.entries = await fetchJson('/api/lossy');
+    status.textContent = '';
+    renderLossyTable();
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+  }
+}
+
+function getFilteredLossyEntries() {
+  const entries = state.lossy.entries;
+  if (!state.lossy.filterStatus) return entries;
+  return entries.filter((e) => e.status === state.lossy.filterStatus);
+}
+
+function renderLossyTable() {
+  const table = document.getElementById('lossy-table');
+  const tbody = table.querySelector('tbody');
+  const emptyMsg = document.getElementById('lossy-empty');
+  tbody.innerHTML = '';
+
+  const rows = getFilteredLossyEntries();
+  if (rows.length === 0) {
+    table.hidden = true;
+    emptyMsg.hidden = false;
+    return;
+  }
+  table.hidden = false;
+  emptyMsg.hidden = true;
+
+  for (const entry of rows) {
+    const row = document.createElement('tr');
+
+    const cell = (text) => {
+      const td = document.createElement('td');
+      td.textContent = text ?? '';
+      return td;
+    };
+    row.appendChild(cell(entry.artist));
+    row.appendChild(cell(entry.album));
+    row.appendChild(cell(entry.year));
+    row.appendChild(cell(entry.format));
+
+    const statusCell = document.createElement('td');
+    const statusSelect = document.createElement('select');
+    for (const value of ['pending-upgrade', 'upgraded', 'ignored']) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      option.selected = value === entry.status;
+      statusSelect.appendChild(option);
+    }
+    statusSelect.addEventListener('change', () => onLossyRowChange(entry, { status: statusSelect.value }));
+    statusCell.appendChild(statusSelect);
+    row.appendChild(statusCell);
+
+    row.appendChild(cell(entry.targetPath));
+    row.appendChild(cell(entry.firstDetectedUtc));
+    row.appendChild(cell(entry.lastCheckedUtc));
+
+    const notesCell = document.createElement('td');
+    const notesInput = document.createElement('input');
+    notesInput.type = 'text';
+    notesInput.value = entry.notes ?? '';
+    notesInput.addEventListener('change', () => onLossyRowChange(entry, { notes: notesInput.value }));
+    notesCell.appendChild(notesInput);
+    row.appendChild(notesCell);
+
+    const deleteCell = document.createElement('td');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => onLossyRowDelete(entry));
+    deleteCell.appendChild(deleteBtn);
+    row.appendChild(deleteCell);
+
+    tbody.appendChild(row);
+  }
+}
+
+async function onLossyRowChange(entry, changes) {
+  const status = document.getElementById('lossy-status');
+  const body = { status: entry.status, notes: entry.notes ?? '', ...changes };
+  try {
+    const updated = await fetchJson(`/api/lossy/${entry.stableKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    Object.assign(entry, updated);
+    status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+    renderLossyTable();
+  } catch (err) {
+    status.textContent = `Save failed: ${err.message}`;
+  }
+}
+
+async function onLossyRowDelete(entry) {
+  if (!window.confirm(`Permanently remove the lossy-tracking entry for "${entry.artist} - ${entry.album}"? This cannot be undone.`)) {
+    return;
+  }
+  const status = document.getElementById('lossy-status');
+  try {
+    await fetchJson(`/api/lossy/${entry.stableKey}`, { method: 'DELETE' });
+    state.lossy.entries = state.lossy.entries.filter((e) => e.stableKey !== entry.stableKey);
+    status.textContent = 'Removed.';
+    renderLossyTable();
+  } catch (err) {
+    status.textContent = `Delete failed: ${err.message}`;
+  }
+}
+
+function triggerDownload(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function toCsvValue(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function exportLossyLedger(format) {
+  const rows = getFilteredLossyEntries();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  if (format === 'json') {
+    triggerDownload(`lossy-tracking-${timestamp}.json`, 'application/json', JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  const columns = ['stableKey', 'artist', 'album', 'year', 'format', 'status', 'targetPath', 'firstDetectedUtc', 'lastCheckedUtc', 'upgradedUtc', 'notes'];
+  const lines = [columns.join(',')];
+  for (const row of rows) {
+    lines.push(columns.map((c) => toCsvValue(row[c])).join(','));
+  }
+  triggerDownload(`lossy-tracking-${timestamp}.csv`, 'text/csv', lines.join('\n'));
+}
+
+async function loadNamingTemplates() {
+  try {
+    const templates = await fetchJson('/api/naming-templates');
+    state.namingTemplates = templates;
+  } catch (err) {
+    // Keeps the built-in default (state's initial value) - a live folder-name preview that's
+    // occasionally out of sync with a non-default template is far less harmful than losing the
+    // whole page over a secondary feature.
+    console.warn('Could not load naming templates, using default:', err);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   wireStaticControls();
+  loadNamingTemplates();
   loadCurrentSession();
 });

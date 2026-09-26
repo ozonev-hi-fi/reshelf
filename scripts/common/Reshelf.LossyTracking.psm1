@@ -202,6 +202,55 @@ function Set-ReshelfLossyTrackingIgnored {
     return $ledger
 }
 
+function Set-ReshelfLossyTrackingStatus {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('pending-upgrade', 'upgraded', 'ignored')]
+        [string]$Status,
+
+        # Omitted entirely leaves notes untouched - distinct from an explicit '' clear. A typed
+        # [string]$Notes can't tell those apart on its own (PowerShell binds an un-supplied string
+        # parameter to '', not $null), so $PSBoundParameters is checked below instead.
+        [AllowEmptyString()]
+        [string]$Notes,
+
+        [string]$DataHome,
+
+        [datetime]$Now = (Get-Date)
+    )
+
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
+
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
+    $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+
+    if (-not $existing) {
+        Write-Warning "No lossy-tracking entry found for stable key '$StableKey' - nothing to update."
+        return $ledger
+    }
+
+    $existing.status = $Status
+    if ($Status -eq 'upgraded') {
+        # Only set once - re-saving an already-upgraded row (e.g. a notes-only edit in the UI) must
+        # not keep bumping its upgradedUtc forward.
+        if (-not $existing.upgradedUtc) { $existing.upgradedUtc = $Now.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ') }
+    }
+    else {
+        $existing.upgradedUtc = $null
+    }
+    if ($PSBoundParameters.ContainsKey('Notes')) { $existing.notes = $Notes }
+
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+
+    return $ledger
+}
+
 function Remove-ReshelfLossyTrackingEntry {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -235,4 +284,5 @@ function Remove-ReshelfLossyTrackingEntry {
 }
 
 Export-ModuleMember -Function Get-ReshelfLossyTrackingLedger, Get-ReshelfLossyTrackingEntry, Add-ReshelfLossyTrackingEntry, `
-    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingTargetPath, Set-ReshelfLossyTrackingIgnored, Remove-ReshelfLossyTrackingEntry
+    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingTargetPath, Set-ReshelfLossyTrackingIgnored, Set-ReshelfLossyTrackingStatus, `
+    Remove-ReshelfLossyTrackingEntry

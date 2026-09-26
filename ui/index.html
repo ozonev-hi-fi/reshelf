@@ -11,6 +11,11 @@
     <h1>Reshelf</h1>
     <button id="retry-btn" hidden>Retry</button>
     <span id="session-status"></span>
+    <span id="session-id-label"></span>
+    <nav id="view-switch">
+      <button id="view-btn-releases" class="view-btn view-btn-active" type="button">Releases</button>
+      <button id="view-btn-lossy" class="view-btn" type="button">Lossy tracker</button>
+    </nav>
   </header>
 
   <div id="session-history" hidden>
@@ -26,6 +31,41 @@
 
   <main id="main-layout">
     <aside id="release-list"></aside>
+
+    <section id="unrecognized-panel" hidden>
+      <h2 id="unrecognized-title"></h2>
+      <p>Recognition could not place this folder automatically. It is not silently skipped -
+        it still needs a decision, either an <code>overrides.json</code> entry (below) or a manual
+        move.</p>
+      <table id="unrecognized-fields">
+        <tbody>
+          <tr><th>Path</th><td id="unrecognized-path"></td></tr>
+          <tr><th>Reason</th><td id="unrecognized-reason"></td></tr>
+        </tbody>
+      </table>
+      <h3>Files in this folder</h3>
+      <ul id="unrecognized-children"></ul>
+
+      <h3>Suggested override</h3>
+      <div id="unrecognized-override-fields">
+        <label>Kind
+          <select id="unrecognized-override-kind">
+            <option value="artist">artist</option>
+            <option value="grouping">grouping</option>
+            <option value="category">category</option>
+            <option value="band-member">band-member</option>
+          </select>
+        </label>
+        <label id="unrecognized-artist-name-field">Artist name
+          <input type="text" id="unrecognized-override-artist-name" />
+        </label>
+      </div>
+      <pre id="unrecognized-override-json"></pre>
+      <button id="unrecognized-copy-btn" type="button">Copy JSON</button>
+      <span id="unrecognized-copy-status"></span>
+      <p>Add this entry to that source root's <code>overrides.json</code> (see README's "Reference:
+        overrides file"), then re-run <code>Reshelf.ps1 recognize -SourceRoot &lt;path&gt;</code>.</p>
+    </section>
 
     <section id="detail-panel" hidden>
       <div id="save-row-top">
@@ -103,6 +143,32 @@
       </div>
     </section>
   </main>
+
+  <section id="lossy-view" hidden>
+    <div id="lossy-toolbar">
+      <label>Status
+        <select id="lossy-filter-status">
+          <option value="">All</option>
+          <option value="pending-upgrade">pending-upgrade</option>
+          <option value="upgraded">upgraded</option>
+          <option value="ignored">ignored</option>
+        </select>
+      </label>
+      <button id="lossy-export-csv-btn" type="button">Export CSV</button>
+      <button id="lossy-export-json-btn" type="button">Export JSON</button>
+      <span id="lossy-status"></span>
+    </div>
+    <table id="lossy-table">
+      <thead>
+        <tr>
+          <th>Artist</th><th>Album</th><th>Year</th><th>Format</th><th>Status</th>
+          <th>Target path</th><th>First detected</th><th>Last checked</th><th>Notes</th><th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p id="lossy-empty" hidden>No lossy-tracking entries.</p>
+  </section>
 
   <dialog id="cover-modal">
     <img id="cover-modal-img" alt="" />

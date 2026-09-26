@@ -178,6 +178,34 @@ Describe 'Get-ReshelfUiApiRoute' {
     It 'returns $null for an unsupported verb on a known path' {
         Get-ReshelfUiApiRoute -Method 'DELETE' -Path '/api/sessions/2026-09-25-0001/proposal' | Should -Be $null
     }
+
+    It 'routes GET /api/naming-templates' {
+        (Get-ReshelfUiApiRoute -Method 'GET' -Path '/api/naming-templates').Action | Should -Be 'NamingTemplates'
+    }
+
+    It 'routes GET /api/lossy to ListLossy' {
+        (Get-ReshelfUiApiRoute -Method 'GET' -Path '/api/lossy').Action | Should -Be 'ListLossy'
+    }
+
+    It 'routes PUT /api/lossy/{stableKey} to UpdateLossy with the stable key' {
+        $route = Get-ReshelfUiApiRoute -Method 'PUT' -Path '/api/lossy/a1b2c3d4e5f60708'
+        $route.Action | Should -Be 'UpdateLossy'
+        $route.StableKey | Should -Be 'a1b2c3d4e5f60708'
+    }
+
+    It 'routes DELETE /api/lossy/{stableKey} to DeleteLossy with the stable key' {
+        $route = Get-ReshelfUiApiRoute -Method 'DELETE' -Path '/api/lossy/a1b2c3d4e5f60708'
+        $route.Action | Should -Be 'DeleteLossy'
+        $route.StableKey | Should -Be 'a1b2c3d4e5f60708'
+    }
+
+    It 'returns $null for a lossy stable key that is not 16 lowercase hex characters' {
+        Get-ReshelfUiApiRoute -Method 'PUT' -Path '/api/lossy/not-a-real-key' | Should -Be $null
+    }
+
+    It 'returns $null for GET on the lossy stable-key path (no such route)' {
+        Get-ReshelfUiApiRoute -Method 'GET' -Path '/api/lossy/a1b2c3d4e5f60708' | Should -Be $null
+    }
 }
 
 Describe 'Get-ReshelfUiSessionsSummary / Get-ReshelfUiCurrentSession' {
