@@ -1213,6 +1213,37 @@ Describe 'Invoke-ReshelfImplementation' {
         $ledgerEntry.upgradedUtc | Should -Not -BeNullOrEmpty
     }
 
+    It 'corrects the lossy-tracking targetPath to the committed path on a log-for-upgrade release, but not under -WhatIf' {
+        # Step 6 logged the proposed path; a folder name edited in the UI afterwards must not leave the
+        # ledger pointing at a folder that was never created.
+        $staleTargetPath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+        Add-TestLossyEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'Some Band' -Album 'Some Album' -Year 2010 `
+            -TargetPath $staleTargetPath -Format 'mp3' -DataHome $script:dataHome
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.mp3')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.mp3' -Format 'mp3' -IsLossless $false
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album (Edited)' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -IsLossy $true -LossyAction 'log-for-upgrade'
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -WhatIf | Out-Null
+        (Get-TestLossyEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome).targetPath | Should -Be $staleTargetPath
+
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+        $result.Applied | Should -Be 1
+
+        $committedPath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album (Edited)'
+        Test-Path -LiteralPath (Join-Path $committedPath '01 Track.mp3') | Should -Be $true
+        $ledgerEntry = Get-TestLossyEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $ledgerEntry.targetPath | Should -Be $committedPath
+        $ledgerEntry.status | Should -Be 'pending-upgrade'
+    }
+
     It 'skips an ambiguous unresolved release by default and includes it with -IncludeUnresolved' {
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'

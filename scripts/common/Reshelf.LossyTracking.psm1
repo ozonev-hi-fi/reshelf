@@ -84,6 +84,9 @@ function Add-ReshelfLossyTrackingEntry {
 
     if ($existing) {
         $existing.lastCheckedUtc = $nowUtc
+        # targetPath is the latest known location, not a first-sighting snapshot - targetRoot or the
+        # naming templates can change between runs, and a stale path here points at nothing.
+        $existing.targetPath = $TargetPath
     }
     else {
         $ledger = @($ledger) + [pscustomobject]@{
@@ -140,6 +143,37 @@ function Set-ReshelfLossyTrackingUpgraded {
     return $ledger
 }
 
+function Set-ReshelfLossyTrackingTargetPath {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [Parameter(Mandatory)]
+        [string]$TargetPath,
+
+        [string]$DataHome
+    )
+
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
+
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
+    $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+
+    if (-not $existing) {
+        Write-Warning "No lossy-tracking entry found for stable key '$StableKey' - nothing to update."
+        return $ledger
+    }
+
+    $existing.targetPath = $TargetPath
+
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+
+    return $ledger
+}
+
 function Set-ReshelfLossyTrackingIgnored {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -169,4 +203,4 @@ function Set-ReshelfLossyTrackingIgnored {
 }
 
 Export-ModuleMember -Function Get-ReshelfLossyTrackingLedger, Get-ReshelfLossyTrackingEntry, Add-ReshelfLossyTrackingEntry, `
-    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingIgnored
+    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingTargetPath, Set-ReshelfLossyTrackingIgnored

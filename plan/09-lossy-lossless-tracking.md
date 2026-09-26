@@ -24,7 +24,7 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
     "artist": "ZZ Top",
     "album": "XXX",
     "year": 1999,
-    "targetPath": "E:\\Music\\ZZ Top\\1999 XXX",
+    "targetPath": "E:\\Music\\ZZ Top\\1999 XXX",  // latest known location, refreshed on every sighting
     "format": "mp3",
     "status": "pending-upgrade",   // pending-upgrade | upgraded | ignored
     "firstDetectedUtc": "2026-09-19T10:00:00Z",
@@ -39,13 +39,21 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
 
 - **Step 6** adds a new entry (`status: "pending-upgrade"`) whenever it
   proposes a `create-new` for a release whose source format is lossy, or
-  updates `lastCheckedUtc` if the entry already exists.
+  updates `lastCheckedUtc` (and `targetPath`, to the *proposed* path) if the
+  entry already exists.
 - **Step 6** also detects the upgrade case: an existing target entry is
   `pending-upgrade` and the newly recognized source for the same
   `stableKey` is lossless → sets `lossyLossless.action = "replace-existing"`
   in `proposal.json`.
 - **Step 8**, after successfully applying a `replace-existing` release,
-  updates that entry to `status: "upgraded"`, `upgradedUtc = now`.
+  updates that entry to `status: "upgraded"`, `upgradedUtc = now`. After
+  successfully applying any other lossy release (`action: "log-for-upgrade"`),
+  it corrects `targetPath` to the path actually committed to
+  (`Reshelf.LossyTracking.psm1`'s `Set-ReshelfLossyTrackingTargetPath`) — this
+  can differ from what Step 6 proposed, e.g. a release folder name edited in
+  the [editing UI](07-editing-ui-module.md) between propose and apply, or
+  truncation from [10](10-error-handling-and-edge-cases.md)'s path-length
+  handling. `-WhatIf` skips this, like every other write in Step 8.
 
 ### CLI helpers
 

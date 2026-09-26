@@ -888,6 +888,14 @@ function Invoke-ReshelfImplementation {
                         Set-ReshelfLossyTrackingUpgraded -StableKey $release.stableKey -DataHome $DataHome | Out-Null
                     }
                 }
+                elseif ($release.lossyLossless.action -eq 'log-for-upgrade') {
+                    # Step 6 logged the *proposed* path; the committed one can differ (a folder name
+                    # edited in the UI, or path truncation), so the ledger is corrected to the real one.
+                    if ($PSCmdlet.ShouldProcess($release.stableKey, 'Update lossy-tracking entry target path')) {
+                        Set-ReshelfLossyTrackingTargetPath -StableKey $release.stableKey -TargetPath $stagingResult.TargetPath `
+                            -DataHome $DataHome | Out-Null
+                    }
+                }
 
                 if ($PSCmdlet.ShouldProcess($release.stableKey, 'Record apply-log entry')) {
                     Add-ReshelfApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'applied' `

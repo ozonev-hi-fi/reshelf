@@ -98,7 +98,7 @@ Describe 'Add-ReshelfLossyTrackingEntry' {
         $entry.upgradedUtc | Should -BeNullOrEmpty
     }
 
-    It 'updates only lastCheckedUtc on a second call for the same stable key' {
+    It 'updates lastCheckedUtc but keeps firstDetectedUtc on a second call for the same stable key' {
         $first = Get-Date '2026-09-19T10:00:00Z'
         $second = Get-Date '2026-09-20T11:00:00Z'
 
@@ -114,6 +114,21 @@ Describe 'Add-ReshelfLossyTrackingEntry' {
         # even for the same instant, so both sides are normalized to UTC before comparing.
         ([datetime]$entry.firstDetectedUtc).ToUniversalTime() | Should -Be $first.ToUniversalTime()
         ([datetime]$entry.lastCheckedUtc).ToUniversalTime() | Should -Be $second.ToUniversalTime()
+    }
+
+    It 'replaces a stale targetPath on a later sighting but keeps status and firstDetectedUtc' {
+        $first = Get-Date '2026-09-19T10:00:00Z'
+
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\OldRoot\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome -Now $first | Out-Null
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        $entry = Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+
+        $entry.targetPath | Should -Be 'E:\Music\ZZ Top\1999 XXX'
+        $entry.status | Should -Be 'pending-upgrade'
+        ([datetime]$entry.firstDetectedUtc).ToUniversalTime() | Should -Be $first.ToUniversalTime()
     }
 
     It 'leaves a pre-seeded ignored entry as ignored' {
@@ -153,6 +168,46 @@ Describe 'Add-ReshelfLossyTrackingEntry' {
     It 'writes a ledger file that validates against the lossy-tracking schema' {
         Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
             -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        $ledgerPath = Join-Path $script:dataHome 'lossy-tracking.json'
+        Test-LossyTrackingDocumentJson -Path $ledgerPath | Should -Be $true
+    }
+}
+
+Describe 'Set-ReshelfLossyTrackingTargetPath' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
+    }
+
+    It 'sets targetPath for an existing entry and leaves status unchanged' {
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        Set-ReshelfLossyTrackingTargetPath -StableKey 'a1b2c3d4e5f60708' -TargetPath 'E:\Music\ZZ Top\1999 XXX (Edited)' `
+            -DataHome $script:dataHome | Out-Null
+
+        $entry = Get-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.targetPath | Should -Be 'E:\Music\ZZ Top\1999 XXX (Edited)'
+        $entry.status | Should -Be 'pending-upgrade'
+    }
+
+    It 'warns and returns the ledger unchanged when the stable key does not exist' {
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+
+        $result = Set-ReshelfLossyTrackingTargetPath -StableKey 'doesnotexist0000' -TargetPath 'E:\Elsewhere' `
+            -DataHome $script:dataHome -WarningAction SilentlyContinue
+
+        @($result).Count | Should -Be 1
+        $result[0].targetPath | Should -Be 'E:\Music\ZZ Top\1999 XXX'
+    }
+
+    It 'writes a ledger file that validates against the lossy-tracking schema' {
+        Add-ReshelfLossyTrackingEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'ZZ Top' -Album 'XXX' -Year 1999 `
+            -TargetPath 'E:\Music\ZZ Top\1999 XXX' -Format 'mp3' -DataHome $script:dataHome | Out-Null
+        Set-ReshelfLossyTrackingTargetPath -StableKey 'a1b2c3d4e5f60708' -TargetPath 'E:\Music\ZZ Top\1999 XXX (Edited)' `
+            -DataHome $script:dataHome | Out-Null
 
         $ledgerPath = Join-Path $script:dataHome 'lossy-tracking.json'
         Test-LossyTrackingDocumentJson -Path $ledgerPath | Should -Be $true
