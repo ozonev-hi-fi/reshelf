@@ -7,34 +7,34 @@ session state — the configuration every other module reads before doing
 anything. Matches manifesto §7 module 1. `copyMode` only ever accepts
 `"copy"` — a "move" mode existed briefly and was removed after it destroyed
 source releases with no other backup; source files are always read-only to
-Tagger.
+Reshelf.
 
 ## Inputs / outputs
 
 - Input: `config/settings.default.json` (template), user input on first run.
-- Output: real `settings.json` under `TAGGER_HOME`; `session.json` per run
+- Output: real `settings.json` under `RESHELF_HOME`; `session.json` per run
   (schemas in [03](03-domain-model-and-json-schemas.md)).
 
 ## Detailed design
 
-### `Tagger.Settings.psm1` functions
+### `Reshelf.Settings.psm1` functions
 
-`Resolve-TaggerDataHome` is defined in `Tagger.Common.psm1` (step 1), not here —
-`Tagger.Settings.psm1` imports it rather than redefining it.
+`Resolve-ReshelfDataHome` is defined in `Reshelf.Common.psm1` (step 1), not here —
+`Reshelf.Settings.psm1` imports it rather than redefining it.
 
-- `Get-TaggerSettings` — reads `settings.json` from the data home; if missing,
-  triggers `Initialize-TaggerSettings`.
-- `Initialize-TaggerSettings` — interactive first-run wizard: prompts for
+- `Get-ReshelfSettings` — reads `settings.json` from the data home; if missing,
+  triggers `Initialize-ReshelfSettings`.
+- `Initialize-ReshelfSettings` — interactive first-run wizard: prompts for
   target root (required), default source root (optional), copy-vs-move
   (default `copy`).
-- `Set-TaggerSettings -Key ... -Value ...` — updates and persists one setting.
+- `Set-ReshelfSettings -Key ... -Value ...` — updates and persists one setting.
 
-### CLI shape (`Tagger.ps1`)
+### CLI shape (`Reshelf.ps1`)
 
-- `Tagger.ps1 settings show`
-- `Tagger.ps1 settings init`
-- `Tagger.ps1 settings set -Key targetRoot -Value E:\Music`
-- `Tagger.ps1 recognize [-SourceRoot <path>] [-SaveAsDefault]` — matches the
+- `Reshelf.ps1 settings show`
+- `Reshelf.ps1 settings init`
+- `Reshelf.ps1 settings set -Key targetRoot -Value E:\Music`
+- `Reshelf.ps1 recognize [-SourceRoot <path>] [-SaveAsDefault]` — matches the
   manifesto's `/run c:\downloads\folder` example (§3): `-SourceRoot` overrides
   `defaultSourceRoot` for this run only, unless `-SaveAsDefault` is passed.
 
@@ -54,19 +54,19 @@ the manifesto's standard 2 digits unless the setting is raised.
 
 ### Session persistence
 
-- `New-TaggerSession -SourceRoot <path>` — creates `session.json` with a
+- `New-ReshelfSession -SourceRoot <path>` — creates `session.json` with a
   generated `sessionId` (e.g. `yyyy-MM-dd-NNNN`), `stage = "recognized"` once
   step 5 finishes.
-- `Resume-TaggerSession -SessionId <id>` — loads `session.json`, prints the
+- `Resume-ReshelfSession -SessionId <id>` — loads `session.json`, prints the
   current `stage` and the next command to run (see
   [10](10-error-handling-and-edge-cases.md) for the full resume flow).
-- `Set-TaggerSessionStage -SessionId <id> -Stage <stage>` — sets any stage
+- `Set-ReshelfSessionStage -SessionId <id> -Stage <stage>` — sets any stage
   (`recognized`/`proposed`/`reviewed`/`applied`/`partially-applied`); every
   module that finishes a step calls this itself. A separate
-  `Complete-TaggerSession` (fixed to `stage = "applied"`) existed briefly but
-  was removed as dead code — nothing called it and `Set-TaggerSessionStage`
+  `Complete-ReshelfSession` (fixed to `stage = "applied"`) existed briefly but
+  was removed as dead code — nothing called it and `Set-ReshelfSessionStage`
   already covers the same case.
-- CLI: `Tagger.ps1 session list|resume|show|mark-reviewed`.
+- CLI: `Reshelf.ps1 session list|resume|show|mark-reviewed`.
 
 ## Decisions & rationale
 
@@ -81,7 +81,7 @@ the manifesto's standard 2 digits unless the setting is raised.
 ## Edge cases
 
 - First run with no `settings.json` and no interactive terminal (e.g. run from
-  a scheduled task) → `Initialize-TaggerSettings` fails fast with a clear
+  a scheduled task) → `Initialize-ReshelfSettings` fails fast with a clear
   error instead of hanging on a prompt.
 - `targetRoot` not writable → fail fast at settings load time, not partway
   through Implementation.
@@ -92,9 +92,9 @@ None beyond step 1's scaffolding.
 
 ## Definition of done
 
-- `Tagger.ps1 settings init` produces a valid `settings.json` matching
+- `Reshelf.ps1 settings init` produces a valid `settings.json` matching
   `schemas/settings.schema.json`.
-- `Tagger.ps1 recognize -SourceRoot D:\test` uses `D:\test` for that run
+- `Reshelf.ps1 recognize -SourceRoot D:\test` uses `D:\test` for that run
   without changing `defaultSourceRoot`.
-- `Tagger.ps1 session resume <id>` correctly reports the next step for a
+- `Reshelf.ps1 session resume <id>` correctly reports the next step for a
   session at each possible `stage` value.

@@ -10,30 +10,30 @@ because later files reference these paths and tools by name.
 
 - Input: none (first step).
 - Output: repo folder structure, a list of externally-installed tools, and the
-  `TAGGER_HOME` data-directory convention used everywhere else.
+  `RESHELF_HOME` data-directory convention used everywhere else.
 
 ## Detailed design
 
 ### Repo tree
 
 ```
-tagger/
+reshelf/
   MANIFESTO.md
   plan/                          (this folder)
   scripts/
     common/
-      Tagger.Common.psm1         path/hashing/logging helpers
-      Tagger.Settings.psm1       see 04-settings-module.md
-      Tagger.Discogs.psm1        see 02-discogs-account-and-api-access.md
-      Tagger.Json.psm1           schema validation helpers (Test-Json wrappers)
-      Tagger.Recognition.psm1    see 05-recognition-module.md
+      Reshelf.Common.psm1         path/hashing/logging helpers
+      Reshelf.Settings.psm1       see 04-settings-module.md
+      Reshelf.Discogs.psm1        see 02-discogs-account-and-api-access.md
+      Reshelf.Json.psm1           schema validation helpers (Test-Json wrappers)
+      Reshelf.Recognition.psm1    see 05-recognition-module.md
     01-recognition/
       Invoke-Recognition.ps1
     02-edit-proposal/
       Invoke-EditProposal.ps1
     03-implementation/
       Invoke-Implementation.ps1
-    Tagger.ps1                   dispatcher: settings|session|recognize|propose|apply|lossy
+    Reshelf.ps1                   dispatcher: settings|session|recognize|propose|apply|lossy
   ui/
     index.html
     app.js
@@ -61,8 +61,8 @@ All *user data* — real settings, sessions, generated `recognition.json` /
 in a folder that is never tracked by git:
 
 - Default: `.data/` inside the repo root
-- Override: `TAGGER_HOME` environment variable (any location, inside or outside the repo)
-- Resolved by `Resolve-TaggerDataHome` in `Tagger.Common.psm1` (see [04](04-settings-module.md))
+- Override: `RESHELF_HOME` environment variable (any location, inside or outside the repo)
+- Resolved by `Resolve-ReshelfDataHome` in `Reshelf.Common.psm1` (see [04](04-settings-module.md))
 
 Reason: real music folder paths, a Discogs token, and session state are
 machine-specific and must never end up in git history — but keeping the
@@ -71,7 +71,7 @@ keeps everything for one project in one place.
 
 ### External tools to install manually
 
-These are installed once, by hand, on the machine that runs Tagger — not
+These are installed once, by hand, on the machine that runs Reshelf — not
 automated by any script, since this is a personal single-user tool:
 
 | Tool | Purpose | Used by |
@@ -134,11 +134,11 @@ cross-cutting concerns.
 1. Install PowerShell 7, ffmpeg.
 2. Install Pester 5 and PSScriptAnalyzer (`Install-Module Pester -MinimumVersion 5.0`, `Install-Module PSScriptAnalyzer`).
 3. Create the folder tree above.
-4. Set `TAGGER_HOME` if the default `.data/` folder inside the repo isn't wanted.
+4. Set `RESHELF_HOME` if the default `.data/` folder inside the repo isn't wanted.
 
 ## Definition of done
 
 - Folder tree exists and matches the layout above.
 - `ffmpeg` resolves on `PATH` or via a documented full path in `settings.json`,
   callable from a fresh `pwsh` shell.
-- `Resolve-TaggerDataHome` returns a real, writable directory.
+- `Resolve-ReshelfDataHome` returns a real, writable directory.

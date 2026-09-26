@@ -3,13 +3,13 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Common.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Recognition.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.EditProposal.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Common.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Settings.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Recognition.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Discogs.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.EditProposal.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Implementation.psm1" -Force
     Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
 
     $script:FixturesDir = (Resolve-Path "$PSScriptRoot/fixtures/sample-source-tree").Path
@@ -48,7 +48,7 @@ BeforeAll {
         return (@($lines | Sort-Object -Culture 'en-US') -join "`n")
     }
 
-    # Golden-file compare. $env:TAGGER_UPDATE_GOLDEN = '1' rewrites the file instead (then review
+    # Golden-file compare. $env:RESHELF_UPDATE_GOLDEN = '1' rewrites the file instead (then review
     # the change with 'git diff' before committing it - a regenerated golden file is only as correct
     # as the review it got).
     function Assert-Golden {
@@ -57,16 +57,16 @@ BeforeAll {
             [Parameter(Mandatory)] [AllowEmptyString()] [string]$Actual
         )
         $goldenPath = Join-Path $script:ExpectedDir $Name
-        if ($env:TAGGER_UPDATE_GOLDEN -eq '1') {
+        if ($env:RESHELF_UPDATE_GOLDEN -eq '1') {
             New-Item -ItemType Directory -Path $script:ExpectedDir -Force | Out-Null
             [System.IO.File]::WriteAllText($goldenPath, "$Actual`n", [System.Text.UTF8Encoding]::new($false))
             return
         }
         if (-not (Test-Path -LiteralPath $goldenPath)) {
-            throw "Golden file '$goldenPath' is missing. Run the tests once with `$env:TAGGER_UPDATE_GOLDEN = '1' to create it, then review it."
+            throw "Golden file '$goldenPath' is missing. Run the tests once with `$env:RESHELF_UPDATE_GOLDEN = '1' to create it, then review it."
         }
         $expected = ((Get-Content -LiteralPath $goldenPath -Raw) -replace "`r`n", "`n").TrimEnd("`n")
-        $Actual | Should -BeExactly $expected -Because "output must match golden file '$Name' (set TAGGER_UPDATE_GOLDEN=1 to regenerate, then review with git diff)"
+        $Actual | Should -BeExactly $expected -Because "output must match golden file '$Name' (set RESHELF_UPDATE_GOLDEN=1 to regenerate, then review with git diff)"
     }
 }
 
@@ -74,16 +74,16 @@ BeforeAll {
 # sample-source-tree fixture, closing the plan/11 gap that only Recognition was ever exercised
 # against the whole tree in one run. Discogs is mocked to always return zero search results (every
 # release resolves to discogsMatch.status = 'not-found'), which keeps proposed names deterministic
-# (falls back to the recognized names - see New-TaggerProposedReleaseNames in Tagger.EditProposal.psm1)
+# (falls back to the recognized names - see New-ReshelfProposedReleaseNames in Reshelf.EditProposal.psm1)
 # instead of collapsing every distinct release onto one mocked Discogs release. ffmpeg/TagLibSharp
-# calls are mocked the same way Tagger.Implementation.Tests.ps1 already does, since the fixture
+# calls are mocked the same way Reshelf.Implementation.Tests.ps1 already does, since the fixture
 # audio files are 0-byte dummies never meant to be opened by a real tag/audio library.
 Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     BeforeAll {
         # Title is $null, like a real untagged file: the fixture files are 0-byte dummies with no
         # tags, and a non-null Title here would stop EditProposal from ever using its real
         # filename-parsing fallback (it would propose "01 01 - Track One.flac" from a fake title).
-        Mock -ModuleName Tagger.Recognition Get-TaggerAudioTags {
+        Mock -ModuleName Reshelf.Recognition Get-ReshelfAudioTags {
             param($Path, $TagLibSharpPath, $DataHome)
             $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
             return @{
@@ -97,20 +97,20 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
             }
         }
 
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             [pscustomobject]@{ results = @() }
         }
 
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegSplit {
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegSplit {
             Set-Content -LiteralPath $OutputPath -Value 'split' -NoNewline
         }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize {
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize {
             Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline
         }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload {
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload {
             Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline
         }
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { }
 
         function Get-PipelineRelease {
             param(
@@ -132,13 +132,13 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         New-Item -ItemType Directory -Path $script:sourceRoot -Force | Out-Null
         Copy-Item -Path (Join-Path $FixturesDir '*') -Destination $script:sourceRoot -Recurse -Force
 
-        $script:session = New-TaggerSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $script:session = New-ReshelfSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
         $script:sessionId = $script:session.sessionId
 
-        Invoke-TaggerRecognition -SourceRoot $script:sourceRoot -SessionId $script:sessionId -DataHome $script:dataHome | Out-Null
+        Invoke-ReshelfRecognition -SourceRoot $script:sourceRoot -SessionId $script:sessionId -DataHome $script:dataHome | Out-Null
         $script:recognitionPath = Join-Path $script:dataHome 'sessions' $script:sessionId 'recognition.json'
 
-        $script:proposalResult = Invoke-TaggerEditProposal -SessionId $script:sessionId -RecognitionPath $script:recognitionPath `
+        $script:proposalResult = Invoke-ReshelfEditProposal -SessionId $script:sessionId -RecognitionPath $script:recognitionPath `
             -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $script:proposalPath = Join-Path $script:dataHome 'sessions' $script:sessionId 'proposal.json'
     }
@@ -158,7 +158,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $releases = @($script:proposalResult.artists.releases)
         ($releases.humanReview.required) | Should -Not -Contain $false
 
-        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 0
@@ -170,7 +170,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $roots = @($script:sourceRoot, $script:dataHome, $script:targetRoot)
         $before = Get-TreeSnapshot -Path $roots
 
-        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved -WhatIf
 
         Get-TreeSnapshot -Path $roots | Should -Be $before
@@ -180,25 +180,25 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     }
 
     It 'a real -IncludeUnresolved run produces the correct target layout for every planted pattern, and a re-run is a no-op' {
-        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
 
         $result.Failed | Should -Be 0
         $result.Applied | Should -BeGreaterThan 0
 
         # Normal single-disc release. Its loose "cover.jpg" companion is also the release's only
-        # cover-art candidate: it is both embedded into each track's tags (Invoke-TaggerFfmpegResize
+        # cover-art candidate: it is both embedded into each track's tags (Invoke-ReshelfFfmpegResize
         # reads it directly, since a local sourcePath - unlike a Discogs URL - needs no separate
         # download step first) and copied to the target as the ordinary loose companion it also is
         # (manifesto section 4.5) - only the tool's own resize working file
-        # (".tagger-cover-resized.jpg") gets cleaned up, matching the same working-file-cleanup
-        # contract covered in Tagger.Implementation.Tests.ps1.
+        # (".reshelf-cover-resized.jpg") gets cleaned up, matching the same working-file-cleanup
+        # contract covered in Reshelf.Implementation.Tests.ps1.
         $xxx = Get-PipelineRelease -ArtistName 'ZZ Top' -RecognizedTitle 'XXX'
         $xxxPath = Join-Path $script:targetRoot $xxx.proposed.artistFolderName $xxx.proposed.releaseFolderName
         Test-Path -LiteralPath $xxxPath | Should -Be $true
         (Get-ChildItem -LiteralPath $xxxPath -Filter '*.flac').Count | Should -Be 2
         Test-Path -LiteralPath (Join-Path $xxxPath 'cover.jpg') | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $xxxPath '.tagger-cover-resized.jpg') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $xxxPath '.reshelf-cover-resized.jpg') | Should -Be $false
         Test-Path -LiteralPath (Join-Path $xxxPath 'cover-source.download') | Should -Be $false
 
         # Multi-disc release: continuous cross-disc file numbering, no CD1/CD2 subfolders in the
@@ -222,7 +222,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         Test-Path -LiteralPath $dbPath | Should -Be $true
 
         # Cue + single-file release: split into per-track files; the cue/source is read-only to
-        # Tagger and must survive in the (copied) source root, same as the checked-in fixture.
+        # Reshelf and must survive in the (copied) source root, same as the checked-in fixture.
         $pinkFloyd = $script:proposalResult.artists | Where-Object { $_.recognizedName -eq 'Pink Floyd' }
         $liveInConcert = $pinkFloyd.releases[0]
         $licPath = Join-Path $script:targetRoot $liveInConcert.proposed.artistFolderName $liveInConcert.proposed.releaseFolderName
@@ -231,7 +231,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         Test-Path -LiteralPath (Join-Path $FixturesDir 'Pink Floyd' '1994 Live In Concert (Bootleg)' 'Live In Concert.cue') | Should -Be $true
 
         # Re-running the whole chain unchanged resolves every applied release to a no-op.
-        $rerun = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $rerun = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
 
         $rerun.Applied | Should -Be 0
@@ -240,26 +240,26 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     }
 
     It 're-running propose after a real apply resolves every applied release to skip-existing-identical, not conflict' {
-        # Regression test for a bug where Get-TaggerFileSetHash (name|size) never matches again
-        # after Implementation has renamed every file and rewritten its tags - Resolve-TaggerTargetComparison
-        # (Tagger.EditProposal.psm1) must instead trust a valid apply-log.json entry, exactly like
-        # Test-TaggerReleaseNeedsApply (Tagger.Implementation.psm1) already does for apply itself.
-        $applyResult = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        # Regression test for a bug where Get-ReshelfFileSetHash (name|size) never matches again
+        # after Implementation has renamed every file and rewritten its tags - Resolve-ReshelfTargetComparison
+        # (Reshelf.EditProposal.psm1) must instead trust a valid apply-log.json entry, exactly like
+        # Test-ReshelfReleaseNeedsApply (Reshelf.Implementation.psm1) already does for apply itself.
+        $applyResult = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $applyResult.Failed | Should -Be 0
         $applyResult.Applied | Should -BeGreaterThan 0
 
         # A real second session (not just a synthetic session id), matching what a real re-run of
-        # 'Tagger.ps1 recognize' would produce - Invoke-TaggerImplementation's own Set-TaggerSessionStage
+        # 'Reshelf.ps1 recognize' would produce - Invoke-ReshelfImplementation's own Set-ReshelfSessionStage
         # call needs a real session.json to update. Recognition itself isn't re-run: the source is
         # unchanged, and this test is specifically about propose's target comparison, not recognition.
-        $rerunSession = New-TaggerSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $rerunSession = New-ReshelfSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
         $rerunSessionId = $rerunSession.sessionId
-        $rerunProposal = Invoke-TaggerEditProposal -SessionId $rerunSessionId -RecognitionPath $script:recognitionPath `
+        $rerunProposal = Invoke-ReshelfEditProposal -SessionId $rerunSessionId -RecognitionPath $script:recognitionPath `
             -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $rerunReleases = @($rerunProposal.artists.releases)
 
-        $appliedStableKeys = @(Get-TaggerApplyLog -DataHome $script:dataHome | Where-Object { $_.status -eq 'applied' } | Select-Object -ExpandProperty stableKey)
+        $appliedStableKeys = @(Get-ReshelfApplyLog -DataHome $script:dataHome | Where-Object { $_.status -eq 'applied' } | Select-Object -ExpandProperty stableKey)
         $appliedStableKeys.Count | Should -Be $applyResult.Applied
 
         foreach ($stableKey in $appliedStableKeys) {
@@ -267,7 +267,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
             $release.targetAction | Should -Be 'skip-existing-identical' -Because "release '$stableKey' was already applied unchanged and must not be re-proposed as a conflict"
         }
 
-        $rerunApply = Invoke-TaggerImplementation -SessionId $rerunSessionId -ProposalPath (Join-Path $script:dataHome 'sessions' $rerunSessionId 'proposal.json') `
+        $rerunApply = Invoke-ReshelfImplementation -SessionId $rerunSessionId -ProposalPath (Join-Path $script:dataHome 'sessions' $rerunSessionId 'proposal.json') `
             -TargetRoot $script:targetRoot -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $rerunApply.Applied | Should -Be 0
         $rerunApply.Failed | Should -Be 0
@@ -289,7 +289,7 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
     }
 
     It 'target layout after a real -IncludeUnresolved run matches the golden file' {
-        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $result.Failed | Should -Be 0
 

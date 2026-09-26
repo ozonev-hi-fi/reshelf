@@ -3,7 +3,7 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Discogs.psm1" -Force
 
     $script:SearchFixture = Get-Content -LiteralPath "$PSScriptRoot/fixtures/discogs-responses/search-response.json" -Raw | ConvertFrom-Json
 
@@ -12,10 +12,10 @@ BeforeAll {
         return [Microsoft.PowerShell.Commands.HttpResponseException]::new('Unauthorized', $httpResponse)
     }
 
-    # Tagger.Discogs.psm1 re-imports Tagger.Common.psm1 internally as part of loading, which turns
-    # it into a nested module of Tagger.Discogs - PowerShell then hides its commands from this
-    # script's own top-level scope (same gotcha noted in Tagger.EditProposal.Tests.ps1 and
-    # Tagger.LossyTracking.Tests.ps1). Routing through Discogs' own module scope, which always has
+    # Reshelf.Discogs.psm1 re-imports Reshelf.Common.psm1 internally as part of loading, which turns
+    # it into a nested module of Reshelf.Discogs - PowerShell then hides its commands from this
+    # script's own top-level scope (same gotcha noted in Reshelf.EditProposal.Tests.ps1 and
+    # Reshelf.LossyTracking.Tests.ps1). Routing through Discogs' own module scope, which always has
     # it, avoids that fragility.
     function Get-TestProtectedSecret {
         param(
@@ -23,9 +23,9 @@ BeforeAll {
             [string]$PlainText
         )
 
-        return InModuleScope Tagger.Discogs -Parameters @{ p = $PlainText } {
+        return InModuleScope Reshelf.Discogs -Parameters @{ p = $PlainText } {
             param($p)
-            Protect-TaggerSecret -PlainText $p
+            Protect-ReshelfSecret -PlainText $p
         }
     }
 }
@@ -36,7 +36,7 @@ Describe 'Get-DiscogsToken' {
         Remove-Item Env:\DISCOGS_ACCESS_TOKEN -ErrorAction SilentlyContinue
         # A non-existent data home for every test that doesn't care about settings.json, so
         # Get-DiscogsToken's discogsTokenEnvVar/DPAPI lookups never accidentally read this
-        # machine's real Tagger data home.
+        # machine's real Reshelf data home.
         $script:emptyDataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
     }
 
@@ -184,7 +184,7 @@ Describe 'Get-DiscogsToken' {
 
 Describe 'Get-DiscogsQueryPair' {
     It 'sorts keys and passes single values through' {
-        $pairs = InModuleScope Tagger.Discogs {
+        $pairs = InModuleScope Reshelf.Discogs {
             Get-DiscogsQueryPair -Query @{ q = 'Radiohead'; type = 'release' }
         }
 
@@ -192,7 +192,7 @@ Describe 'Get-DiscogsQueryPair' {
     }
 
     It 'repeats the key for each element of an array value instead of joining them into one string' {
-        $pairs = InModuleScope Tagger.Discogs {
+        $pairs = InModuleScope Reshelf.Discogs {
             Get-DiscogsQueryPair -Query @{ format = @('CD', 'Album') }
         }
 
@@ -287,9 +287,9 @@ Describe 'Invoke-DiscogsRequest' {
         $env:DISCOGS_ACCESS_TOKEN = 'test-token'
         $script:dataHome = Join-Path $TestDrive ([System.Guid]::NewGuid().ToString())
 
-        Mock -ModuleName Tagger.Discogs Start-Sleep {}
+        Mock -ModuleName Reshelf.Discogs Start-Sleep {}
 
-        InModuleScope Tagger.Discogs {
+        InModuleScope Reshelf.Discogs {
             $script:DiscogsRequestTimestamps = [System.Collections.Generic.List[datetime]]::new()
             $script:DiscogsLowRemainingSignal = $false
             $script:DiscogsCachePrunedDataHomes = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -297,7 +297,7 @@ Describe 'Invoke-DiscogsRequest' {
     }
 
     It 'physically deletes an expired cache entry from an earlier run on its first call for a data home' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
@@ -313,31 +313,31 @@ Describe 'Invoke-DiscogsRequest' {
     }
 
     It 'prunes only once per data home per process, not on every call' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
-        Mock -ModuleName Tagger.Discogs Remove-DiscogsExpiredCache { 0 }
+        Mock -ModuleName Reshelf.Discogs Remove-DiscogsExpiredCache { 0 }
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'one' } -DataHome $script:dataHome | Out-Null
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'two' } -DataHome $script:dataHome | Out-Null
 
-        Should -Invoke -ModuleName Tagger.Discogs Remove-DiscogsExpiredCache -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Remove-DiscogsExpiredCache -Times 1 -Exactly
     }
 
     It 'calls the HTTP wrapper on a cache miss and writes a cache file' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
         $result = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome
 
         $result.results.Count | Should -Be 2
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
         (Get-ChildItem -Path (Join-Path $script:dataHome 'cache' 'discogs') -Filter '*.json').Count | Should -Be 1
     }
 
     It 'reads from the cache on a second identical call instead of calling the HTTP wrapper again' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
@@ -345,11 +345,11 @@ Describe 'Invoke-DiscogsRequest' {
         $second = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome
 
         $second.results.Count | Should -Be 2
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
     }
 
     It 'bypasses a stale cache file and calls the HTTP wrapper again' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
@@ -360,21 +360,21 @@ Describe 'Invoke-DiscogsRequest' {
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -CacheTtlDays 1 -DataHome $script:dataHome | Out-Null
 
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 2 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 2 -Exactly
     }
 
     It 'throws on a 401 without retrying' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             throw Get-DiscogsUnauthorizedException
         }
 
         { Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome } | Should -Throw -ExpectedMessage '*401*'
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 1 -Exactly
     }
 
     It 'retries a transient failure and returns the result once it succeeds' {
         $script:callCount = 0
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             $script:callCount++
             if ($script:callCount -eq 1) {
                 throw 'The operation timed out.'
@@ -385,33 +385,33 @@ Describe 'Invoke-DiscogsRequest' {
         $result = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome
 
         $result.results.Count | Should -Be 2
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 2 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 2 -Exactly
     }
 
     It 'throws after exhausting all retry attempts on a persistent transient failure' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             throw 'The operation timed out.'
         }
 
         { Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome } | Should -Throw -ExpectedMessage '*failed after 3 attempts*'
-        Should -Invoke -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest -Times 3 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 3 -Exactly
     }
 
     It 'sleeps once the self-imposed per-minute ceiling is reached' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'one' } -RateLimitPerMinute 2 -DataHome $script:dataHome | Out-Null
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'two' } -RateLimitPerMinute 2 -DataHome $script:dataHome | Out-Null
-        Should -Invoke -ModuleName Tagger.Discogs Start-Sleep -Times 0 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -Times 0 -Exactly
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'three' } -RateLimitPerMinute 2 -DataHome $script:dataHome | Out-Null
-        Should -Invoke -ModuleName Tagger.Discogs Start-Sleep -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -Times 1 -Exactly
     }
 
     It 'does not crash when RateLimitPerMinute is 0' {
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }
 
@@ -420,46 +420,46 @@ Describe 'Invoke-DiscogsRequest' {
 
     It 'proactively throttles the next call after a low X-Discogs-Ratelimit-Remaining response' {
         $script:callCount = 0
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             $script:callCount++
             $headers = if ($script:callCount -eq 1) { @{ 'X-Discogs-Ratelimit-Remaining' = @('1') } } else { @{} }
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = $headers }
         }
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'one' } -DataHome $script:dataHome | Out-Null
-        Should -Invoke -ModuleName Tagger.Discogs Start-Sleep -Times 0 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -Times 0 -Exactly
 
         Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'two' } -DataHome $script:dataHome | Out-Null
-        Should -Invoke -ModuleName Tagger.Discogs Start-Sleep -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -Times 1 -Exactly
     }
 
     It 'resolves the data home itself when -DataHome is not supplied' {
-        $script:originalTaggerHome = $env:TAGGER_HOME
-        $env:TAGGER_HOME = Join-Path $TestDrive ([System.Guid]::NewGuid().ToString())
+        $script:originalReshelfHome = $env:RESHELF_HOME
+        $env:RESHELF_HOME = Join-Path $TestDrive ([System.Guid]::NewGuid().ToString())
 
         try {
-            Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+            Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
                 [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
             }
 
             $result = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' }
 
             $result.results.Count | Should -Be 2
-            (Get-ChildItem -Path (Join-Path $env:TAGGER_HOME 'cache' 'discogs') -Filter '*.json').Count | Should -Be 1
+            (Get-ChildItem -Path (Join-Path $env:RESHELF_HOME 'cache' 'discogs') -Filter '*.json').Count | Should -Be 1
         }
         finally {
-            if ($null -eq $script:originalTaggerHome) {
-                Remove-Item Env:\TAGGER_HOME -ErrorAction SilentlyContinue
+            if ($null -eq $script:originalReshelfHome) {
+                Remove-Item Env:\RESHELF_HOME -ErrorAction SilentlyContinue
             }
             else {
-                $env:TAGGER_HOME = $script:originalTaggerHome
+                $env:RESHELF_HOME = $script:originalReshelfHome
             }
         }
     }
 
     It 'sends repeated query-string keys for an array-valued query parameter' {
         $capturedUri = $null
-        Mock -ModuleName Tagger.Discogs Invoke-DiscogsHttpRequest {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
             $script:capturedUri = $Uri
             [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
         }

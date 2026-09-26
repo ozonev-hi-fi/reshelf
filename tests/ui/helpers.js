@@ -37,24 +37,24 @@ function seedSession(label) {
       '-Label',
       label,
     ],
-    { env: { ...process.env, TAGGER_HOME: state.dataHome }, encoding: 'utf-8' }
+    { env: { ...process.env, RESHELF_HOME: state.dataHome }, encoding: 'utf-8' }
   );
   return JSON.parse(output.trim());
 }
 
 /**
- * Runs `Tagger.ps1 apply -SessionId <id>` for real against the shared temp target root, exactly
+ * Runs `Reshelf.ps1 apply -SessionId <id>` for real against the shared temp target root, exactly
  * as a person would from a terminal. Returns the parsed {Applied, Skipped, Rejected, Failed}.
  */
 function runApply(sessionId) {
   const state = getState();
   const rawOutput = execFileSync(
     'pwsh',
-    ['-NoProfile', '-NoLogo', '-File', path.join(state.repoRoot, 'scripts', 'Tagger.ps1'), 'apply', '-SessionId', sessionId, '-IncludeUnresolved'],
+    ['-NoProfile', '-NoLogo', '-File', path.join(state.repoRoot, 'scripts', 'Reshelf.ps1'), 'apply', '-SessionId', sessionId, '-IncludeUnresolved'],
     // PSStyle: PowerShell 7.2+ writes ANSI color codes into Format-List output by default even
     // when stdout is redirected (not a real terminal) - NO_COLOR is the standard opt-out env var
     // it honors, so the captured text can be parsed as plain lines below.
-    { env: { ...process.env, TAGGER_HOME: state.dataHome, NO_COLOR: '1' }, encoding: 'utf-8' }
+    { env: { ...process.env, RESHELF_HOME: state.dataHome, NO_COLOR: '1' }, encoding: 'utf-8' }
   );
   const output = rawOutput.replace(/\x1b\[[0-9;]*m/g, '');
   const result = {};

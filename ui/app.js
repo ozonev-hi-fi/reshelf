@@ -12,7 +12,7 @@ function isDirty() {
   return state.dirtyReleaseKeys.size > 0;
 }
 
-// The local server (Start-TaggerUiServer.ps1) reads/writes proposal.json itself - it already has
+// The local server (Start-ReshelfUiServer.ps1) reads/writes proposal.json itself - it already has
 // full disk access as a PowerShell process, unlike the browser. This page never picks or opens a
 // folder; it just asks the server for JSON over fetch(), same as any other web page.
 
@@ -421,11 +421,11 @@ function renderTrackFieldsTable(release) {
 
 // --- Other (non-media) files -------------------------------------------------------------
 // Recognition/EditProposal already classified these (kind, placement) and, for a loose one,
-// proposed a letter-first name (New-TaggerCompanionProposal, Tagger.EditProposal.psm1) - this
+// proposed a letter-first name (New-ReshelfCompanionProposal, Reshelf.EditProposal.psm1) - this
 // table just makes that visible and lets the user override the name or drop the file from
 // copying (manifesto SS4.5 / SS7.2: "we need to see them in Editing module").
 
-// Display-only: mirrors Get-TaggerRelativePath (Tagger.Common.psm1) closely enough for showing a
+// Display-only: mirrors Get-ReshelfRelativePath (Reshelf.Common.psm1) closely enough for showing a
 // "Before" path, but keeps native backslashes since this is text shown to a Windows user, not a
 // value written back into a document.
 function getCompanionRelativePath(release, sourcePath) {
@@ -436,7 +436,7 @@ function getCompanionRelativePath(release, sourcePath) {
   return sourcePath;
 }
 
-// Mirrors Test-TaggerLooseCompanionFileName (Tagger.Common.psm1) - a loose companion must start
+// Mirrors Test-ReshelfLooseCompanionFileName (Reshelf.Common.psm1) - a loose companion must start
 // with a letter (manifesto SS4.5), including non-ASCII letters, so normal alphabetical sorting in
 // a file explorer always puts numbered tracks first.
 function startsWithLetter(name) {
@@ -529,8 +529,8 @@ function renderCompanionTable(release) {
 
 // Re-validates every included loose companion's proposed name in place, without rebuilding the
 // table - a full rebuild on every keystroke would reset the text input's cursor/focus while
-// typing. Mirrors the checks Invoke-TaggerReleaseStaging makes before copying anything
-// (Tagger.Implementation.psm1), so a problem is visible here before an apply run would fail it.
+// typing. Mirrors the checks Invoke-ReshelfReleaseStaging makes before copying anything
+// (Reshelf.Implementation.psm1), so a problem is visible here before an apply run would fail it.
 function refreshCompanionWarnings(release) {
   const trackFileNames = new Set(release.tracks.map((t) => t.proposedFileName.toLowerCase()));
   const includedNamesSeen = new Set();
@@ -612,7 +612,7 @@ function openCoverModal(candidate) {
   document.getElementById('cover-modal').showModal();
 }
 
-// Mirrors Invoke-TaggerFfmpegResize's scale-down-only, aspect-preserving filter.
+// Mirrors Invoke-ReshelfFfmpegResize's scale-down-only, aspect-preserving filter.
 function computeEmbeddedCoverSize(width, height, maxDimension) {
   const scale = Math.min(1, maxDimension / width, maxDimension / height);
   return {
@@ -747,7 +747,7 @@ function onEditReleaseFolderName(release, value) {
   markDirty(release);
 }
 
-// Mirrors ConvertTo-SafeFileName (Tagger.Common.psm1) so a title edit here produces
+// Mirrors ConvertTo-SafeFileName (Reshelf.Common.psm1) so a title edit here produces
 // the same safe filename the Implementation module would derive from it.
 const INVALID_FILENAME_CHARS = /[\x00-\x1f<>:"/\\|?*]/g;
 const RESERVED_DEVICE_NAMES = new Set([
@@ -764,7 +764,7 @@ function toSafeFileName(name) {
 
 // The leading "NN " / "NN - " prefix is the continuous cross-disc filename number
 // (never the per-disc proposedTrackNumber), so it's kept as-is and only the title
-// body is replaced - mirrors Split-TaggerTrackFileName (Tagger.Implementation.psm1).
+// body is replaced - mirrors Split-ReshelfTrackFileName (Reshelf.Implementation.psm1).
 function deriveTrackFileName(currentFileName, newTitle) {
   const dot = currentFileName.lastIndexOf('.');
   const extension = dot >= 0 ? currentFileName.slice(dot) : '';

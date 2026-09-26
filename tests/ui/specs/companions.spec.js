@@ -101,7 +101,7 @@ test.describe('companion (other) files', () => {
     // prefix, so a track's proposedFileName can never become letter-first, and a loose companion
     // name that collides with it would already be rejected for not starting with a letter first
     // (manifesto SS4.5). That exact guard is covered directly at the module level instead, in
-    // Tagger.Implementation.Tests.ps1's Invoke-TaggerReleaseStaging Describe.
+    // Reshelf.Implementation.Tests.ps1's Invoke-ReshelfReleaseStaging Describe.
     const seeded = seedSession('companions-warn-collision');
     await gotoApp(page);
     await page.locator(`.release-row[data-stable-key="${seeded.rich.stableKey}"]`).click();
@@ -159,8 +159,8 @@ test.describe('companion (other) files', () => {
     // The backfilled companion ("02 extra.jpg", see the backfill test above) is real-behavior
     // pre-filled with its ORIGINAL, still digit-prefixed name - selecting the release marked it
     // dirty and left its "Must start with a letter" warning up, same as a real reviewer would see.
-    // A real apply run enforces that guard (Invoke-TaggerReleaseStaging,
-    // Tagger.Implementation.psm1) and fails the whole release if it's ignored - completing the
+    // A real apply run enforces that guard (Invoke-ReshelfReleaseStaging,
+    // Reshelf.Implementation.psm1) and fails the whole release if it's ignored - completing the
     // rename here is what "finished reviewing" actually looks like, not an optional nicety.
     await backfillRow.locator('td').nth(2).locator('input').fill('Extra Booklet Page.jpg');
     await expect(backfillRow.locator('.companion-warning')).toBeHidden();

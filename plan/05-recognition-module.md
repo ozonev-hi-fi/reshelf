@@ -18,7 +18,7 @@ produce `recognition.json`. Matches manifesto §7 module 2.
 ### Entry point
 
 `Invoke-Recognition.ps1 -SourceRoot <path> -SessionId <id>`, implemented via
-`Tagger.Recognition.psm1`.
+`Reshelf.Recognition.psm1`.
 
 ### Heuristic functions
 

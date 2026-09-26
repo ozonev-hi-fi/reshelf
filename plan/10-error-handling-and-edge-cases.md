@@ -33,13 +33,13 @@ next":
 
 | `stage` | Meaning | Next command |
 |---|---|---|
-| `recognized` | Recognition done | `Tagger.ps1 propose -SessionId <id>` |
-| `proposed` | Proposal done, awaiting review | `Tagger.ps1 ui start`, review, then `Tagger.ps1 session mark-reviewed -SessionId <id>` |
-| `reviewed` | UI approvals saved | `Tagger.ps1 apply -SessionId <id>` |
+| `recognized` | Recognition done | `Reshelf.ps1 propose -SessionId <id>` |
+| `proposed` | Proposal done, awaiting review | `Reshelf.ps1 ui start`, review, then `Reshelf.ps1 session mark-reviewed -SessionId <id>` |
+| `reviewed` | UI approvals saved | `Reshelf.ps1 apply -SessionId <id>` |
 | `applied` | Implementation finished (a plain skip — an unresolved/rejected release — doesn't count as a failure here) | nothing — session complete |
-| `partially-applied` | Implementation stopped with **at least one release actually failed** (as opposed to merely skipped) | `Tagger.ps1 apply -SessionId <id>` again — reruns only unresolved/failed releases via `apply-log.json` |
+| `partially-applied` | Implementation stopped with **at least one release actually failed** (as opposed to merely skipped) | `Reshelf.ps1 apply -SessionId <id>` again — reruns only unresolved/failed releases via `apply-log.json` |
 
-`Tagger.ps1 session resume <id>` reads `stage` and prints the exact next
+`Reshelf.ps1 session resume <id>` reads `stage` and prints the exact next
 command, so resuming a session never requires remembering where things were
 left off.
 
@@ -73,7 +73,7 @@ gate or edits code.
 
 ## Invalid filename characters
 
-`ConvertTo-SafeFileName` (in `Tagger.Common.psm1`) handles:
+`ConvertTo-SafeFileName` (in `Reshelf.Common.psm1`) handles:
 - Windows-invalid characters: `< > : " / \ | ? *`
 - Trailing dots/spaces (silently stripped by Windows, but explicit handling
   avoids surprises).

@@ -120,7 +120,7 @@ test.describe('cover art', () => {
     await page.locator(`.release-row[data-stable-key="${seeded.minimal.stableKey}"]`).click();
     // Never saved - proposal.json on disk never gained the candidate.
     await expect(page.locator('.cover-candidate')).toHaveCount(1);
-    // But the uploaded bytes are still on disk under manual-covers/ (Save-TaggerUiManualCoverFile
+    // But the uploaded bytes are still on disk under manual-covers/ (Save-ReshelfUiManualCoverFile
     // writes immediately, independent of the deferred-Save-only proposal.json edit - see app.js's
     // uploadManualCover comment).
     expect(fs.existsSync(encodedPath)).toBe(true);

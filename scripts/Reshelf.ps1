@@ -27,68 +27,68 @@ param(
     [switch]$WhatIf
 )
 
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Json.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Settings.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Recognition.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Discogs.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.EditProposal.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Implementation.psm1') -Force
-# Re-imported last: Tagger.EditProposal.psm1 and Tagger.Implementation.psm1 both import this module
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Settings.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Recognition.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Discogs.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.EditProposal.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Implementation.psm1') -Force
+# Re-imported last: Reshelf.EditProposal.psm1 and Reshelf.Implementation.psm1 both import this module
 # internally too, which reparents it as one of their nested modules and hides its exports from this
 # script's scope - importing it again here restores top-level visibility for the 'lossy' command.
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.LossyTracking.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.LossyTracking.psm1') -Force
 
 switch ($Command) {
     'settings' {
         switch ($SubCommand) {
-            'show' { Get-TaggerSettings | ConvertTo-Json -Depth 10 }
+            'show' { Get-ReshelfSettings | ConvertTo-Json -Depth 10 }
             'init' {
-                Initialize-TaggerSettings -TargetRoot $TargetRoot -DefaultSourceRoot $DefaultSourceRoot -CopyMode $CopyMode -Force:$Force |
+                Initialize-ReshelfSettings -TargetRoot $TargetRoot -DefaultSourceRoot $DefaultSourceRoot -CopyMode $CopyMode -Force:$Force |
                     ConvertTo-Json -Depth 10
             }
-            'set' { Set-TaggerSettings -Key $Key -Value $Value | ConvertTo-Json -Depth 10 }
-            'set-token' { Set-TaggerDiscogsToken | ConvertTo-Json -Depth 10 }
+            'set' { Set-ReshelfSettings -Key $Key -Value $Value | ConvertTo-Json -Depth 10 }
+            'set-token' { Set-ReshelfDiscogsToken | ConvertTo-Json -Depth 10 }
             default { throw "Unknown 'settings' subcommand '$SubCommand'. Use show, init, set, or set-token." }
         }
     }
     'session' {
         switch ($SubCommand) {
-            'list' { Get-TaggerSession | Select-Object sessionId, stage, sourceRoot, updatedAtUtc | Format-Table }
+            'list' { Get-ReshelfSession | Select-Object sessionId, stage, sourceRoot, updatedAtUtc | Format-Table }
             'show' {
                 if (-not $SessionId) { throw "'session show' requires a session id." }
-                Get-TaggerSession -SessionId $SessionId | ConvertTo-Json -Depth 10
+                Get-ReshelfSession -SessionId $SessionId | ConvertTo-Json -Depth 10
             }
             'resume' {
                 if (-not $SessionId) { throw "'session resume' requires a session id." }
-                Resume-TaggerSession -SessionId $SessionId | Format-List
+                Resume-ReshelfSession -SessionId $SessionId | Format-List
             }
             'mark-reviewed' {
                 if (-not $SessionId) { throw "'session mark-reviewed' requires a session id." }
-                $settings = Get-TaggerSettings
-                Set-TaggerSessionStage -SessionId $SessionId -Stage 'reviewed' -DataHome $settings.dataHome | Out-Null
-                Get-TaggerSession -SessionId $SessionId -DataHome $settings.dataHome | Format-List
+                $settings = Get-ReshelfSettings
+                Set-ReshelfSessionStage -SessionId $SessionId -Stage 'reviewed' -DataHome $settings.dataHome | Out-Null
+                Get-ReshelfSession -SessionId $SessionId -DataHome $settings.dataHome | Format-List
             }
             default { throw "Unknown 'session' subcommand '$SubCommand'. Use list, show, resume, or mark-reviewed." }
         }
     }
     'recognize' {
-        $settings = Get-TaggerSettings
+        $settings = Get-ReshelfSettings
         $resolvedSourceRoot = if ($SourceRoot) { $SourceRoot } else { $settings.defaultSourceRoot }
         if (-not $resolvedSourceRoot) {
-            throw "No source root given and no defaultSourceRoot configured. Pass -SourceRoot, or run 'Tagger.ps1 settings set -Key defaultSourceRoot -Value <path>'."
+            throw "No source root given and no defaultSourceRoot configured. Pass -SourceRoot, or run 'Reshelf.ps1 settings set -Key defaultSourceRoot -Value <path>'."
         }
 
         if ($SaveAsDefault -and $SourceRoot) {
-            Set-TaggerSettings -Key defaultSourceRoot -Value $SourceRoot | Out-Null
+            Set-ReshelfSettings -Key defaultSourceRoot -Value $SourceRoot | Out-Null
         }
 
-        $session = New-TaggerSession -SourceRoot $resolvedSourceRoot
+        $session = New-ReshelfSession -SourceRoot $resolvedSourceRoot
         try {
-            $result = Invoke-TaggerRecognition -SourceRoot $resolvedSourceRoot -SessionId $session.sessionId -OverridesPath $OverridesPath -TagLibSharpPath $settings.taglibSharpPath
+            $result = Invoke-ReshelfRecognition -SourceRoot $resolvedSourceRoot -SessionId $session.sessionId -OverridesPath $OverridesPath -TagLibSharpPath $settings.taglibSharpPath
         }
         catch {
-            throw "Recognition failed for session '$($session.sessionId)': $($_.Exception.Message) The session was created but has no recognition.json - fix the issue and run 'Tagger.ps1 recognize -SourceRoot $resolvedSourceRoot' again (this starts a new session)."
+            throw "Recognition failed for session '$($session.sessionId)': $($_.Exception.Message) The session was created but has no recognition.json - fix the issue and run 'Reshelf.ps1 recognize -SourceRoot $resolvedSourceRoot' again (this starts a new session)."
         }
 
         [pscustomobject]@{
@@ -100,15 +100,15 @@ switch ($Command) {
     }
     'propose' {
         if (-not $SessionId) {
-            throw "'propose' requires a session id. Usage: Tagger.ps1 propose -SessionId <id>"
+            throw "'propose' requires a session id. Usage: Reshelf.ps1 propose -SessionId <id>"
         }
 
-        $settings = Get-TaggerSettings
+        $settings = Get-ReshelfSettings
         $dataHome = $settings.dataHome
-        $session = Get-TaggerSession -SessionId $SessionId -DataHome $dataHome
+        $session = Get-ReshelfSession -SessionId $SessionId -DataHome $dataHome
 
         try {
-            $result = Invoke-TaggerEditProposal -SessionId $SessionId -RecognitionPath $session.recognitionPath `
+            $result = Invoke-ReshelfEditProposal -SessionId $SessionId -RecognitionPath $session.recognitionPath `
                 -TargetRoot $settings.targetRoot -ReleaseFolderTemplate $settings.namingTemplates.releaseFolder `
                 -TrackFileTemplate $settings.namingTemplates.trackFile -TrackNumberPadWidth $settings.trackNumberPadWidth `
                 -CoverMaxDimension $settings.coverMaxDimension `
@@ -119,7 +119,7 @@ switch ($Command) {
         }
 
         $proposalPath = Join-Path $dataHome 'sessions' $SessionId 'proposal.json'
-        Set-TaggerSessionStage -SessionId $SessionId -Stage 'proposed' -ProposalPath $proposalPath -DataHome $dataHome | Out-Null
+        Set-ReshelfSessionStage -SessionId $SessionId -Stage 'proposed' -ProposalPath $proposalPath -DataHome $dataHome | Out-Null
 
         $releases = @($result.artists.releases)
         [pscustomobject]@{
@@ -132,14 +132,14 @@ switch ($Command) {
     }
     'apply' {
         if (-not $SessionId) {
-            throw "'apply' requires a session id. Usage: Tagger.ps1 apply -SessionId <id>"
+            throw "'apply' requires a session id. Usage: Reshelf.ps1 apply -SessionId <id>"
         }
 
-        $settings = Get-TaggerSettings
+        $settings = Get-ReshelfSettings
         $dataHome = $settings.dataHome
-        $session = Get-TaggerSession -SessionId $SessionId -DataHome $dataHome
+        $session = Get-ReshelfSession -SessionId $SessionId -DataHome $dataHome
 
-        $result = Invoke-TaggerImplementation -SessionId $SessionId -ProposalPath $session.proposalPath `
+        $result = Invoke-ReshelfImplementation -SessionId $SessionId -ProposalPath $session.proposalPath `
             -TargetRoot $settings.targetRoot -CopyMode $settings.copyMode -FfmpegPath $settings.ffmpegPath `
             -TagLibSharpPath $settings.taglibSharpPath -DataHome $dataHome -IncludeUnresolved:$IncludeUnresolved -WhatIf:$WhatIf
 
@@ -154,7 +154,7 @@ switch ($Command) {
     'ui' {
         switch ($SubCommand) {
             'start' {
-                $uiServerScript = Join-Path $PSScriptRoot 'Start-TaggerUiServer.ps1'
+                $uiServerScript = Join-Path $PSScriptRoot 'Start-ReshelfUiServer.ps1'
                 if ($Port) { & $uiServerScript -Port $Port } else { & $uiServerScript }
             }
             default { throw "Unknown 'ui' subcommand '$SubCommand'. Use start." }
@@ -163,19 +163,19 @@ switch ($Command) {
     'lossy' {
         switch ($SubCommand) {
             'list' {
-                $ledger = @(Get-TaggerLossyTrackingLedger)
+                $ledger = @(Get-ReshelfLossyTrackingLedger)
                 if ($Status) { $ledger = @($ledger | Where-Object { $_.status -eq $Status }) }
                 $ledger | Select-Object stableKey, artist, album, year, format, status, targetPath | Format-Table
             }
             'ignore' {
                 $stableKey = $SessionId
                 if (-not $stableKey) { throw "'lossy ignore' requires a stable key." }
-                Set-TaggerLossyTrackingIgnored -StableKey $stableKey | Out-Null
+                Set-ReshelfLossyTrackingIgnored -StableKey $stableKey | Out-Null
             }
             'mark-upgraded' {
                 $stableKey = $SessionId
                 if (-not $stableKey) { throw "'lossy mark-upgraded' requires a stable key." }
-                Set-TaggerLossyTrackingUpgraded -StableKey $stableKey | Out-Null
+                Set-ReshelfLossyTrackingUpgraded -StableKey $stableKey | Out-Null
             }
             default { throw "Unknown 'lossy' subcommand '$SubCommand'. Use list, ignore, or mark-upgraded." }
         }

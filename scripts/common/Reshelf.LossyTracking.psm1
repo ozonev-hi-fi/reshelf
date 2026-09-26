@@ -1,39 +1,39 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Json.psm1') -Force
 
-function Get-TaggerLossyTrackingLedgerPath {
+function Get-ReshelfLossyTrackingLedgerPath {
     [CmdletBinding()]
     param(
         [string]$DataHome
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
     return Join-Path $DataHome 'lossy-tracking.json'
 }
 
-function Get-TaggerLossyTrackingLedger {
+function Get-ReshelfLossyTrackingLedger {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
         [string]$DataHome
     )
 
-    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
 
     if (-not (Test-Path -LiteralPath $ledgerPath -PathType Leaf)) {
         return @()
     }
 
-    if (-not (Test-TaggerJson -SchemaName lossy-tracking -Path $ledgerPath)) {
+    if (-not (Test-ReshelfJson -SchemaName lossy-tracking -Path $ledgerPath)) {
         throw "Lossy-tracking ledger at '$ledgerPath' does not match the lossy-tracking schema."
     }
 
     return @(Get-Content -LiteralPath $ledgerPath -Raw | ConvertFrom-Json)
 }
 
-function Get-TaggerLossyTrackingEntry {
+function Get-ReshelfLossyTrackingEntry {
     [CmdletBinding()]
     [OutputType([object])]
     param(
@@ -43,12 +43,12 @@ function Get-TaggerLossyTrackingEntry {
         [string]$DataHome
     )
 
-    return Get-TaggerLossyTrackingLedger -DataHome $DataHome |
+    return Get-ReshelfLossyTrackingLedger -DataHome $DataHome |
         Where-Object { $_.stableKey -eq $StableKey } |
         Select-Object -First 1
 }
 
-function Add-TaggerLossyTrackingEntry {
+function Add-ReshelfLossyTrackingEntry {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -75,9 +75,9 @@ function Add-TaggerLossyTrackingEntry {
         [datetime]$Now = (Get-Date)
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
-    $ledger = @(Get-TaggerLossyTrackingLedger -DataHome $DataHome)
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
     $nowUtc = $Now.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
 
     $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
@@ -101,13 +101,13 @@ function Add-TaggerLossyTrackingEntry {
         }
     }
 
-    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
-    Set-TaggerJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
 
     return $ledger
 }
 
-function Set-TaggerLossyTrackingUpgraded {
+function Set-ReshelfLossyTrackingUpgraded {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -119,9 +119,9 @@ function Set-TaggerLossyTrackingUpgraded {
         [datetime]$Now = (Get-Date)
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
-    $ledger = @(Get-TaggerLossyTrackingLedger -DataHome $DataHome)
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
     $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
 
     if (-not $existing) {
@@ -134,13 +134,13 @@ function Set-TaggerLossyTrackingUpgraded {
     $existing.status = 'upgraded'
     $existing.upgradedUtc = $Now.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
 
-    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
-    Set-TaggerJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
 
     return $ledger
 }
 
-function Set-TaggerLossyTrackingIgnored {
+function Set-ReshelfLossyTrackingIgnored {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -150,9 +150,9 @@ function Set-TaggerLossyTrackingIgnored {
         [string]$DataHome
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
-    $ledger = @(Get-TaggerLossyTrackingLedger -DataHome $DataHome)
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
     $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
 
     if (-not $existing) {
@@ -162,11 +162,11 @@ function Set-TaggerLossyTrackingIgnored {
 
     $existing.status = 'ignored'
 
-    $ledgerPath = Get-TaggerLossyTrackingLedgerPath -DataHome $DataHome
-    Set-TaggerJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
 
     return $ledger
 }
 
-Export-ModuleMember -Function Get-TaggerLossyTrackingLedger, Get-TaggerLossyTrackingEntry, Add-TaggerLossyTrackingEntry, `
-    Set-TaggerLossyTrackingUpgraded, Set-TaggerLossyTrackingIgnored
+Export-ModuleMember -Function Get-ReshelfLossyTrackingLedger, Get-ReshelfLossyTrackingEntry, Add-ReshelfLossyTrackingEntry, `
+    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingIgnored

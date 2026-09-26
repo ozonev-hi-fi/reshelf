@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://tagger.local/schemas/proposal.schema.json",
-  "title": "Tagger proposal.json",
+  "$id": "https://reshelf.local/schemas/proposal.schema.json",
+  "title": "Reshelf proposal.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "sessionId", "sourceRoot", "generatedAtUtc", "artists", "unrecognized"],

@@ -1,13 +1,13 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Settings.psm1') -Force
-# Re-imported after Settings: Tagger.Settings.psm1 imports this module internally too, which
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Settings.psm1') -Force
+# Re-imported after Settings: Reshelf.Settings.psm1 imports this module internally too, which
 # reparents it as one of Settings' nested modules and hides its exports from this module's own
-# scope (same gotcha noted in Tagger.ps1) - importing it again here restores top-level visibility
-# for ConvertTo-TaggerLongPath below.
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
+# scope (same gotcha noted in Reshelf.ps1) - importing it again here restores top-level visibility
+# for ConvertTo-ReshelfLongPath below.
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
 
-$script:TaggerUiMimeTypes = @{
+$script:ReshelfUiMimeTypes = @{
     '.html' = 'text/html'
     '.js'   = 'text/javascript'
     '.css'  = 'text/css'
@@ -19,7 +19,7 @@ $script:TaggerUiMimeTypes = @{
     '.ico'  = 'image/x-icon'
 }
 
-function Resolve-TaggerUiRequestPath {
+function Resolve-ReshelfUiRequestPath {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -52,7 +52,7 @@ function Resolve-TaggerUiRequestPath {
     return $resolvedCandidate
 }
 
-function Get-TaggerUiMimeType {
+function Get-ReshelfUiMimeType {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -61,14 +61,14 @@ function Get-TaggerUiMimeType {
     )
 
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
-    if ($script:TaggerUiMimeTypes.ContainsKey($extension)) {
-        return $script:TaggerUiMimeTypes[$extension]
+    if ($script:ReshelfUiMimeTypes.ContainsKey($extension)) {
+        return $script:ReshelfUiMimeTypes[$extension]
     }
 
     return 'application/octet-stream'
 }
 
-$script:TaggerUiSessionIdPattern = '^\d{4}-\d{2}-\d{2}-\d{4}$'
+$script:ReshelfUiSessionIdPattern = '^\d{4}-\d{2}-\d{2}-\d{4}$'
 
 # --- API routing --------------------------------------------------------------
 #
@@ -77,8 +77,8 @@ $script:TaggerUiSessionIdPattern = '^\d{4}-\d{2}-\d{2}-\d{4}$'
 # it already runs with full local disk access and the browser doesn't - this removes every
 # per-visit folder-permission click the old design needed. Still localhost-only, single-user; the
 # session id pattern check below exists so a crafted id in a URL can't reach outside the sessions
-# folder, matching the id shape New-TaggerSessionId actually produces (e.g. "2026-09-25-0003").
-function Get-TaggerUiApiRoute {
+# folder, matching the id shape New-ReshelfSessionId actually produces (e.g. "2026-09-25-0003").
+function Get-ReshelfUiApiRoute {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -99,7 +99,7 @@ function Get-TaggerUiApiRoute {
 
     if ($Path -match '^/api/sessions/([^/]+)/proposal$') {
         $sessionId = $Matches[1]
-        if ($sessionId -notmatch $script:TaggerUiSessionIdPattern) {
+        if ($sessionId -notmatch $script:ReshelfUiSessionIdPattern) {
             return [pscustomobject]@{ Action = 'BadRequest'; Message = "Invalid session id '$sessionId'." }
         }
         if ($Method -eq 'GET') {
@@ -112,7 +112,7 @@ function Get-TaggerUiApiRoute {
 
     if ($Method -eq 'GET' -and $Path -match '^/api/sessions/([^/]+)/local-file$') {
         $sessionId = $Matches[1]
-        if ($sessionId -notmatch $script:TaggerUiSessionIdPattern) {
+        if ($sessionId -notmatch $script:ReshelfUiSessionIdPattern) {
             return [pscustomobject]@{ Action = 'BadRequest'; Message = "Invalid session id '$sessionId'." }
         }
         return [pscustomobject]@{ Action = 'LocalFile'; SessionId = $sessionId }
@@ -120,7 +120,7 @@ function Get-TaggerUiApiRoute {
 
     if ($Method -eq 'POST' -and $Path -match '^/api/sessions/([^/]+)/manual-cover$') {
         $sessionId = $Matches[1]
-        if ($sessionId -notmatch $script:TaggerUiSessionIdPattern) {
+        if ($sessionId -notmatch $script:ReshelfUiSessionIdPattern) {
             return [pscustomobject]@{ Action = 'BadRequest'; Message = "Invalid session id '$sessionId'." }
         }
         return [pscustomobject]@{ Action = 'SaveManualCover'; SessionId = $sessionId }
@@ -131,7 +131,7 @@ function Get-TaggerUiApiRoute {
 
 # --- Session discovery ---------------------------------------------------------
 
-function Get-TaggerUiSessionsSummary {
+function Get-ReshelfUiSessionsSummary {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -139,7 +139,7 @@ function Get-TaggerUiSessionsSummary {
         [string]$DataHome
     )
 
-    $sessions = @(Get-TaggerSession -DataHome $DataHome)
+    $sessions = @(Get-ReshelfSession -DataHome $DataHome)
     return @($sessions | ForEach-Object {
             [pscustomobject]@{
                 sessionId    = $_.sessionId
@@ -151,7 +151,7 @@ function Get-TaggerUiSessionsSummary {
         })
 }
 
-function Get-TaggerUiCurrentSession {
+function Get-ReshelfUiCurrentSession {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -159,15 +159,15 @@ function Get-TaggerUiCurrentSession {
         [string]$DataHome
     )
 
-    # Get-TaggerSession already sorts by updatedAtUtc descending, so the first entry here with a
+    # Get-ReshelfSession already sorts by updatedAtUtc descending, so the first entry here with a
     # proposal.json is the most recently updated session that's actually ready to review.
-    $summary = Get-TaggerUiSessionsSummary -DataHome $DataHome
+    $summary = Get-ReshelfUiSessionsSummary -DataHome $DataHome
     return $summary | Where-Object { $_.hasProposal } | Select-Object -First 1
 }
 
 # --- Reading/writing one session's proposal.json -------------------------------
 
-function Get-TaggerUiProposalContent {
+function Get-ReshelfUiProposalContent {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -178,7 +178,7 @@ function Get-TaggerUiProposalContent {
         [string]$SessionId
     )
 
-    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $session = Get-ReshelfSession -SessionId $SessionId -DataHome $DataHome
     if (-not $session.proposalPath -or -not (Test-Path -LiteralPath $session.proposalPath -PathType Leaf)) {
         throw "Session '$SessionId' has no proposal.json yet."
     }
@@ -186,7 +186,7 @@ function Get-TaggerUiProposalContent {
     return Get-Content -LiteralPath $session.proposalPath -Raw
 }
 
-function Save-TaggerUiProposalContent {
+function Save-ReshelfUiProposalContent {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -207,7 +207,7 @@ function Save-TaggerUiProposalContent {
         throw "Request body is not valid JSON: $($_.Exception.Message)"
     }
 
-    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $session = Get-ReshelfSession -SessionId $SessionId -DataHome $DataHome
     if (-not $session.proposalPath) {
         throw "Session '$SessionId' has no proposal.json path recorded."
     }
@@ -223,7 +223,7 @@ function Save-TaggerUiProposalContent {
 
 # --- Serving a local cover image (companion-file fallback, not a Discogs URL) --------
 
-function Get-TaggerUiManualCoversDir {
+function Get-ReshelfUiManualCoversDir {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -237,7 +237,7 @@ function Get-TaggerUiManualCoversDir {
     return Join-Path $DataHome 'sessions' $SessionId 'manual-covers'
 }
 
-function Get-TaggerUiLocalFileBytes {
+function Get-ReshelfUiLocalFileBytes {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -256,7 +256,7 @@ function Get-TaggerUiLocalFileBytes {
     # arbitrary file - since this listener has no other access control. The manual-covers
     # branch exists because a just-uploaded candidate lives only in the browser's in-memory
     # proposal until Save, so it can't be found in on-disk proposal.json yet.
-    $manualCoversDir = Get-TaggerUiManualCoversDir -DataHome $DataHome -SessionId $SessionId
+    $manualCoversDir = Get-ReshelfUiManualCoversDir -DataHome $DataHome -SessionId $SessionId
     $isUnderManualCoversDir = $false
     if (Test-Path -LiteralPath $manualCoversDir -PathType Container) {
         $resolvedManualCoversDir = (Resolve-Path -LiteralPath $manualCoversDir).Path
@@ -271,7 +271,7 @@ function Get-TaggerUiLocalFileBytes {
     }
 
     if (-not $isUnderManualCoversDir) {
-        $content = Get-TaggerUiProposalContent -DataHome $DataHome -SessionId $SessionId
+        $content = Get-ReshelfUiProposalContent -DataHome $DataHome -SessionId $SessionId
         $proposal = $content | ConvertFrom-Json
 
         $allowedPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -294,20 +294,20 @@ function Get-TaggerUiLocalFileBytes {
         throw "File '$RequestedPath' no longer exists."
     }
 
-    $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-TaggerLongPath -Path $RequestedPath))
+    $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-ReshelfLongPath -Path $RequestedPath))
     return [pscustomobject]@{
         Bytes       = $bytes
-        ContentType = Get-TaggerUiMimeType -Path "file$([System.IO.Path]::GetExtension($RequestedPath))"
+        ContentType = Get-ReshelfUiMimeType -Path "file$([System.IO.Path]::GetExtension($RequestedPath))"
     }
 }
 
 # --- Saving a manually uploaded cover image ------------------------------------
 
-$script:TaggerUiManualCoverExtensions = @('.jpg', '.jpeg', '.png')
-$script:TaggerUiManualCoverMaxBytes = 20MB
+$script:ReshelfUiManualCoverExtensions = @('.jpg', '.jpeg', '.png')
+$script:ReshelfUiManualCoverMaxBytes = 20MB
 
-function Get-TaggerUiImageDimensions {
-    # Local copy of Tagger.EditProposal.psm1's Get-TaggerImageDimensions - not imported from
+function Get-ReshelfUiImageDimensions {
+    # Local copy of Reshelf.EditProposal.psm1's Get-ReshelfImageDimensions - not imported from
     # there to avoid pulling in its Discogs/lossy-tracking dependencies for no reason. Unlike
     # that copy, a read failure here throws instead of returning a silent 1x1 placeholder,
     # since the caller needs to delete the just-written file when this fails.
@@ -321,7 +321,7 @@ function Get-TaggerUiImageDimensions {
     if (-not ('System.Drawing.Image' -as [type])) {
         Add-Type -AssemblyName System.Drawing
     }
-    $image = [System.Drawing.Image]::FromFile((ConvertTo-TaggerLongPath -Path $Path))
+    $image = [System.Drawing.Image]::FromFile((ConvertTo-ReshelfLongPath -Path $Path))
     try {
         return [pscustomobject]@{ Width = $image.Width; Height = $image.Height }
     }
@@ -330,7 +330,7 @@ function Get-TaggerUiImageDimensions {
     }
 }
 
-function Save-TaggerUiManualCoverFile {
+function Save-ReshelfUiManualCoverFile {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -351,31 +351,31 @@ function Save-TaggerUiManualCoverFile {
     if (-not $Bytes -or $Bytes.Length -eq 0) {
         throw 'Uploaded file is empty.'
     }
-    if ($Bytes.Length -gt $script:TaggerUiManualCoverMaxBytes) {
-        throw "Uploaded file exceeds the $($script:TaggerUiManualCoverMaxBytes / 1MB) MB limit."
+    if ($Bytes.Length -gt $script:ReshelfUiManualCoverMaxBytes) {
+        throw "Uploaded file exceeds the $($script:ReshelfUiManualCoverMaxBytes / 1MB) MB limit."
     }
 
     $extension = [System.IO.Path]::GetExtension($FileName).ToLowerInvariant()
-    if ($extension -notin $script:TaggerUiManualCoverExtensions) {
-        $allowed = $script:TaggerUiManualCoverExtensions -join ', '
+    if ($extension -notin $script:ReshelfUiManualCoverExtensions) {
+        $allowed = $script:ReshelfUiManualCoverExtensions -join ', '
         throw "Unsupported image type '$extension' - allowed: $allowed."
     }
 
     # Confirms the session exists (throws "Session '...' not found." otherwise) without
     # requiring a proposal.json to already exist - this endpoint never reads/writes it.
-    $null = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $null = Get-ReshelfSession -SessionId $SessionId -DataHome $DataHome
 
-    $coversDir = Get-TaggerUiManualCoversDir -DataHome $DataHome -SessionId $SessionId
+    $coversDir = Get-ReshelfUiManualCoversDir -DataHome $DataHome -SessionId $SessionId
     if (-not (Test-Path -LiteralPath $coversDir -PathType Container)) {
         New-Item -ItemType Directory -Path $coversDir -Force | Out-Null
     }
 
     $savedFileName = "$([guid]::NewGuid().ToString('N'))$extension"
     $savedPath = Join-Path $coversDir $savedFileName
-    [System.IO.File]::WriteAllBytes((ConvertTo-TaggerLongPath -Path $savedPath), $Bytes)
+    [System.IO.File]::WriteAllBytes((ConvertTo-ReshelfLongPath -Path $savedPath), $Bytes)
 
     try {
-        $dimensions = Get-TaggerUiImageDimensions -Path $savedPath
+        $dimensions = Get-ReshelfUiImageDimensions -Path $savedPath
     }
     catch {
         Remove-Item -LiteralPath $savedPath -Force -ErrorAction SilentlyContinue
@@ -389,6 +389,6 @@ function Save-TaggerUiManualCoverFile {
     }
 }
 
-Export-ModuleMember -Function Resolve-TaggerUiRequestPath, Get-TaggerUiMimeType, Get-TaggerUiApiRoute, `
-    Get-TaggerUiSessionsSummary, Get-TaggerUiCurrentSession, Get-TaggerUiProposalContent, `
-    Save-TaggerUiProposalContent, Get-TaggerUiLocalFileBytes, Save-TaggerUiManualCoverFile
+Export-ModuleMember -Function Resolve-ReshelfUiRequestPath, Get-ReshelfUiMimeType, Get-ReshelfUiApiRoute, `
+    Get-ReshelfUiSessionsSummary, Get-ReshelfUiCurrentSession, Get-ReshelfUiProposalContent, `
+    Save-ReshelfUiProposalContent, Get-ReshelfUiLocalFileBytes, Save-ReshelfUiManualCoverFile

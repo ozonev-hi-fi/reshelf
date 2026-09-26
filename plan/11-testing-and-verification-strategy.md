@@ -51,12 +51,12 @@ tests), covering every messy pattern named in the manifesto:
 fixture tree above — Git for Windows can't index a folder literally named
 `CON`, and `core.longpaths` makes a checked-in near-limit path fragile across
 clones. Both are instead built at test time, in
-`tests/Tagger.Recognition.Tests.ps1`. A filename with invalid characters can't
+`tests/Reshelf.Recognition.Tests.ps1`. A filename with invalid characters can't
 exist on a real Windows filesystem either; it's covered directly by
 `ConvertTo-SafeFileName`'s own unit tests, and end-to-end (through a full
 Recognition → EditProposal → Implementation run, not just the sanitizer in
 isolation) via a mocked Discogs title in
-`tests/Tagger.TagLibSharp.Integration.Tests.ps1`.
+`tests/Reshelf.TagLibSharp.Integration.Tests.ps1`.
 
 ### Discogs mocking
 
@@ -70,7 +70,7 @@ so tests never hit the real network or consume rate limit budget.
 1. Run with `-WhatIf` first — assert zero filesystem writes occurred
    (compare a before/after snapshot of every file's path, size and last-write
    time under the source root, data home and target root — `Get-TreeSnapshot`
-   in `tests/Tagger.Implementation.Tests.ps1` and `tests/Tagger.Pipeline.Tests.ps1`;
+   in `tests/Reshelf.Implementation.Tests.ps1` and `tests/Reshelf.Pipeline.Tests.ps1`;
    folders are deliberately left out of the snapshot, since a folder's own
    last-write time can tick forward on Windows for reasons unrelated to this
    tool, e.g. background indexing).
@@ -84,20 +84,20 @@ so tests never hit the real network or consume rate limit budget.
    genuinely different tool would have. Accepted because it removes all
    manual setup for this step (see [08](08-implementation-module.md)).
 
-   Step 3 lives in `tests/Tagger.TagLibSharp.Integration.Tests.ps1`, tagged
-   `Integration`. Every other test file mocks `Set-TaggerAudioTags` /
-   `Get-TaggerAudioTags`; this file is the only one that loads the real
+   Step 3 lives in `tests/Reshelf.TagLibSharp.Integration.Tests.ps1`, tagged
+   `Integration`. Every other test file mocks `Set-ReshelfAudioTags` /
+   `Get-ReshelfAudioTags`; this file is the only one that loads the real
    `TagLibSharp.dll` and calls a real `ffmpeg` to generate throwaway audio/cover
    media, then reads tags back with a fresh `[TagLib.File]::Create()` call. It
    needs both on the machine running the tests and **fails** (not skips) if
    either is missing — a missing DLL throws the same install hint
-   `Import-TaggerTagLibSharp` gives; a missing `ffmpeg` throws directly. A
+   `Import-ReshelfTagLibSharp` gives; a missing `ffmpeg` throws directly. A
    silent skip would let this coverage gap reopen unnoticed, so this is an
    intentional hard requirement, not an oversight.
 
 ### Golden files for the whole fixture tree
 
-`tests/Tagger.Pipeline.Tests.ps1` also compares the full `recognition.json`,
+`tests/Reshelf.Pipeline.Tests.ps1` also compares the full `recognition.json`,
 `proposal.json`, and the target folder layout from a real
 `-IncludeUnresolved` apply, against reviewed golden files in
 `tests/fixtures/expected/`. The per-pattern assertions already in that file
@@ -112,11 +112,11 @@ placeholders (`<SOURCE_ROOT>`, `<TARGET_ROOT>`, `<DATA_HOME>`,
 themselves stay stable across machines and runs.
 
 To regenerate after a deliberate behavior change: run the tests once with
-`$env:TAGGER_UPDATE_GOLDEN = '1'`, then review the diff with `git diff`
+`$env:RESHELF_UPDATE_GOLDEN = '1'`, then review the diff with `git diff`
 before committing it — a regenerated golden file is only as correct as the
 review it got. Two known non-determinism traps to watch for when
 regenerating: a plain `@{ ... }` hashtable literal serializes to JSON with a
-process-random key order (fixed once already, in `Tagger.Recognition.psm1`'s
+process-random key order (fixed once already, in `Reshelf.Recognition.psm1`'s
 `existingTags`, by using `[pscustomobject]@{ ... }` instead — the same
 pattern every other record in this codebase already uses); and comparing
 folder timestamps (not just file timestamps) in a tree snapshot is flaky on
@@ -133,11 +133,11 @@ carelessly or skip. The Playwright suite is the actual, current source of
 truth for what the UI must do; treat the list below as a summary, not a
 substitute for reading the specs.
 
-`tests/ui/global-setup.js` starts the real `Start-TaggerUiServer.ps1`
-against an isolated temp `TAGGER_HOME` (real settings, real sessions, the
+`tests/ui/global-setup.js` starts the real `Start-ReshelfUiServer.ps1`
+against an isolated temp `RESHELF_HOME` (real settings, real sessions, the
 same `TagLibSharp.dll`/`ffmpeg` the rest of the suite uses — nothing here is
 mocked), and `tests/ui/seed-session.ps1` seeds a fresh session with real
-audio/image files via the real `New-TaggerSession`/`Set-TaggerJsonFile`
+audio/image files via the real `New-ReshelfSession`/`Set-ReshelfJsonFile`
 machinery, so every seeded `proposal.json` is schema-valid by construction.
 Each spec file seeds its own session, so no test depends on another's
 leftover state.
@@ -164,7 +164,7 @@ Coverage, one spec file per theme:
    letter-first-name backfill for an older `proposal.json`, inline
    name/collision warnings, and the ignored-files rows), ending in a real
    end-to-end spec that edits companions in the browser, saves, then runs
-   the real `Tagger.ps1 apply` and asserts the actual target folder layout.
+   the real `Reshelf.ps1 apply` and asserts the actual target folder layout.
 6. `server-down.spec.js` — kills the real server process mid-session and
    confirms Save and a live session switch both surface a visible
    error/retry message. Runs last, in its own Playwright project
@@ -181,7 +181,7 @@ failure mode under the current server-backed design.
 
 Run `npm install && npx playwright install chromium` once inside `tests/ui`,
 then `npx playwright test` from that folder, or
-`tests/Invoke-TaggerTests.ps1 -IncludeUi` (see Test runner below).
+`tests/Invoke-ReshelfTests.ps1 -IncludeUi` (see Test runner below).
 
 ## Decisions & rationale
 
@@ -209,11 +209,11 @@ then `npx playwright test` from that folder, or
 
 ## Test runner
 
-`tests/Invoke-TaggerTests.ps1 [-SkipIntegration] [-IncludeUi] [-Path <paths>]`
+`tests/Invoke-ReshelfTests.ps1 [-SkipIntegration] [-IncludeUi] [-Path <paths>]`
 wraps `Invoke-Pester` with two conveniences:
 
 - `-SkipIntegration` excludes the `Integration`-tagged tests in
-  `tests/Tagger.TagLibSharp.Integration.Tests.ps1` (via `Filter.ExcludeTag`),
+  `tests/Reshelf.TagLibSharp.Integration.Tests.ps1` (via `Filter.ExcludeTag`),
   which need a real `TagLibSharp.dll` and a real `ffmpeg` on the machine
   running the tests. Excluding the tag this way also skips that file's
   top-level `BeforeAll` entirely — confirmed empirically, not just assumed —
@@ -236,11 +236,11 @@ copies.
 
 ## Definition of done
 
-- `Invoke-Pester` (or `tests/Invoke-TaggerTests.ps1`) runs green across all
+- `Invoke-Pester` (or `tests/Invoke-ReshelfTests.ps1`) runs green across all
   unit tests, including the `Integration`-tagged ones.
 - The fixture source tree, run through the full pipeline end-to-end
   (`-WhatIf` then real), produces the exact expected `recognition.json` /
   `proposal.json` / target layout for every planted pattern — enforced by
   the golden-file comparison above, not just the schema/structure checks.
-- The Playwright UI suite (`tests/Invoke-TaggerTests.ps1 -IncludeUi`, or
+- The Playwright UI suite (`tests/Invoke-ReshelfTests.ps1 -IncludeUi`, or
   `npx playwright test` in `tests/ui`) runs green.

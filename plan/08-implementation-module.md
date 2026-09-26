@@ -10,7 +10,7 @@ music files.
 ## Inputs / outputs
 
 - Input: approved `proposal.json` ([03](03-domain-model-and-json-schemas.md)),
-  `settings.json` (`copyMode`, always `"copy"` — source files are always read-only to Tagger; see
+  `settings.json` (`copyMode`, always `"copy"` — source files are always read-only to Reshelf; see
   "Decisions & rationale" below).
 - Output: files under `targetRoot` in the final structure (manifesto §4),
   updated `lossy-tracking.json` ([09](09-lossy-lossless-tracking.md)),
@@ -46,9 +46,9 @@ what hasn't been reviewed yet," not "override an explicit rejection".
    lossy-to-lossy re-compression artifacts). Verify the resulting track
    count matches the cue sheet's track count before proceeding. The source
    `.cue` and single audio file are never deleted — source files are always
-   read-only to Tagger (revised from the original plan; see "Decisions &
+   read-only to Reshelf (revised from the original plan; see "Decisions &
    rationale" below).
-3. **Copy/move into a staging area**: `TargetRoot\.tagger-staging\<stableKey>\...`,
+3. **Copy/move into a staging area**: `TargetRoot\.reshelf-staging\<stableKey>\...`,
    never directly into the final target path yet.
 4. **Rename** files/folders per `proposal.json`'s `proposed*`/`proposedFileName`
    fields.
@@ -79,7 +79,7 @@ what hasn't been reviewed yet," not "override an explicit rejection".
    computing one from the companion's `kind` at apply time.
 8. **Atomic-ish final commit**: only after every prior step succeeds for the
    whole release, `Move-Item` the staged folder from
-   `.tagger-staging\<stableKey>` to its real final path under `targetRoot`.
+   `.reshelf-staging\<stableKey>` to its real final path under `targetRoot`.
    The source is left untouched — nothing is ever deleted from it.
 9. **Update `lossy-tracking.json`** per `lossyLossless.action`
    ([09](09-lossy-lossless-tracking.md)).
@@ -118,7 +118,7 @@ final path looking "present" to a later run's duplicate check.
   verified split, and deleted moved per-track/companion sources in a "move"
   `copyMode` — both were removed entirely after an incident destroyed source
   releases that had no other backup. `copyMode` now only accepts `"copy"`;
-  no code path in Tagger, and no external tool it calls (ffmpeg,
+  no code path in Reshelf, and no external tool it calls (ffmpeg,
   TagLibSharp), ever deletes or modifies a file under the source root.
 
 ## Edge cases

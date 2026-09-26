@@ -2,7 +2,7 @@
 # Test-Json's -LiteralPath and full JSON Schema 2020-12 support (used by every
 # schemas/*.schema.json file) were only added in PowerShell 7.4.
 
-function Resolve-TaggerSchemaPath {
+function Resolve-ReshelfSchemaPath {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -17,7 +17,7 @@ function Resolve-TaggerSchemaPath {
     return (Resolve-Path -LiteralPath $schemaPath).Path
 }
 
-function Test-TaggerJson {
+function Test-ReshelfJson {
     [CmdletBinding(DefaultParameterSetName = 'ByPath')]
     [OutputType([bool])]
     param(
@@ -36,7 +36,7 @@ function Test-TaggerJson {
         [int]$Depth = 10
     )
 
-    $schemaFile = Resolve-TaggerSchemaPath -SchemaName $SchemaName
+    $schemaFile = Resolve-ReshelfSchemaPath -SchemaName $SchemaName
 
     switch ($PSCmdlet.ParameterSetName) {
         'ByPath' { return Test-Json -LiteralPath $Path -SchemaFile $schemaFile }
@@ -48,7 +48,7 @@ function Test-TaggerJson {
     }
 }
 
-function Set-TaggerJsonFile {
+function Set-ReshelfJsonFile {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -65,7 +65,7 @@ function Set-TaggerJsonFile {
     )
 
     $json = ConvertTo-Json -InputObject $InputObject -Depth $Depth
-    if (-not (Test-TaggerJson -SchemaName $SchemaName -Json $json -ErrorAction SilentlyContinue)) {
+    if (-not (Test-ReshelfJson -SchemaName $SchemaName -Json $json -ErrorAction SilentlyContinue)) {
         throw "Document for '$Path' does not match schema '$SchemaName'."
     }
 
@@ -78,4 +78,4 @@ function Set-TaggerJsonFile {
     return $Path
 }
 
-Export-ModuleMember -Function Test-TaggerJson, Set-TaggerJsonFile
+Export-ModuleMember -Function Test-ReshelfJson, Set-ReshelfJsonFile

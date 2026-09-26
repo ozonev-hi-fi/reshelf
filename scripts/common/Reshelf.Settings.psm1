@@ -1,9 +1,9 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Json.psm1') -Force
 
-function Test-TaggerHostIsInteractive {
+function Test-ReshelfHostIsInteractive {
     [CmdletBinding()]
     [OutputType([bool])]
     param()
@@ -11,7 +11,7 @@ function Test-TaggerHostIsInteractive {
     return -not [Console]::IsInputRedirected
 }
 
-function New-TaggerSessionId {
+function New-ReshelfSessionId {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -33,7 +33,7 @@ function New-TaggerSessionId {
     return "$datePrefix-$sequence"
 }
 
-function Assert-TaggerPathWritable {
+function Assert-ReshelfPathWritable {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -49,7 +49,7 @@ function Assert-TaggerPathWritable {
         }
     }
 
-    $probeFile = Join-Path $Path ".tagger-write-probe-$([guid]::NewGuid().ToString('N')).tmp"
+    $probeFile = Join-Path $Path ".reshelf-write-probe-$([guid]::NewGuid().ToString('N')).tmp"
     try {
         [System.IO.File]::WriteAllText($probeFile, '')
         Remove-Item -LiteralPath $probeFile -Force -ErrorAction Stop
@@ -59,7 +59,7 @@ function Assert-TaggerPathWritable {
     }
 }
 
-function Get-TaggerSettings {
+function Get-ReshelfSettings {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -67,29 +67,29 @@ function Get-TaggerSettings {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
     $settingsPath = Join-Path $DataHome 'settings.json'
     if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
-        return Initialize-TaggerSettings -DataHome $DataHome
+        return Initialize-ReshelfSettings -DataHome $DataHome
     }
 
-    if (-not (Test-TaggerJson -SchemaName settings -Path $settingsPath)) {
-        throw "Settings file at '$settingsPath' does not match the settings schema. Fix it manually or re-run 'Tagger.ps1 settings init -Force'."
+    if (-not (Test-ReshelfJson -SchemaName settings -Path $settingsPath)) {
+        throw "Settings file at '$settingsPath' does not match the settings schema. Fix it manually or re-run 'Reshelf.ps1 settings init -Force'."
     }
 
     $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
 
     # dataHome is derived (wherever this settings.json actually lives), never a stored user choice -
     # always override whatever value is on disk, so a copied/moved data home or a leftover value from
-    # before the default location changed can never point Get-TaggerSession/etc. at the wrong folder.
+    # before the default location changed can never point Get-ReshelfSession/etc. at the wrong folder.
     $settings.dataHome = $DataHome
 
     return $settings
 }
 
-function Initialize-TaggerSettings {
+function Initialize-ReshelfSettings {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -101,7 +101,7 @@ function Initialize-TaggerSettings {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
     $settingsPath = Join-Path $DataHome 'settings.json'
@@ -110,8 +110,8 @@ function Initialize-TaggerSettings {
     }
 
     if (-not $TargetRoot) {
-        if (-not (Test-TaggerHostIsInteractive)) {
-            throw "Target root is required, but this is a non-interactive host. Run: Tagger.ps1 settings init -TargetRoot <path>"
+        if (-not (Test-ReshelfHostIsInteractive)) {
+            throw "Target root is required, but this is a non-interactive host. Run: Reshelf.ps1 settings init -TargetRoot <path>"
         }
         $TargetRoot = Read-Host 'Target root (where organized music will be written)'
     }
@@ -120,7 +120,7 @@ function Initialize-TaggerSettings {
     }
 
     if (-not $DefaultSourceRoot) {
-        if (Test-TaggerHostIsInteractive) {
+        if (Test-ReshelfHostIsInteractive) {
             $DefaultSourceRoot = Read-Host 'Default source root (optional, press Enter to skip)'
         }
         if (-not $DefaultSourceRoot) {
@@ -130,7 +130,7 @@ function Initialize-TaggerSettings {
 
     # 'move' mode used to delete source files after applying (or after a cue-sheet split) - removed
     # entirely after an incident destroyed source releases with no other backup. Source files are
-    # always read-only to Tagger now, so 'copy' is the only valid value - no longer worth an
+    # always read-only to Reshelf now, so 'copy' is the only valid value - no longer worth an
     # interactive prompt, since there is no real choice to make.
     if (-not $CopyMode) {
         $CopyMode = 'copy'
@@ -138,21 +138,21 @@ function Initialize-TaggerSettings {
 
     $CopyMode = $CopyMode.ToLowerInvariant()
     if ($CopyMode -ne 'copy') {
-        throw "Invalid copy mode '$CopyMode'. Must be 'copy' - 'move' is no longer supported, since Tagger never deletes source files."
+        throw "Invalid copy mode '$CopyMode'. Must be 'copy' - 'move' is no longer supported, since Reshelf never deletes source files."
     }
 
     # Never a param (only ever prompted, never accepted as a plain command-line -Value) - a token
     # passed on the command line would leak into shell history/process list, defeating the whole
     # point of storing it encrypted. Skippable and settable later via 'settings set-token'.
     $discogsTokenEncrypted = ''
-    if (Test-TaggerHostIsInteractive) {
-        $secureToken = Read-Host -Prompt 'Discogs Personal Access Token (press Enter to skip, set later with: Tagger.ps1 settings set-token)' -AsSecureString
+    if (Test-ReshelfHostIsInteractive) {
+        $secureToken = Read-Host -Prompt 'Discogs Personal Access Token (press Enter to skip, set later with: Reshelf.ps1 settings set-token)' -AsSecureString
         if ($secureToken -and $secureToken.Length -gt 0) {
             $discogsTokenEncrypted = ConvertFrom-SecureString -SecureString $secureToken
         }
     }
 
-    Assert-TaggerPathWritable -Path $TargetRoot
+    Assert-ReshelfPathWritable -Path $TargetRoot
 
     $defaultsPath = Join-Path $PSScriptRoot '..' '..' 'config' 'settings.default.json'
     $settings = Get-Content -LiteralPath $defaultsPath -Raw | ConvertFrom-Json
@@ -163,12 +163,12 @@ function Initialize-TaggerSettings {
     $settings.dataHome = $DataHome
     $settings.discogsTokenEncrypted = $discogsTokenEncrypted
 
-    Set-TaggerJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
+    Set-ReshelfJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
 
     return $settings
 }
 
-function Set-TaggerDiscogsToken {
+function Set-ReshelfDiscogsToken {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -176,25 +176,25 @@ function Set-TaggerDiscogsToken {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
-    if (-not (Test-TaggerHostIsInteractive)) {
+    if (-not (Test-ReshelfHostIsInteractive)) {
         throw "'settings set-token' requires an interactive host - a token is never accepted as a plain command-line argument (it would leak into shell history/process list)."
     }
 
-    $settings = Get-TaggerSettings -DataHome $DataHome
+    $settings = Get-ReshelfSettings -DataHome $DataHome
 
     $secureToken = Read-Host -Prompt 'Discogs Personal Access Token' -AsSecureString
     $settings.discogsTokenEncrypted = if ($secureToken -and $secureToken.Length -gt 0) { ConvertFrom-SecureString -SecureString $secureToken } else { '' }
 
     $settingsPath = Join-Path $DataHome 'settings.json'
-    Set-TaggerJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
+    Set-ReshelfJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
 
     return $settings
 }
 
-function Set-TaggerSettings {
+function Set-ReshelfSettings {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -208,10 +208,10 @@ function Set-TaggerSettings {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
-    $settings = Get-TaggerSettings -DataHome $DataHome
+    $settings = Get-ReshelfSettings -DataHome $DataHome
 
     if ($settings.PSObject.Properties.Name -notcontains $Key) {
         $validKeys = ($settings.PSObject.Properties.Name | Sort-Object) -join ', '
@@ -233,24 +233,24 @@ function Set-TaggerSettings {
         if ($newValue -ne 'copy') {
             # 'move' deleted source files after applying - removed entirely after an incident
             # destroyed source releases with no other backup. Source files are always read-only
-            # to Tagger now, so 'copy' is the only valid value.
-            throw "Invalid copy mode '$newValue'. Must be 'copy' - 'move' is no longer supported, since Tagger never deletes source files."
+            # to Reshelf now, so 'copy' is the only valid value.
+            throw "Invalid copy mode '$newValue'. Must be 'copy' - 'move' is no longer supported, since Reshelf never deletes source files."
         }
     }
 
     if ($Key -eq 'targetRoot') {
-        Assert-TaggerPathWritable -Path $newValue
+        Assert-ReshelfPathWritable -Path $newValue
     }
 
     $settings.$Key = $newValue
 
     $settingsPath = Join-Path $DataHome 'settings.json'
-    Set-TaggerJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
+    Set-ReshelfJsonFile -Path $settingsPath -InputObject $settings -SchemaName settings | Out-Null
 
     return $settings
 }
 
-function New-TaggerSession {
+function New-ReshelfSession {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -263,14 +263,14 @@ function New-TaggerSession {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
     $sessionDir = $null
     $sessionId = $null
     $maxAttempts = 5
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-        $candidateId = New-TaggerSessionId -DataHome $DataHome
+        $candidateId = New-ReshelfSessionId -DataHome $DataHome
         $candidateDir = Join-Path $DataHome 'sessions' $candidateId
         try {
             New-Item -ItemType Directory -Path $candidateDir -ErrorAction Stop | Out-Null
@@ -302,12 +302,12 @@ function New-TaggerSession {
     }
 
     $sessionFile = Join-Path $sessionDir 'session.json'
-    Set-TaggerJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
+    Set-ReshelfJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
 
     return $session
 }
 
-function Read-TaggerSessionFile {
+function Read-ReshelfSessionFile {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -315,14 +315,14 @@ function Read-TaggerSessionFile {
         [string]$Path
     )
 
-    if (-not (Test-TaggerJson -SchemaName session -Path $Path)) {
+    if (-not (Test-ReshelfJson -SchemaName session -Path $Path)) {
         throw "Session file at '$Path' does not match the session schema."
     }
 
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
-function Get-TaggerSession {
+function Get-ReshelfSession {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -332,7 +332,7 @@ function Get-TaggerSession {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
     $sessionsDir = Join-Path $DataHome 'sessions'
@@ -342,7 +342,7 @@ function Get-TaggerSession {
         if (-not (Test-Path -LiteralPath $sessionFile -PathType Leaf)) {
             throw "Session '$SessionId' not found."
         }
-        return Read-TaggerSessionFile -Path $sessionFile
+        return Read-ReshelfSessionFile -Path $sessionFile
     }
 
     if (-not (Test-Path -LiteralPath $sessionsDir)) {
@@ -352,14 +352,14 @@ function Get-TaggerSession {
     $sessions = foreach ($dir in Get-ChildItem -LiteralPath $sessionsDir -Directory) {
         $sessionFile = Join-Path $dir.FullName 'session.json'
         if (Test-Path -LiteralPath $sessionFile -PathType Leaf) {
-            Read-TaggerSessionFile -Path $sessionFile
+            Read-ReshelfSessionFile -Path $sessionFile
         }
     }
 
     return @($sessions | Sort-Object -Property updatedAtUtc -Descending)
 }
 
-function Resume-TaggerSession {
+function Resume-ReshelfSession {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -369,14 +369,14 @@ function Resume-TaggerSession {
         [string]$DataHome
     )
 
-    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $session = Get-ReshelfSession -SessionId $SessionId -DataHome $DataHome
 
     $nextCommand = switch ($session.stage) {
-        'recognized' { "Tagger.ps1 propose -SessionId $SessionId" }
-        'proposed' { "Tagger.ps1 ui start, review the proposal in the browser, then Tagger.ps1 session mark-reviewed -SessionId $SessionId" }
-        'reviewed' { "Tagger.ps1 apply -SessionId $SessionId" }
+        'recognized' { "Reshelf.ps1 propose -SessionId $SessionId" }
+        'proposed' { "Reshelf.ps1 ui start, review the proposal in the browser, then Reshelf.ps1 session mark-reviewed -SessionId $SessionId" }
+        'reviewed' { "Reshelf.ps1 apply -SessionId $SessionId" }
         'applied' { 'Nothing - session complete.' }
-        'partially-applied' { "Tagger.ps1 apply -SessionId $SessionId" }
+        'partially-applied' { "Reshelf.ps1 apply -SessionId $SessionId" }
         default { throw "Unknown session stage '$($session.stage)' for session '$SessionId'." }
     }
 
@@ -387,7 +387,7 @@ function Resume-TaggerSession {
     }
 }
 
-function Set-TaggerSessionStage {
+function Set-ReshelfSessionStage {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -404,10 +404,10 @@ function Set-TaggerSessionStage {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
-    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
+    $session = Get-ReshelfSession -SessionId $SessionId -DataHome $DataHome
     $session.stage = $Stage
     if ($PSBoundParameters.ContainsKey('ProposalPath')) {
         $session.proposalPath = $ProposalPath
@@ -415,10 +415,10 @@ function Set-TaggerSessionStage {
     $session.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
 
     $sessionFile = Join-Path $DataHome 'sessions' $SessionId 'session.json'
-    Set-TaggerJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
+    Set-ReshelfJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
 
     return $session
 }
 
-Export-ModuleMember -Function Get-TaggerSettings, Initialize-TaggerSettings, Set-TaggerSettings, Set-TaggerDiscogsToken, `
-    New-TaggerSession, Resume-TaggerSession, Get-TaggerSession, Set-TaggerSessionStage
+Export-ModuleMember -Function Get-ReshelfSettings, Initialize-ReshelfSettings, Set-ReshelfSettings, Set-ReshelfDiscogsToken, `
+    New-ReshelfSession, Resume-ReshelfSession, Get-ReshelfSession, Set-ReshelfSessionStage

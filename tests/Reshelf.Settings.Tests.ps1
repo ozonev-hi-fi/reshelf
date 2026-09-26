@@ -3,7 +3,7 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Settings.psm1" -Force
 
     function Set-SessionStage {
         param(
@@ -25,10 +25,10 @@ BeforeAll {
         return [System.Security.SecureString]::new()
     }
 
-    # Tagger.Settings.psm1 re-imports Tagger.Common.psm1 internally as part of loading, which turns
-    # it into a nested module of Tagger.Settings - PowerShell then hides its commands from this
-    # script's own top-level scope (same gotcha noted in Tagger.EditProposal.Tests.ps1 and
-    # Tagger.LossyTracking.Tests.ps1). Routing through Settings' own module scope, which always has
+    # Reshelf.Settings.psm1 re-imports Reshelf.Common.psm1 internally as part of loading, which turns
+    # it into a nested module of Reshelf.Settings - PowerShell then hides its commands from this
+    # script's own top-level scope (same gotcha noted in Reshelf.EditProposal.Tests.ps1 and
+    # Reshelf.LossyTracking.Tests.ps1). Routing through Settings' own module scope, which always has
     # it, avoids that fragility.
     function Get-TestUnprotectedSecret {
         param(
@@ -36,15 +36,15 @@ BeforeAll {
             [string]$EncryptedText
         )
 
-        return InModuleScope Tagger.Settings -Parameters @{ enc = $EncryptedText } {
+        return InModuleScope Reshelf.Settings -Parameters @{ enc = $EncryptedText } {
             param($enc)
-            Unprotect-TaggerSecret -EncryptedText $enc
+            Unprotect-ReshelfSecret -EncryptedText $enc
         }
     }
 
     function New-TestSecureString {
-        # Same intentional plaintext-to-SecureString pattern as Tagger.Common.psm1's
-        # Protect-TaggerSecret - here it's simulating what Read-Host -AsSecureString returns, from a
+        # Same intentional plaintext-to-SecureString pattern as Reshelf.Common.psm1's
+        # Protect-ReshelfSecret - here it's simulating what Read-Host -AsSecureString returns, from a
         # known fake test value.
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
             Justification = 'Test fixture: builds a SecureString from a known fake value to mock what Read-Host -AsSecureString returns.')]
@@ -57,21 +57,21 @@ BeforeAll {
     }
 }
 
-Describe 'Initialize-TaggerSettings' {
+Describe 'Initialize-ReshelfSettings' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:targetRoot = Join-Path $TestDrive 'target'
     }
 
     It 'writes valid settings using only supplied params without prompting' {
-        # Test-TaggerHostIsInteractive is mocked false, not just relied on the real (non-interactive
+        # Test-ReshelfHostIsInteractive is mocked false, not just relied on the real (non-interactive
         # test-runner) console state, so this stays deterministic on any machine - the Discogs token
         # prompt is unconditional on interactivity (it has no -Value param to pre-supply), so without
         # this it would fire and hit the "should not be called" mock below on a real interactive host.
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
-        Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called.' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
+        Mock -ModuleName Reshelf.Settings Read-Host { throw 'Read-Host should not be called.' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
 
         $result.targetRoot | Should -Be $targetRoot
         $result.defaultSourceRoot | Should -Be 'D:\source'
@@ -81,25 +81,25 @@ Describe 'Initialize-TaggerSettings' {
     }
 
     It 'prompts only for fields left unsupplied, in an interactive host' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
-        Mock -ModuleName Tagger.Settings Read-Host { 'D:\prompted-source' } -ParameterFilter { $Prompt -like 'Default source root*' }
-        Mock -ModuleName Tagger.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $true }
+        Mock -ModuleName Reshelf.Settings Read-Host { 'D:\prompted-source' } -ParameterFilter { $Prompt -like 'Default source root*' }
+        Mock -ModuleName Reshelf.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome
 
         $result.defaultSourceRoot | Should -Be 'D:\prompted-source'
         # copyMode has no real choice any more ('move' was removed for source-file safety), so it's
         # no longer prompted for - always 'copy' unless the caller explicitly passes -CopyMode.
         $result.copyMode | Should -Be 'copy'
         $result.discogsTokenEncrypted | Should -Be ''
-        Should -Invoke -ModuleName Tagger.Settings Read-Host -Times 2
+        Should -Invoke -ModuleName Reshelf.Settings Read-Host -Times 2
     }
 
     It 'encrypts and stores a Discogs token entered at the prompt, round-trippable back to the original value' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
-        Mock -ModuleName Tagger.Settings Read-Host { New-TestSecureString -PlainText 'my-real-token' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $true }
+        Mock -ModuleName Reshelf.Settings Read-Host { New-TestSecureString -PlainText 'my-real-token' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
 
         $result.discogsTokenEncrypted | Should -Not -BeNullOrEmpty
         $result.discogsTokenEncrypted | Should -Not -Be 'my-real-token'
@@ -107,90 +107,90 @@ Describe 'Initialize-TaggerSettings' {
     }
 
     It 'leaves the token empty when skipped (empty response) at the prompt' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
-        Mock -ModuleName Tagger.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $true }
+        Mock -ModuleName Reshelf.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
 
         $result.discogsTokenEncrypted | Should -Be ''
     }
 
     It 'leaves the token empty and never prompts for it in a non-interactive host' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
-        Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called for the token prompt.' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
+        Mock -ModuleName Reshelf.Settings Read-Host { throw 'Read-Host should not be called for the token prompt.' } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome
 
         $result.discogsTokenEncrypted | Should -Be ''
     }
 
     It 'fails fast with a clear message when TargetRoot is missing in a non-interactive host' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
 
-        { Initialize-TaggerSettings -DataHome $dataHome } | Should -Throw '*non-interactive*'
+        { Initialize-ReshelfSettings -DataHome $dataHome } | Should -Throw '*non-interactive*'
     }
 
     It 'throws when settings.json already exists and -Force is not passed' {
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
 
-        { Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome } | Should -Throw '*already exists*'
+        { Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome } | Should -Throw '*already exists*'
     }
 
     It 'overwrites existing settings.json when -Force is passed' {
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
 
         $newTargetRoot = Join-Path $TestDrive 'target2'
-        $result = Initialize-TaggerSettings -TargetRoot $newTargetRoot -DataHome $dataHome -Force
+        $result = Initialize-ReshelfSettings -TargetRoot $newTargetRoot -DataHome $dataHome -Force
 
         $result.targetRoot | Should -Be $newTargetRoot
     }
 
     It 'defaults CopyMode to copy when skipped non-interactively' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome
 
         $result.copyMode | Should -Be 'copy'
     }
 
     It 'accepts a mixed-case -CopyMode value and normalizes it to lowercase' {
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -CopyMode 'Copy' -DataHome $dataHome
+        $result = Initialize-ReshelfSettings -TargetRoot $targetRoot -CopyMode 'Copy' -DataHome $dataHome
 
         $result.copyMode | Should -Be 'copy'
     }
 
     It 'rejects -CopyMode move - it was removed for source-file safety' {
-        { Initialize-TaggerSettings -TargetRoot $targetRoot -CopyMode 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
+        { Initialize-ReshelfSettings -TargetRoot $targetRoot -CopyMode 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
     }
 
     It 'throws when TargetRoot is not writable' {
         $unwritableTargetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType File -Path $unwritableTargetRoot -Force | Out-Null
 
-        { Initialize-TaggerSettings -TargetRoot $unwritableTargetRoot -DataHome $dataHome } | Should -Throw
+        { Initialize-ReshelfSettings -TargetRoot $unwritableTargetRoot -DataHome $dataHome } | Should -Throw
     }
 
     It 'produces a settings.json that validates against the settings schema' {
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
 
         Test-Json -LiteralPath (Join-Path $dataHome 'settings.json') -SchemaFile "$PSScriptRoot/../schemas/settings.schema.json" | Should -Be $true
     }
 }
 
-Describe 'Set-TaggerDiscogsToken' {
+Describe 'Set-ReshelfDiscogsToken' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:targetRoot = Join-Path $TestDrive 'target'
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome | Out-Null
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome | Out-Null
     }
 
     It 'updates an existing settings.json token and leaves every other field untouched' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
-        Mock -ModuleName Tagger.Settings Read-Host { New-TestSecureString -PlainText 'updated-token' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $true }
+        Mock -ModuleName Reshelf.Settings Read-Host { New-TestSecureString -PlainText 'updated-token' }
 
-        $before = Get-TaggerSettings -DataHome $dataHome
-        $result = Set-TaggerDiscogsToken -DataHome $dataHome
+        $before = Get-ReshelfSettings -DataHome $dataHome
+        $result = Set-ReshelfDiscogsToken -DataHome $dataHome
 
         (Get-TestUnprotectedSecret -EncryptedText $result.discogsTokenEncrypted) | Should -Be 'updated-token'
         $result.targetRoot | Should -Be $before.targetRoot
@@ -199,139 +199,139 @@ Describe 'Set-TaggerDiscogsToken' {
     }
 
     It 'throws and never prompts when the host is not interactive' {
-        Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
-        Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called.' }
+        Mock -ModuleName Reshelf.Settings Test-ReshelfHostIsInteractive { $false }
+        Mock -ModuleName Reshelf.Settings Read-Host { throw 'Read-Host should not be called.' }
 
-        { Set-TaggerDiscogsToken -DataHome $dataHome } | Should -Throw '*interactive*'
+        { Set-ReshelfDiscogsToken -DataHome $dataHome } | Should -Throw '*interactive*'
     }
 }
 
-Describe 'Get-TaggerSettings' {
+Describe 'Get-ReshelfSettings' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:targetRoot = Join-Path $TestDrive 'target'
     }
 
     It 'returns parsed settings when the file is valid' {
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
 
-        $result = Get-TaggerSettings -DataHome $dataHome
+        $result = Get-ReshelfSettings -DataHome $dataHome
 
         $result.targetRoot | Should -Be $targetRoot
     }
 
-    It 'calls Initialize-TaggerSettings when settings.json is missing' {
-        Mock -ModuleName Tagger.Settings Initialize-TaggerSettings { [pscustomobject]@{ targetRoot = 'stub' } }
+    It 'calls Initialize-ReshelfSettings when settings.json is missing' {
+        Mock -ModuleName Reshelf.Settings Initialize-ReshelfSettings { [pscustomobject]@{ targetRoot = 'stub' } }
 
-        Get-TaggerSettings -DataHome $dataHome | Out-Null
+        Get-ReshelfSettings -DataHome $dataHome | Out-Null
 
-        Should -Invoke -ModuleName Tagger.Settings Initialize-TaggerSettings -Times 1
+        Should -Invoke -ModuleName Reshelf.Settings Initialize-ReshelfSettings -Times 1
     }
 
     It 'throws a clear error when the on-disk file fails schema validation' {
         New-Item -ItemType Directory -Path $dataHome -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $dataHome 'settings.json') -Value '{"copyMode":"copy"}'
 
-        { Get-TaggerSettings -DataHome $dataHome } | Should -Throw '*does not match*'
+        { Get-ReshelfSettings -DataHome $dataHome } | Should -Throw '*does not match*'
     }
 
     It 'overrides a stale on-disk dataHome with the resolved data home the file was actually read from' {
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
         $settingsPath = Join-Path $dataHome 'settings.json'
         $onDisk = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
         $onDisk.dataHome = 'C:\stale\path'
         $onDisk | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $settingsPath -Encoding utf8
 
-        $result = Get-TaggerSettings -DataHome $dataHome
+        $result = Get-ReshelfSettings -DataHome $dataHome
 
         $result.dataHome | Should -Be $dataHome
     }
 }
 
-Describe 'Set-TaggerSettings' {
+Describe 'Set-ReshelfSettings' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:targetRoot = Join-Path $TestDrive 'target'
-        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        Initialize-ReshelfSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
     }
 
     It 'updates and persists a top-level string key' {
-        $result = Set-TaggerSettings -Key 'discogsTokenEnvVar' -Value 'MY_TOKEN' -DataHome $dataHome
+        $result = Set-ReshelfSettings -Key 'discogsTokenEnvVar' -Value 'MY_TOKEN' -DataHome $dataHome
 
         $result.discogsTokenEnvVar | Should -Be 'MY_TOKEN'
-        (Get-TaggerSettings -DataHome $dataHome).discogsTokenEnvVar | Should -Be 'MY_TOKEN'
+        (Get-ReshelfSettings -DataHome $dataHome).discogsTokenEnvVar | Should -Be 'MY_TOKEN'
     }
 
     It 'coerces a string value to the field''s real type' {
-        $result = Set-TaggerSettings -Key 'cacheTtlDays' -Value '45' -DataHome $dataHome
+        $result = Set-ReshelfSettings -Key 'cacheTtlDays' -Value '45' -DataHome $dataHome
 
         $result.cacheTtlDays | Should -Be 45
         $result.cacheTtlDays | Should -BeOfType [int]
     }
 
     It 'throws for an unknown key' {
-        { Set-TaggerSettings -Key 'notAKey' -Value 'x' -DataHome $dataHome } | Should -Throw '*Unknown settings key*'
+        { Set-ReshelfSettings -Key 'notAKey' -Value 'x' -DataHome $dataHome } | Should -Throw '*Unknown settings key*'
     }
 
     It 'throws for an invalid copyMode' {
-        { Set-TaggerSettings -Key 'copyMode' -Value 'shred' -DataHome $dataHome } | Should -Throw '*Invalid copy mode*'
+        { Set-ReshelfSettings -Key 'copyMode' -Value 'shred' -DataHome $dataHome } | Should -Throw '*Invalid copy mode*'
     }
 
     It 'accepts a mixed-case copyMode value and normalizes it to lowercase' {
-        $result = Set-TaggerSettings -Key 'copyMode' -Value 'Copy' -DataHome $dataHome
+        $result = Set-ReshelfSettings -Key 'copyMode' -Value 'Copy' -DataHome $dataHome
 
         $result.copyMode | Should -Be 'copy'
     }
 
     It 'rejects copyMode move - it was removed for source-file safety' {
-        { Set-TaggerSettings -Key 'copyMode' -Value 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
+        { Set-ReshelfSettings -Key 'copyMode' -Value 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
     }
 
     It 're-validates writability when changing targetRoot' {
         $newTargetRoot = Join-Path $TestDrive 'newTarget'
 
-        $result = Set-TaggerSettings -Key 'targetRoot' -Value $newTargetRoot -DataHome $dataHome
+        $result = Set-ReshelfSettings -Key 'targetRoot' -Value $newTargetRoot -DataHome $dataHome
 
         $result.targetRoot | Should -Be $newTargetRoot
         $newTargetRoot | Should -Exist
     }
 }
 
-Describe 'New-TaggerSessionId (private)' {
+Describe 'New-ReshelfSessionId (private)' {
     It 'starts at 0001 for a new date and increments per existing session' {
-        InModuleScope Tagger.Settings {
+        InModuleScope Reshelf.Settings {
             $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
             $date = Get-Date '2026-09-19'
 
-            $first = New-TaggerSessionId -DataHome $dataHome -Date $date
+            $first = New-ReshelfSessionId -DataHome $dataHome -Date $date
             $first | Should -Be '2026-09-19-0001'
 
             New-Item -ItemType Directory -Path (Join-Path $dataHome 'sessions' $first) -Force | Out-Null
 
-            $second = New-TaggerSessionId -DataHome $dataHome -Date $date
+            $second = New-ReshelfSessionId -DataHome $dataHome -Date $date
             $second | Should -Be '2026-09-19-0002'
         }
     }
 
     It 'resets to 0001 for a different date' {
-        InModuleScope Tagger.Settings {
+        InModuleScope Reshelf.Settings {
             $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
             New-Item -ItemType Directory -Path (Join-Path $dataHome 'sessions' '2026-09-19-0001') -Force | Out-Null
 
-            $result = New-TaggerSessionId -DataHome $dataHome -Date (Get-Date '2026-09-20')
+            $result = New-ReshelfSessionId -DataHome $dataHome -Date (Get-Date '2026-09-20')
 
             $result | Should -Be '2026-09-20-0001'
         }
     }
 }
 
-Describe 'New-TaggerSession' {
+Describe 'New-ReshelfSession' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
     }
 
     It 'creates the session folder and a session.json with stage recognized' {
-        $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+        $session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
 
         $session.stage | Should -Be 'recognized'
         $session.proposalPath | Should -Be $null
@@ -339,18 +339,18 @@ Describe 'New-TaggerSession' {
     }
 
     It 'retries instead of clobbering when the computed session id already exists (simulated race)' {
-        InModuleScope Tagger.Settings -Parameters @{ dataHome = $dataHome } {
+        InModuleScope Reshelf.Settings -Parameters @{ dataHome = $dataHome } {
             $existingDir = Join-Path $dataHome 'sessions' '2026-01-01-0001'
             New-Item -ItemType Directory -Path $existingDir -Force | Out-Null
             Set-Content -LiteralPath (Join-Path $existingDir 'session.json') -Value '"sentinel"'
 
             $script:tggrCallCount = 0
-            Mock New-TaggerSessionId {
+            Mock New-ReshelfSessionId {
                 $script:tggrCallCount++
                 if ($script:tggrCallCount -eq 1) { '2026-01-01-0001' } else { '2026-01-01-0002' }
             }
 
-            $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+            $session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
 
             $session.sessionId | Should -Be '2026-01-01-0002'
             (Get-Content -LiteralPath (Join-Path $existingDir 'session.json') -Raw).Trim() | Should -Be '"sentinel"'
@@ -358,96 +358,96 @@ Describe 'New-TaggerSession' {
     }
 
     It 'gives two sessions created the same day sequential ids' {
-        $first = New-TaggerSession -SourceRoot 'D:\source1' -DataHome $dataHome
-        $second = New-TaggerSession -SourceRoot 'D:\source2' -DataHome $dataHome
+        $first = New-ReshelfSession -SourceRoot 'D:\source1' -DataHome $dataHome
+        $second = New-ReshelfSession -SourceRoot 'D:\source2' -DataHome $dataHome
 
         $first.sessionId | Should -Not -Be $second.sessionId
     }
 
     It 'produces a session.json that validates against the session schema' {
-        $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+        $session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
 
         $sessionFile = Join-Path $dataHome 'sessions' $session.sessionId 'session.json'
         Test-Json -LiteralPath $sessionFile -SchemaFile "$PSScriptRoot/../schemas/session.schema.json" | Should -Be $true
     }
 }
 
-Describe 'Resume-TaggerSession' {
+Describe 'Resume-ReshelfSession' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-        $script:session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+        $script:session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
     }
 
     It 'reports the next command for stage recognized' {
-        $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
+        $result = Resume-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome
         $result.NextCommand | Should -BeLike "*propose*$($session.sessionId)*"
     }
 
     It 'reports the next step for stage proposed' {
         Set-SessionStage -DataHome $dataHome -SessionId $session.sessionId -Stage 'proposed'
-        $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
+        $result = Resume-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome
         $result.NextCommand | Should -BeLike '*ui start*'
         $result.NextCommand | Should -BeLike "*mark-reviewed*$($session.sessionId)*"
     }
 
     It 'reports the next command for stage reviewed' {
         Set-SessionStage -DataHome $dataHome -SessionId $session.sessionId -Stage 'reviewed'
-        $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
+        $result = Resume-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome
         $result.NextCommand | Should -BeLike "*apply*$($session.sessionId)*"
     }
 
     It 'reports completion for stage applied' {
         Set-SessionStage -DataHome $dataHome -SessionId $session.sessionId -Stage 'applied'
-        $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
+        $result = Resume-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome
         $result.NextCommand | Should -BeLike '*complete*'
     }
 
     It 'reports the next command for stage partially-applied' {
         Set-SessionStage -DataHome $dataHome -SessionId $session.sessionId -Stage 'partially-applied'
-        $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
+        $result = Resume-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome
         $result.NextCommand | Should -BeLike "*apply*$($session.sessionId)*"
     }
 
     It 'throws for an unknown session id' {
-        { Resume-TaggerSession -SessionId '2000-01-01-0001' -DataHome $dataHome } | Should -Throw '*not found*'
+        { Resume-ReshelfSession -SessionId '2000-01-01-0001' -DataHome $dataHome } | Should -Throw '*not found*'
     }
 }
 
-Describe 'Get-TaggerSession' {
+Describe 'Get-ReshelfSession' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
     }
 
     It 'returns all sessions sorted by updatedAtUtc descending' {
-        $first = New-TaggerSession -SourceRoot 'D:\source1' -DataHome $dataHome
+        $first = New-ReshelfSession -SourceRoot 'D:\source1' -DataHome $dataHome
         Start-Sleep -Milliseconds 20
-        $second = New-TaggerSession -SourceRoot 'D:\source2' -DataHome $dataHome
+        $second = New-ReshelfSession -SourceRoot 'D:\source2' -DataHome $dataHome
 
-        $result = Get-TaggerSession -DataHome $dataHome
+        $result = Get-ReshelfSession -DataHome $dataHome
 
         $result[0].sessionId | Should -Be $second.sessionId
         $result[1].sessionId | Should -Be $first.sessionId
     }
 
     It 'returns a single session by id' {
-        $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+        $session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
 
-        (Get-TaggerSession -SessionId $session.sessionId -DataHome $dataHome).sourceRoot | Should -Be 'D:\source'
+        (Get-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome).sourceRoot | Should -Be 'D:\source'
     }
 
     It 'throws for a missing session id' {
-        { Get-TaggerSession -SessionId '2000-01-01-0001' -DataHome $dataHome } | Should -Throw '*not found*'
+        { Get-ReshelfSession -SessionId '2000-01-01-0001' -DataHome $dataHome } | Should -Throw '*not found*'
     }
 
     It 'throws a clear error when session.json fails schema validation' {
-        $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
+        $session = New-ReshelfSession -SourceRoot 'D:\source' -DataHome $dataHome
         $sessionFile = Join-Path $dataHome 'sessions' $session.sessionId 'session.json'
         Set-Content -LiteralPath $sessionFile -Value '{"stage":"recognized"}'
 
-        { Get-TaggerSession -SessionId $session.sessionId -DataHome $dataHome } | Should -Throw '*does not match*'
+        { Get-ReshelfSession -SessionId $session.sessionId -DataHome $dataHome } | Should -Throw '*does not match*'
     }
 
     It 'returns an empty collection when no sessions exist' {
-        @(Get-TaggerSession -DataHome $dataHome).Count | Should -Be 0
+        @(Get-ReshelfSession -DataHome $dataHome).Count | Should -Be 0
     }
 }

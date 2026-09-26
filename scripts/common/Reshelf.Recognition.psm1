@@ -1,9 +1,9 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Json.psm1') -Force
 
-$script:TaggerCategoryFolderNames = @('EPs', 'Singles', 'Lives', 'Live', 'Compilations', 'Bootlegs')
+$script:ReshelfCategoryFolderNames = @('EPs', 'Singles', 'Lives', 'Live', 'Compilations', 'Bootlegs')
 
 # --- Heuristics -------------------------------------------------------------
 
@@ -18,7 +18,7 @@ function Test-IsDiscFolder {
     return [bool]($Name -match '(?i)^(CD|Disc|Disk)\s*\.?\s*(\d+)(\.|\s|-|$)')
 }
 
-function Get-TaggerDiscNumber {
+function Get-ReshelfDiscNumber {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -31,7 +31,7 @@ function Get-TaggerDiscNumber {
     return $null
 }
 
-function Get-TaggerDiscFolders {
+function Get-ReshelfDiscFolders {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -40,7 +40,7 @@ function Get-TaggerDiscFolders {
 
     $subfolders = @(Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue)
     $discs = foreach ($sub in $subfolders) {
-        $number = Get-TaggerDiscNumber -Name $sub.Name
+        $number = Get-ReshelfDiscNumber -Name $sub.Name
         if ($null -ne $number) {
             $sub | Add-Member -NotePropertyName DiscNumber -NotePropertyValue $number -PassThru -Force
         }
@@ -57,7 +57,7 @@ function Test-IsReleaseFolder {
         [string]$Path
     )
 
-    if ((Get-TaggerAudioFilesInFolder -Path $Path).Count -ge 1) {
+    if ((Get-ReshelfAudioFilesInFolder -Path $Path).Count -ge 1) {
         return $true
     }
 
@@ -66,13 +66,13 @@ function Test-IsReleaseFolder {
         return $false
     }
 
-    $discFolders = Get-TaggerDiscFolders -Path $Path
+    $discFolders = Get-ReshelfDiscFolders -Path $Path
     if ($discFolders.Count -eq 0) {
         return $false
     }
 
     foreach ($disc in $discFolders) {
-        if ((Get-TaggerAudioFilesInFolder -Path $disc.FullName).Count -ge 1) {
+        if ((Get-ReshelfAudioFilesInFolder -Path $disc.FullName).Count -ge 1) {
             return $true
         }
     }
@@ -87,7 +87,7 @@ function Test-IsCategorySubfolder {
         [Parameter(Mandatory)]
         [string]$Name,
 
-        [string[]]$CategoryNames = $script:TaggerCategoryFolderNames
+        [string[]]$CategoryNames = $script:ReshelfCategoryFolderNames
     )
 
     return [bool]($CategoryNames | Where-Object { $_ -ieq $Name })
@@ -133,7 +133,7 @@ function Test-IsBandMemberFolder {
 
     $name = Split-Path -Leaf $Path
 
-    if ((ConvertTo-TaggerNormalizedText -Text $name) -eq (ConvertTo-TaggerNormalizedText -Text $ParentArtistName)) {
+    if ((ConvertTo-ReshelfNormalizedText -Text $name) -eq (ConvertTo-ReshelfNormalizedText -Text $ParentArtistName)) {
         return $false
     }
     if (Test-IsCategorySubfolder -Name $name) {
@@ -158,7 +158,7 @@ function Test-IsBandMemberFolder {
 
 # --- Track / disc parsing ---------------------------------------------------
 
-function Get-TaggerTrackOrder {
+function Get-ReshelfTrackOrder {
     [CmdletBinding()]
     param(
         [AllowEmptyCollection()]
@@ -166,7 +166,7 @@ function Get-TaggerTrackOrder {
     )
 
     $parsed = @(foreach ($file in $AudioFiles) {
-            $info = ConvertFrom-TaggerTrackFileName -FileName $file.Name
+            $info = ConvertFrom-ReshelfTrackFileName -FileName $file.Name
             [pscustomobject]@{ File = $file; Number = $info.Number; Title = $info.Title; HasNumber = $info.HasNumber }
         })
 
@@ -191,7 +191,7 @@ function Get-TaggerTrackOrder {
 
 # --- Cue sheets --------------------------------------------------------------
 
-function Get-TaggerCueSheetPathForAudio {
+function Get-ReshelfCueSheetPathForAudio {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -229,15 +229,15 @@ function Test-IsCueSheetRelease {
         [string]$Path
     )
 
-    $audioFiles = Get-TaggerAudioFilesInFolder -Path $Path
+    $audioFiles = Get-ReshelfAudioFilesInFolder -Path $Path
     if ($audioFiles.Count -ne 1) { return $false }
 
     $cueFiles = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
 
-    return ($null -ne (Get-TaggerCueSheetPathForAudio -AudioFile $audioFiles[0] -CueFiles $cueFiles))
+    return ($null -ne (Get-ReshelfCueSheetPathForAudio -AudioFile $audioFiles[0] -CueFiles $cueFiles))
 }
 
-function ConvertFrom-TaggerCueSheetText {
+function ConvertFrom-ReshelfCueSheetText {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -266,7 +266,7 @@ function ConvertFrom-TaggerCueSheetText {
     }
 }
 
-function ConvertFrom-TaggerCueSheet {
+function ConvertFrom-ReshelfCueSheet {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -274,8 +274,8 @@ function ConvertFrom-TaggerCueSheet {
     )
 
     try {
-        $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-TaggerLongPath -Path $CueFilePath))
-        $text = ConvertFrom-TaggerCueSheetText -Bytes $bytes
+        $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-ReshelfLongPath -Path $CueFilePath))
+        $text = ConvertFrom-ReshelfCueSheetText -Bytes $bytes
         $lines = $text -split "`r`n|`r|`n"
     }
     catch {
@@ -313,13 +313,13 @@ function ConvertFrom-TaggerCueSheet {
 
 # --- Companion files ----------------------------------------------------------
 
-function Resolve-TaggerCompanionKind {
+function Resolve-ReshelfCompanionKind {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$FileName,
 
-        # AllowEmptyString: see Test-TaggerIsAudioExtension in Tagger.Common.psm1 - a companion
+        # AllowEmptyString: see Test-ReshelfIsAudioExtension in Reshelf.Common.psm1 - a companion
         # file with no extension at all falls through to kind 'other' below, instead of the
         # Mandatory string binder rejecting '' before this function even runs.
         [Parameter(Mandatory)]
@@ -344,7 +344,7 @@ function Resolve-TaggerCompanionKind {
     return 'other'
 }
 
-function Get-TaggerCompanionFiles {
+function Get-ReshelfCompanionFiles {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -367,7 +367,7 @@ function Get-TaggerCompanionFiles {
     $allFiles = @(Get-ChildItem -LiteralPath $Path -File -Recurse -ErrorAction SilentlyContinue)
     foreach ($file in $allFiles) {
         $ext = $file.Extension.ToLowerInvariant()
-        if (Test-TaggerIsAudioExtension -Extension $ext) { continue }
+        if (Test-ReshelfIsAudioExtension -Extension $ext) { continue }
         if ($ext -eq '.cue') {
             if ($CueSheetPath -and $file.FullName -eq $CueSheetPath) { continue }
             $ignored.Add([pscustomobject]@{ sourcePath = $file.FullName; reason = 'cue-sheet-not-used' })
@@ -380,7 +380,7 @@ function Get-TaggerCompanionFiles {
         }
 
         $placement = if ($file.DirectoryName -eq $Path) { 'loose' } else { 'nested' }
-        $kind = Resolve-TaggerCompanionKind -FileName $file.Name -Extension $ext
+        $kind = Resolve-ReshelfCompanionKind -FileName $file.Name -Extension $ext
         $companions.Add([pscustomobject]@{ sourcePath = $file.FullName; kind = $kind; placement = $placement })
     }
 
@@ -388,10 +388,10 @@ function Get-TaggerCompanionFiles {
 }
 
 # --- TagLibSharp --------------------------------------------------------------
-# Import-TaggerTagLibSharp itself now lives in Tagger.Common.psm1 (shared with
-# Tagger.Implementation.psm1's tag-writing) - already imported above, no new import needed.
+# Import-ReshelfTagLibSharp itself now lives in Reshelf.Common.psm1 (shared with
+# Reshelf.Implementation.psm1's tag-writing) - already imported above, no new import needed.
 
-function Save-TaggerEmbeddedCoverToCache {
+function Save-ReshelfEmbeddedCoverToCache {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -404,10 +404,10 @@ function Save-TaggerEmbeddedCoverToCache {
     $bytes = $Picture.Data.Data
     if (-not $bytes -or $bytes.Length -eq 0) { return $null }
 
-    # Get-TaggerEffectiveDataHome (not Resolve-TaggerDataHome directly) so this cache lands in
-    # whatever data home the current run was actually configured with (Set-TaggerTagLibSharpContext,
-    # called once by Invoke-TaggerRecognition) rather than always the repo-default '.data' folder.
-    $DataHome = Get-TaggerEffectiveDataHome -DataHome $DataHome
+    # Get-ReshelfEffectiveDataHome (not Resolve-ReshelfDataHome directly) so this cache lands in
+    # whatever data home the current run was actually configured with (Set-ReshelfTagLibSharpContext,
+    # called once by Invoke-ReshelfRecognition) rather than always the repo-default '.data' folder.
+    $DataHome = Get-ReshelfEffectiveDataHome -DataHome $DataHome
 
     $hashBytes = [System.Security.Cryptography.SHA256]::HashData($bytes)
     $hashHex = [System.Convert]::ToHexString($hashBytes).ToLowerInvariant()
@@ -431,7 +431,7 @@ function Save-TaggerEmbeddedCoverToCache {
     return $cachePath
 }
 
-function Get-TaggerAudioTags {
+function Get-ReshelfAudioTags {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -442,10 +442,10 @@ function Get-TaggerAudioTags {
         [string]$DataHome
     )
 
-    Import-TaggerTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
+    Import-ReshelfTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
-    $file = [TagLib.File]::Create((ConvertTo-TaggerLongPath -Path $Path))
+    $file = [TagLib.File]::Create((ConvertTo-ReshelfLongPath -Path $Path))
     try {
         $tag = $file.Tag
         $properties = $file.Properties
@@ -455,7 +455,7 @@ function Get-TaggerAudioTags {
         if ($pictures.Count -gt 0) {
             $picture = $pictures | Where-Object { $_.Type -eq [TagLib.PictureType]::FrontCover } | Select-Object -First 1
             if (-not $picture) { $picture = $pictures[0] }
-            $embeddedCoverPath = Save-TaggerEmbeddedCoverToCache -Picture $picture -DataHome $DataHome
+            $embeddedCoverPath = Save-ReshelfEmbeddedCoverToCache -Picture $picture -DataHome $DataHome
         }
 
         return @{
@@ -463,7 +463,7 @@ function Get-TaggerAudioTags {
             Album             = if ($tag.Album) { $tag.Album } else { $null }
             Title             = if ($tag.Title) { $tag.Title } else { $null }
             Format            = $extension.TrimStart('.')
-            IsLossless        = Test-TaggerIsLosslessFormat -Extension $extension
+            IsLossless        = Test-ReshelfIsLosslessFormat -Extension $extension
             DurationSeconds   = [double]$properties.Duration.TotalSeconds
             EmbeddedCoverPath = $embeddedCoverPath
         }
@@ -475,7 +475,7 @@ function Get-TaggerAudioTags {
 
 # --- Overrides -----------------------------------------------------------------
 
-function Get-TaggerOverridesFileHash {
+function Get-ReshelfOverridesFileHash {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -483,10 +483,10 @@ function Get-TaggerOverridesFileHash {
     )
 
     $normalized = $SourceRoot.TrimEnd('\', '/').ToLowerInvariant()
-    return Get-TaggerSha256Hex -Text $normalized
+    return Get-ReshelfSha256Hex -Text $normalized
 }
 
-function Get-TaggerOverrides {
+function Get-ReshelfOverrides {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -498,8 +498,8 @@ function Get-TaggerOverrides {
     )
 
     if (-not $OverridesPath) {
-        if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
-        $hash = Get-TaggerOverridesFileHash -SourceRoot $SourceRoot
+        if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
+        $hash = Get-ReshelfOverridesFileHash -SourceRoot $SourceRoot
         $OverridesPath = Join-Path $DataHome 'overrides' "$hash.json"
     }
 
@@ -507,14 +507,14 @@ function Get-TaggerOverrides {
         return [pscustomobject]@{ schemaVersion = 1; sourceRoot = $SourceRoot; entries = @() }
     }
 
-    if (-not (Test-TaggerJson -SchemaName overrides -Path $OverridesPath)) {
+    if (-not (Test-ReshelfJson -SchemaName overrides -Path $OverridesPath)) {
         throw "Overrides file at '$OverridesPath' does not match the overrides schema."
     }
 
     return Get-Content -LiteralPath $OverridesPath -Raw | ConvertFrom-Json
 }
 
-function Resolve-TaggerFolderOverride {
+function Resolve-ReshelfFolderOverride {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -531,12 +531,12 @@ function Resolve-TaggerFolderOverride {
     } | Select-Object -First 1
 }
 
-# Get-TaggerRelativePath itself now lives in Tagger.Common.psm1 (shared with
-# Tagger.Implementation.psm1's companion-path resolution) - already imported above.
+# Get-ReshelfRelativePath itself now lives in Reshelf.Common.psm1 (shared with
+# Reshelf.Implementation.psm1's companion-path resolution) - already imported above.
 
 # --- Orchestration ---------------------------------------------------------------
 
-function Resolve-TaggerFolderKind {
+function Resolve-ReshelfFolderKind {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -554,8 +554,8 @@ function Resolve-TaggerFolderKind {
         [string]$SourceRoot
     )
 
-    $relativePath = Get-TaggerRelativePath -SourceRoot $SourceRoot -Path $Path
-    $override = Resolve-TaggerFolderOverride -Overrides $Overrides -RelativePath $relativePath
+    $relativePath = Get-ReshelfRelativePath -SourceRoot $SourceRoot -Path $Path
+    $override = Resolve-ReshelfFolderOverride -Overrides $Overrides -RelativePath $relativePath
 
     if ($override) {
         switch ($override.kind) {
@@ -585,7 +585,7 @@ function Resolve-TaggerFolderKind {
         return [pscustomobject]@{ Kind = 'grouping'; IsOverrideResolved = $false }
     }
 
-    $hasAnyAudio = (Get-TaggerAudioFilesInFolder -Path $Path -Recurse).Count -gt 0
+    $hasAnyAudio = (Get-ReshelfAudioFilesInFolder -Path $Path -Recurse).Count -gt 0
     if (-not $hasAnyAudio) {
         return [pscustomobject]@{ Kind = 'unrecognized'; Reason = 'no-audio-files' }
     }
@@ -607,7 +607,7 @@ function Resolve-TaggerFolderKind {
     return [pscustomobject]@{ Kind = 'pass-through'; NewArtistName = $null }
 }
 
-function New-TaggerUnrecognizedEntry {
+function New-ReshelfUnrecognizedEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -622,7 +622,7 @@ function New-TaggerUnrecognizedEntry {
     return [pscustomobject]@{ path = $Path; reason = $Reason; children = @($Children) }
 }
 
-function Merge-TaggerArtistBucket {
+function Merge-ReshelfArtistBucket {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -639,7 +639,7 @@ function Merge-TaggerArtistBucket {
         [object]$Release
     )
 
-    $key = ConvertTo-TaggerNormalizedText -Text $ArtistName
+    $key = ConvertTo-ReshelfNormalizedText -Text $ArtistName
     if (-not $ArtistsMap.ContainsKey($key)) {
         $ArtistsMap[$key] = [pscustomobject]@{
             recognizedName = $ArtistName
@@ -655,7 +655,7 @@ function Merge-TaggerArtistBucket {
     $bucket.releases.Add($Release)
 }
 
-function New-TaggerReleaseRecord {
+function New-ReshelfReleaseRecord {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -666,7 +666,7 @@ function New-TaggerReleaseRecord {
 
         # When set, used instead of $Path's own leaf name for year/title parsing - needed when the
         # caller already stripped an artist-name prefix off the real on-disk folder name (see
-        # Invoke-TaggerFolderWalk's 'release' branch) and the real $Path can't reflect that.
+        # Invoke-ReshelfFolderWalk's 'release' branch) and the real $Path can't reflect that.
         [string]$FolderNameOverride
     )
 
@@ -690,28 +690,28 @@ function New-TaggerReleaseRecord {
     $reviewReasons = [System.Collections.Generic.List[string]]::new()
     $needsReview = $false
 
-    if ((ConvertTo-TaggerLongPath -Path $Path) -ne $Path) {
+    if ((ConvertTo-ReshelfLongPath -Path $Path) -ne $Path) {
         $recognitionFlags.Add('path-near-length-limit')
     }
 
-    $discFolders = Get-TaggerDiscFolders -Path $Path
+    $discFolders = Get-ReshelfDiscFolders -Path $Path
     $tracks = [System.Collections.Generic.List[object]]::new()
     $cueSheet = $null
 
     if ($discFolders.Count -eq 0) {
         if (Test-IsCueSheetRelease -Path $Path) {
-            $audioFile = (Get-TaggerAudioFilesInFolder -Path $Path)[0]
+            $audioFile = (Get-ReshelfAudioFilesInFolder -Path $Path)[0]
             $cueFilesHere = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
-            $cueFile = Get-TaggerCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
+            $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
             $cueSheet = [pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName }
-            $audioTags = Get-TaggerAudioTags -Path $audioFile.FullName
-            # ffmpeg has no ape encoder/muxer (see Invoke-TaggerFfmpegSplit in
-            # Tagger.Implementation.psm1), so a cue split of an .ape source can never stream-copy
+            $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
+            # ffmpeg has no ape encoder/muxer (see Invoke-ReshelfFfmpegSplit in
+            # Reshelf.Implementation.psm1), so a cue split of an .ape source can never stream-copy
             # into .ape - it re-encodes to .flac instead. Naming these tracks 'flac' here keeps
-            # proposedFileName (Tagger.EditProposal.psm1) in sync with what the split actually
+            # proposedFileName (Reshelf.EditProposal.psm1) in sync with what the split actually
             # produces. Still fully lossless - isLossless below is untouched.
             $cueSplitFormat = if ($audioTags.Format -eq 'ape') { 'flac' } else { $audioTags.Format }
-            $cueTracks = ConvertFrom-TaggerCueSheet -CueFilePath $cueFile.FullName
+            $cueTracks = ConvertFrom-ReshelfCueSheet -CueFilePath $cueFile.FullName
 
             if ($null -eq $cueTracks) {
                 $needsReview = $true
@@ -735,13 +735,13 @@ function New-TaggerReleaseRecord {
                 # Each cue track's own duration is the gap to the next track's start (or, for the
                 # last track, the gap to the whole file's end) - a flat copy of the whole-file
                 # duration onto every track (as this used to do) is wrong for every track but the
-                # first. ConvertFrom-TaggerCueSheet already returns tracks sorted by Number.
+                # first. ConvertFrom-ReshelfCueSheet already returns tracks sorted by Number.
                 $cueTracksSorted = @($cueTracks)
                 for ($i = 0; $i -lt $cueTracksSorted.Count; $i++) {
                     $cueTrack = $cueTracksSorted[$i]
-                    $startSeconds = ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $cueTrack.Timestamp
+                    $startSeconds = ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTrack.Timestamp
                     $endSeconds = if ($i -lt ($cueTracksSorted.Count - 1)) {
-                        ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $cueTracksSorted[$i + 1].Timestamp
+                        ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTracksSorted[$i + 1].Timestamp
                     }
                     else {
                         $audioTags.DurationSeconds
@@ -764,9 +764,9 @@ function New-TaggerReleaseRecord {
             }
         }
         else {
-            $ordered = Get-TaggerTrackOrder -AudioFiles (Get-TaggerAudioFilesInFolder -Path $Path)
+            $ordered = Get-ReshelfTrackOrder -AudioFiles (Get-ReshelfAudioFilesInFolder -Path $Path)
             foreach ($item in $ordered) {
-                $audioTags = Get-TaggerAudioTags -Path $item.File.FullName
+                $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
@@ -797,8 +797,8 @@ function New-TaggerReleaseRecord {
             if (Test-IsCueSheetRelease -Path $discFolder.FullName) {
                 $needsReview = $true
                 $reviewReasons.Add('per-disc-cue-not-yet-supported')
-                $audioFile = (Get-TaggerAudioFilesInFolder -Path $discFolder.FullName)[0]
-                $audioTags = Get-TaggerAudioTags -Path $audioFile.FullName
+                $audioFile = (Get-ReshelfAudioFilesInFolder -Path $discFolder.FullName)[0]
+                $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $audioFile.FullName
                         discFolder                = $discFolder.Name
@@ -816,9 +816,9 @@ function New-TaggerReleaseRecord {
                 continue
             }
 
-            $ordered = Get-TaggerTrackOrder -AudioFiles (Get-TaggerAudioFilesInFolder -Path $discFolder.FullName)
+            $ordered = Get-ReshelfTrackOrder -AudioFiles (Get-ReshelfAudioFilesInFolder -Path $discFolder.FullName)
             foreach ($item in $ordered) {
-                $audioTags = Get-TaggerAudioTags -Path $item.File.FullName
+                $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
@@ -841,13 +841,13 @@ function New-TaggerReleaseRecord {
         # audio file sitting loose at this level doesn't belong to a known disc and would otherwise
         # be silently dropped (it's excluded from tracks above, and companion scanning skips audio
         # extensions too). Record it as a track anyway so nothing vanishes, and flag it for review.
-        $looseAudioFiles = Get-TaggerAudioFilesInFolder -Path $Path
+        $looseAudioFiles = Get-ReshelfAudioFilesInFolder -Path $Path
         if ($looseAudioFiles.Count -gt 0) {
             $needsReview = $true
             $reviewReasons.Add('track-outside-disc-folder-suspected')
-            $ordered = Get-TaggerTrackOrder -AudioFiles $looseAudioFiles
+            $ordered = Get-ReshelfTrackOrder -AudioFiles $looseAudioFiles
             foreach ($item in $ordered) {
-                $audioTags = Get-TaggerAudioTags -Path $item.File.FullName
+                $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
@@ -867,14 +867,14 @@ function New-TaggerReleaseRecord {
         }
     }
 
-    $companions = Get-TaggerCompanionFiles -Path $Path -CueSheetPath $cueSheet.cueFilePath
+    $companions = Get-ReshelfCompanionFiles -Path $Path -CueSheetPath $cueSheet.cueFilePath
 
     $confidence = 1.0
     if ($recognitionFlags.Count -gt 0) { $confidence = 0.8 }
     if ($needsReview) { $confidence = 0.5 }
 
     return [pscustomobject]@{
-        stableKey              = Get-TaggerStableKey -Artist $ArtistName -Album $title -Year $year
+        stableKey              = Get-ReshelfStableKey -Artist $ArtistName -Album $title -Year $year
         recognizedTitle        = $title
         recognizedYear         = $year
         sourceFolderPath       = $Path
@@ -890,7 +890,7 @@ function New-TaggerReleaseRecord {
     }
 }
 
-function Invoke-TaggerFolderWalk {
+function Invoke-ReshelfFolderWalk {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -919,7 +919,7 @@ function Invoke-TaggerFolderWalk {
     $children = @(Get-ChildItem -LiteralPath $Dir -Directory -ErrorAction SilentlyContinue)
 
     foreach ($child in $children) {
-        $kind = Resolve-TaggerFolderKind -Path $child.FullName -Context $Context -ArtistName $ArtistName -Overrides $Overrides -SourceRoot $SourceRoot
+        $kind = Resolve-ReshelfFolderKind -Path $child.FullName -Context $Context -ArtistName $ArtistName -Overrides $Overrides -SourceRoot $SourceRoot
 
         switch ($kind.Kind) {
             'release' {
@@ -933,54 +933,54 @@ function Invoke-TaggerFolderWalk {
                         $splitArtist = $Matches[1].Trim()
                         $splitFolderName = $Matches[2].Trim()
                         if ($splitArtist -and $splitFolderName) {
-                            $release = New-TaggerReleaseRecord -Path $child.FullName -ArtistName $splitArtist -FolderNameOverride $splitFolderName
+                            $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $splitArtist -FolderNameOverride $splitFolderName
                             $release.needsReview = $true
                             $release.reviewReasons = @($release.reviewReasons) + 'artist-name-split-from-folder-name'
-                            Merge-TaggerArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                            Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
                             continue
                         }
                     }
                     $childNames = @((Get-ChildItem -LiteralPath $child.FullName -ErrorAction SilentlyContinue).Name)
-                    $UnrecognizedList.Add((New-TaggerUnrecognizedEntry -Path $child.FullName -Reason 'release-without-artist-suspected' -Children $childNames))
+                    $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $child.FullName -Reason 'release-without-artist-suspected' -Children $childNames))
                     continue
                 }
-                $release = New-TaggerReleaseRecord -Path $child.FullName -ArtistName $targetArtist
-                Merge-TaggerArtistBucket -ArtistsMap $ArtistsMap -ArtistName $targetArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $targetArtist
+                Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $targetArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
             }
             'category' {
                 $parentArtist = if ($kind.ParentArtistName) { $kind.ParentArtistName } else { $ArtistName }
-                Invoke-TaggerFolderWalk -Dir $child.FullName -Context 'CategoryBody' -ArtistName $parentArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'CategoryBody' -ArtistName $parentArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
             }
             'band-member' {
                 $newArtist = if ($kind.ArtistNameOverride) { $kind.ArtistNameOverride } else { $child.Name }
-                Invoke-TaggerFolderWalk -Dir $child.FullName -Context 'BandMemberBody' -ArtistName $newArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'BandMemberBody' -ArtistName $newArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
             }
             'grouping' {
                 if ($kind.IsOverrideResolved) {
                     $grandchildren = @(Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue)
                     foreach ($grandchild in $grandchildren) {
-                        Invoke-TaggerFolderWalk -Dir $grandchild.FullName -Context 'ArtistBody' -ArtistName $grandchild.Name -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                        Invoke-ReshelfFolderWalk -Dir $grandchild.FullName -Context 'ArtistBody' -ArtistName $grandchild.Name -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
                     }
                 }
                 else {
                     $childNames = @((Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue).Name)
-                    $UnrecognizedList.Add((New-TaggerUnrecognizedEntry -Path $child.FullName -Reason 'grouping-folder-suspected' -Children $childNames))
+                    $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $child.FullName -Reason 'grouping-folder-suspected' -Children $childNames))
                 }
             }
             'pass-through' {
                 $nextArtist = if ($kind.NewArtistName) { $kind.NewArtistName } else { $ArtistName }
                 $nextContext = if ($Context -eq 'Root') { 'ArtistBody' } else { $Context }
-                Invoke-TaggerFolderWalk -Dir $child.FullName -Context $nextContext -ArtistName $nextArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context $nextContext -ArtistName $nextArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
             }
             'unrecognized' {
                 $childNames = @((Get-ChildItem -LiteralPath $child.FullName -ErrorAction SilentlyContinue).Name)
-                $UnrecognizedList.Add((New-TaggerUnrecognizedEntry -Path $child.FullName -Reason $kind.Reason -Children $childNames))
+                $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $child.FullName -Reason $kind.Reason -Children $childNames))
             }
         }
     }
 }
 
-function New-TaggerRecognitionDocument {
+function New-ReshelfRecognitionDocument {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -1016,7 +1016,7 @@ function New-TaggerRecognitionDocument {
     }
 }
 
-function Invoke-TaggerRecognition {
+function Invoke-ReshelfRecognition {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -1033,31 +1033,31 @@ function Invoke-TaggerRecognition {
         [string]$TagLibSharpPath
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) {
         throw "Source root '$SourceRoot' does not exist or is not a directory."
     }
     $resolvedSourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
 
-    Set-TaggerTagLibSharpContext -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
+    Set-ReshelfTagLibSharpContext -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
     $overridesParams = @{ SourceRoot = $resolvedSourceRoot }
     if ($OverridesPath) { $overridesParams['OverridesPath'] = $OverridesPath } else { $overridesParams['DataHome'] = $DataHome }
-    $overrides = Get-TaggerOverrides @overridesParams
+    $overrides = Get-ReshelfOverrides @overridesParams
 
     $artistsMap = [System.Collections.Generic.Dictionary[string, object]]::new()
     $unrecognizedList = [System.Collections.Generic.List[object]]::new()
 
-    Invoke-TaggerFolderWalk -Dir $resolvedSourceRoot -Context 'Root' -ArtistName $null `
+    Invoke-ReshelfFolderWalk -Dir $resolvedSourceRoot -Context 'Root' -ArtistName $null `
         -Overrides $overrides -SourceRoot $resolvedSourceRoot -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
 
-    $document = New-TaggerRecognitionDocument -SessionId $SessionId -SourceRoot $resolvedSourceRoot -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
+    $document = New-ReshelfRecognitionDocument -SessionId $SessionId -SourceRoot $resolvedSourceRoot -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
 
     $outputPath = Join-Path $DataHome 'sessions' $SessionId 'recognition.json'
-    Set-TaggerJsonFile -Path $outputPath -InputObject $document -SchemaName recognition -Depth 20 | Out-Null
+    Set-ReshelfJsonFile -Path $outputPath -InputObject $document -SchemaName recognition -Depth 20 | Out-Null
 
     return (Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json)
 }
 
-Export-ModuleMember -Function Invoke-TaggerRecognition, Get-TaggerAudioTags
+Export-ModuleMember -Function Invoke-ReshelfRecognition, Get-ReshelfAudioTags

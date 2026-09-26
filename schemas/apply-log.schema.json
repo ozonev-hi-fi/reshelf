@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://tagger.local/schemas/apply-log.schema.json",
-  "title": "Tagger apply-log.json",
+  "$id": "https://reshelf.local/schemas/apply-log.schema.json",
+  "title": "Reshelf apply-log.json",
   "type": "array",
   "items": {
     "type": "object",

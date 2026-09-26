@@ -1,16 +1,16 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Discogs.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.LossyTracking.psm1') -Force
-# Only for Get-TaggerApplyLogEntry/Test-TaggerAppliedEntryValid (Resolve-TaggerTargetComparison's
-# re-run skip check below) - Tagger.Implementation.psm1 never imports this module back, so there's
-# no cycle. Every caller that imports both (Tagger.ps1, Tagger.Pipeline.Tests.ps1) already imports
-# Tagger.Implementation.psm1 directly *after* this module, which - same fix already relied on for
-# Tagger.LossyTracking.psm1 above - restores its exports to that caller's own top-level scope
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Discogs.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.LossyTracking.psm1') -Force
+# Only for Get-ReshelfApplyLogEntry/Test-ReshelfAppliedEntryValid (Resolve-ReshelfTargetComparison's
+# re-run skip check below) - Reshelf.Implementation.psm1 never imports this module back, so there's
+# no cycle. Every caller that imports both (Reshelf.ps1, Reshelf.Pipeline.Tests.ps1) already imports
+# Reshelf.Implementation.psm1 directly *after* this module, which - same fix already relied on for
+# Reshelf.LossyTracking.psm1 above - restores its exports to that caller's own top-level scope
 # instead of leaving them hidden as this module's nested copy.
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Implementation.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Implementation.psm1') -Force
 
 # Starting point per plan/02 - not exposed in settings.schema.json (additionalProperties: false,
 # no such field), so this stays a module constant rather than a configurable setting.
@@ -23,7 +23,7 @@ $script:UnresolvedYearSentinel = 1900
 
 # --- String similarity -------------------------------------------------------
 
-function Get-TaggerLevenshteinDistance {
+function Get-ReshelfLevenshteinDistance {
     [CmdletBinding()]
     [OutputType([int])]
     param(
@@ -62,7 +62,7 @@ function Get-TaggerLevenshteinDistance {
     return $distance[$lenA, $lenB]
 }
 
-function Get-TaggerStringSimilarity {
+function Get-ReshelfStringSimilarity {
     [CmdletBinding()]
     [OutputType([double])]
     param(
@@ -78,14 +78,14 @@ function Get-TaggerStringSimilarity {
     if ($A.Length -eq 0 -and $B.Length -eq 0) { return 1.0 }
     if ($A.Length -eq 0 -or $B.Length -eq 0) { return 0.0 }
 
-    $distance = Get-TaggerLevenshteinDistance -A $A -B $B
+    $distance = Get-ReshelfLevenshteinDistance -A $A -B $B
     $maxLen = [Math]::Max($A.Length, $B.Length)
     return 1.0 - ($distance / $maxLen)
 }
 
 # --- Discogs matching ----------------------------------------------------------
 
-function Get-TaggerDiscogsSearchQuery {
+function Get-ReshelfDiscogsSearchQuery {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -109,7 +109,7 @@ function Get-TaggerDiscogsSearchQuery {
     return $query
 }
 
-function Get-TaggerDiscogsCandidateScore {
+function Get-ReshelfDiscogsCandidateScore {
     [CmdletBinding()]
     [OutputType([double])]
     param(
@@ -136,13 +136,13 @@ function Get-TaggerDiscogsCandidateScore {
         $candidateTitle = $rawTitle
     }
 
-    $normalizedExpectedArtist = ConvertTo-TaggerNormalizedText -Text $ExpectedArtist
-    $normalizedExpectedTitle = ConvertTo-TaggerNormalizedText -Text $ExpectedTitle
-    $normalizedCandidateArtist = ConvertTo-TaggerNormalizedText -Text $candidateArtist
-    $normalizedCandidateTitle = ConvertTo-TaggerNormalizedText -Text $candidateTitle
+    $normalizedExpectedArtist = ConvertTo-ReshelfNormalizedText -Text $ExpectedArtist
+    $normalizedExpectedTitle = ConvertTo-ReshelfNormalizedText -Text $ExpectedTitle
+    $normalizedCandidateArtist = ConvertTo-ReshelfNormalizedText -Text $candidateArtist
+    $normalizedCandidateTitle = ConvertTo-ReshelfNormalizedText -Text $candidateTitle
 
-    $artistScore = Get-TaggerStringSimilarity -A $normalizedExpectedArtist -B $normalizedCandidateArtist
-    $titleScore = Get-TaggerStringSimilarity -A $normalizedExpectedTitle -B $normalizedCandidateTitle
+    $artistScore = Get-ReshelfStringSimilarity -A $normalizedExpectedArtist -B $normalizedCandidateArtist
+    $titleScore = Get-ReshelfStringSimilarity -A $normalizedExpectedTitle -B $normalizedCandidateTitle
 
     $candidateYear = $null
     if ($Candidate.year) {
@@ -161,7 +161,7 @@ function Get-TaggerDiscogsCandidateScore {
     return $score
 }
 
-function Resolve-TaggerDiscogsMatch {
+function Resolve-ReshelfDiscogsMatch {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -181,7 +181,7 @@ function Resolve-TaggerDiscogsMatch {
     )
 
     try {
-        $query = Get-TaggerDiscogsSearchQuery -ArtistName $ArtistName -Title $Title -Year $Year
+        $query = Get-ReshelfDiscogsSearchQuery -ArtistName $ArtistName -Title $Title -Year $Year
         $searchResult = Invoke-DiscogsRequest -Path '/database/search' -Query $query -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
 
         $releaseResults = @($searchResult.results | Where-Object { $_.type -eq 'release' })
@@ -191,7 +191,7 @@ function Resolve-TaggerDiscogsMatch {
         }
 
         $scored = @(foreach ($result in $releaseResults) {
-                $score = Get-TaggerDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $Title -ExpectedYear $Year -Candidate $result
+                $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $Title -ExpectedYear $Year -Candidate $result
                 $candidateYear = $null
                 if ($result.year) { try { $candidateYear = [int]$result.year } catch { $candidateYear = $null } }
                 $formatText = (@($result.format) -join ', ')
@@ -244,7 +244,7 @@ function Resolve-TaggerDiscogsMatch {
 
 # --- Naming templates ----------------------------------------------------------
 
-function Expand-TaggerNamingTemplate {
+function Expand-ReshelfNamingTemplate {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -262,7 +262,7 @@ function Expand-TaggerNamingTemplate {
     return $result
 }
 
-function Get-TaggerProposalPadWidth {
+function Get-ReshelfProposalPadWidth {
     [CmdletBinding()]
     [OutputType([int])]
     param(
@@ -278,7 +278,7 @@ function Get-TaggerProposalPadWidth {
     return [Math]::Max($MinWidth, $TotalTrackCount.ToString().Length)
 }
 
-function New-TaggerProposedReleaseNames {
+function New-ReshelfProposedReleaseNames {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -315,7 +315,7 @@ function New-TaggerProposedReleaseNames {
     $artistSan = ConvertTo-SafeFileName -Name $artistRaw -Context 'artist folder name'
     $titleSan = ConvertTo-SafeFileName -Name $titleRaw -Context 'release folder name'
 
-    $folderName = (Expand-TaggerNamingTemplate -Template $ReleaseFolderTemplate -Values @{ year = [int]$yearRaw; album = $titleSan.SafeName }).Trim()
+    $folderName = (Expand-ReshelfNamingTemplate -Template $ReleaseFolderTemplate -Values @{ year = [int]$yearRaw; album = $titleSan.SafeName }).Trim()
 
     return [pscustomobject]@{
         ArtistFolderName  = $artistSan.SafeName
@@ -330,7 +330,7 @@ function New-TaggerProposedReleaseNames {
 
 # --- Track naming and tagging ---------------------------------------------------
 
-function New-TaggerProposedTrackSet {
+function New-ReshelfProposedTrackSet {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -366,7 +366,7 @@ function New-TaggerProposedTrackSet {
         $discGroups[$key].Add($track)
     }
 
-    $padWidth = Get-TaggerProposalPadWidth -TotalTrackCount $Tracks.Count -MinWidth $TrackNumberPadWidth
+    $padWidth = Get-ReshelfProposalPadWidth -TotalTrackCount $Tracks.Count -MinWidth $TrackNumberPadWidth
     $useDiscogsTitles = ($DiscogsTracks.Count -gt 0)
 
     $continuous = 0
@@ -387,7 +387,7 @@ function New-TaggerProposedTrackSet {
                 $rawTitle = $track.existingTags.title
             }
             else {
-                $rawTitle = (ConvertFrom-TaggerTrackFileName -FileName $track.originalFileName).Title
+                $rawTitle = (ConvertFrom-ReshelfTrackFileName -FileName $track.originalFileName).Title
             }
 
             $titleSan = ConvertTo-SafeFileName -Name $rawTitle -Context 'track file name'
@@ -397,7 +397,7 @@ function New-TaggerProposedTrackSet {
             # tags.track below, which restarts at 1 per disc. These are two different numbers per
             # manifesto section 5 and must not be conflated.
             $padded = $continuous.ToString('0' * $padWidth)
-            $fileNameCore = Expand-TaggerNamingTemplate -Template $TrackFileTemplate -Values @{ trackNumber = $padded; title = $titleSan.SafeName }
+            $fileNameCore = Expand-ReshelfNamingTemplate -Template $TrackFileTemplate -Values @{ trackNumber = $padded; title = $titleSan.SafeName }
             $proposedFileName = "$fileNameCore.$($track.format)"
 
             $tags = [pscustomobject]@{
@@ -426,7 +426,7 @@ function New-TaggerProposedTrackSet {
 
 # --- Cover art -------------------------------------------------------------------
 
-function Get-TaggerImageDimensions {
+function Get-ReshelfImageDimensions {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -438,7 +438,7 @@ function Get-TaggerImageDimensions {
         if (-not ('System.Drawing.Image' -as [type])) {
             Add-Type -AssemblyName System.Drawing
         }
-        $image = [System.Drawing.Image]::FromFile((ConvertTo-TaggerLongPath -Path $Path))
+        $image = [System.Drawing.Image]::FromFile((ConvertTo-ReshelfLongPath -Path $Path))
         try {
             return [pscustomobject]@{ Width = $image.Width; Height = $image.Height }
         }
@@ -451,7 +451,7 @@ function Get-TaggerImageDimensions {
     }
 }
 
-function New-TaggerCoverArtProposal {
+function New-ReshelfCoverArtProposal {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -470,11 +470,11 @@ function New-TaggerCoverArtProposal {
     # An embedded cover is offered - and defaulted to - regardless of a Discogs match, so a track
     # that already carries a good cover isn't silently overwritten by a Discogs image the user never
     # asked to swap in. 'existing (embedded)' is read back as a literal string by
-    # Tagger.Implementation.psm1 to decide whether to leave a track's picture tag untouched, the same
+    # Reshelf.Implementation.psm1 to decide whether to leave a track's picture tag untouched, the same
     # way this function already reads '(alternate)' below - not just a display label.
     $embeddedTrack = @($Release.tracks | Where-Object { $_.existingCoverArtPath }) | Select-Object -First 1
     if ($embeddedTrack) {
-        $dims = Get-TaggerImageDimensions -Path $embeddedTrack.existingCoverArtPath
+        $dims = Get-ReshelfImageDimensions -Path $embeddedTrack.existingCoverArtPath
         $candidates.Add([pscustomobject]@{
                 url           = $embeddedTrack.existingCoverArtPath
                 sourceEdition = 'existing (embedded)'
@@ -498,7 +498,7 @@ function New-TaggerCoverArtProposal {
     }
     else {
         foreach ($cover in @($Release.companionFiles | Where-Object { $_.kind -eq 'cover' })) {
-            $dims = Get-TaggerImageDimensions -Path $cover.sourcePath
+            $dims = Get-ReshelfImageDimensions -Path $cover.sourcePath
             $candidates.Add([pscustomobject]@{
                     url           = $cover.sourcePath
                     sourceEdition = 'existing (local)'
@@ -532,7 +532,7 @@ function New-TaggerCoverArtProposal {
 
 # --- Target comparison -------------------------------------------------------------
 
-function Build-TaggerTargetIndex {
+function Build-ReshelfTargetIndex {
     [CmdletBinding()]
     [OutputType([System.Collections.Generic.Dictionary[string, object]])]
     param(
@@ -553,7 +553,7 @@ function Build-TaggerTargetIndex {
             if ($releaseDir.Name -notmatch '^(\d{4})\s+(.+)$') { continue }
             $year = [int]$Matches[1]
             $album = $Matches[2].Trim()
-            $stableKey = Get-TaggerStableKey -Artist $artistDir.Name -Album $album -Year $year
+            $stableKey = Get-ReshelfStableKey -Artist $artistDir.Name -Album $album -Year $year
 
             # First occurrence wins on a stableKey collision - a pre-existing target-side data
             # inconsistency, not something this index is responsible for fixing.
@@ -570,7 +570,7 @@ function Build-TaggerTargetIndex {
     return $index
 }
 
-function Test-TaggerTargetReleaseExists {
+function Test-ReshelfTargetReleaseExists {
     [CmdletBinding()]
     [OutputType([object])]
     param(
@@ -587,7 +587,7 @@ function Test-TaggerTargetReleaseExists {
     return $null
 }
 
-function Resolve-TaggerTargetComparison {
+function Resolve-ReshelfTargetComparison {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -617,7 +617,7 @@ function Resolve-TaggerTargetComparison {
     )
 
     $sourcePaths = @($Release.tracks.sourceFilePath | Select-Object -Unique)
-    $sourceHash = Get-TaggerFileSetHash -FilePaths $sourcePaths
+    $sourceHash = Get-ReshelfFileSetHash -FilePaths $sourcePaths
 
     $totalTracks = $Release.tracks.Count
     $losslessCount = @($Release.tracks | Where-Object { $_.isLossless }).Count
@@ -643,28 +643,28 @@ function Resolve-TaggerTargetComparison {
         # target folder's current file names/sizes: Implementation (plan/08) renames every file and
         # rewrites its tags on apply, so a target file set can never hash equal to its own source's
         # name|size hash again afterwards - comparing them here would always land on 'conflict' and
-        # break re-run idempotency (plan/12 milestone 7). Test-TaggerAppliedEntryValid is the exact
-        # "is this log entry still trustworthy" check Test-TaggerReleaseNeedsApply
-        # (Tagger.Implementation.psm1) already uses for its own, equivalent skip decision.
+        # break re-run idempotency (plan/12 milestone 7). Test-ReshelfAppliedEntryValid is the exact
+        # "is this log entry still trustworthy" check Test-ReshelfReleaseNeedsApply
+        # (Reshelf.Implementation.psm1) already uses for its own, equivalent skip decision.
         #
         # Looked up by $StableKey directly (the apply-log's own key), not through $TargetIndex -
-        # Build-TaggerTargetIndex recomputes a folder's stableKey from its *current* on-disk name,
+        # Build-ReshelfTargetIndex recomputes a folder's stableKey from its *current* on-disk name,
         # which for an unresolved-year release (script:UnresolvedYearSentinel, 1900) never equals
         # this release's real stableKey (computed with Year = $null) - that recomputed index can't
         # be used to find this release's own applied entry.
-        $applyLogEntry = Get-TaggerApplyLogEntry -StableKey $StableKey -DataHome $DataHome
-        if ((Test-TaggerAppliedEntryValid -Entry $applyLogEntry -TargetRoot $TargetRoot) -and `
+        $applyLogEntry = Get-ReshelfApplyLogEntry -StableKey $StableKey -DataHome $DataHome
+        if ((Test-ReshelfAppliedEntryValid -Entry $applyLogEntry -TargetRoot $TargetRoot) -and `
                 ($applyLogEntry.sourceFileSetHash -eq $sourceHash)) {
             $appliedEntryMatchesSource = $true
         }
 
-        $entry = Test-TaggerTargetReleaseExists -TargetIndex $TargetIndex -StableKey $StableKey
+        $entry = Test-ReshelfTargetReleaseExists -TargetIndex $TargetIndex -StableKey $StableKey
         if ($entry) {
-            $targetFiles = @(Get-TaggerAudioFilesInFolder -Path $entry.Path -Recurse)
-            $targetHash = Get-TaggerFileSetHash -FilePaths $targetFiles.FullName
+            $targetFiles = @(Get-ReshelfAudioFilesInFolder -Path $entry.Path -Recurse)
+            $targetHash = Get-ReshelfFileSetHash -FilePaths $targetFiles.FullName
             $targetIsLossless = $targetFiles.Count -gt 0
             foreach ($file in $targetFiles) {
-                if (-not (Test-TaggerIsLosslessFormat -Extension $file.Extension)) {
+                if (-not (Test-ReshelfIsLosslessFormat -Extension $file.Extension)) {
                     $targetIsLossless = $false
                     break
                 }
@@ -704,7 +704,7 @@ function Resolve-TaggerTargetComparison {
     if ($sourceIsLossy) {
         # Upserted on every sighting, not just create-new, so lastCheckedUtc keeps advancing even
         # while a release sits pending-upgrade across many re-runs (plan/09's add-or-touch lifecycle).
-        Add-TaggerLossyTrackingEntry -StableKey $StableKey -Artist $Names.ArtistFolderName -Album $Names.Album `
+        Add-ReshelfLossyTrackingEntry -StableKey $StableKey -Artist $Names.ArtistFolderName -Album $Names.Album `
             -Year $Names.Year -TargetPath $ProposedTargetPath -Format $Release.tracks[0].format -DataHome $DataHome | Out-Null
     }
 
@@ -721,7 +721,7 @@ function Resolve-TaggerTargetComparison {
 
 # --- Companion files ------------------------------------------------------------------
 
-function New-TaggerCompanionProposal {
+function New-ReshelfCompanionProposal {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -738,7 +738,7 @@ function New-TaggerCompanionProposal {
 
         if ($companion.placement -eq 'loose') {
             $originalName = Split-Path -Leaf $companion.sourcePath
-            $renamed = Get-TaggerLooseCompanionFileName -FileName $originalName -Kind $companion.kind
+            $renamed = Get-ReshelfLooseCompanionFileName -FileName $originalName -Kind $companion.kind
             $proposedFileName = $renamed.FileName
             if ($renamed.WasPrefixed) {
                 $requiresReview = $true
@@ -762,7 +762,7 @@ function New-TaggerCompanionProposal {
     }
 }
 
-function New-TaggerProposedRelease {
+function New-ReshelfProposedRelease {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -814,7 +814,7 @@ function New-TaggerProposedRelease {
         if ($Release.reviewReasons) { $notes.AddRange([string[]]@($Release.reviewReasons)) }
     }
 
-    $match = Resolve-TaggerDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
+    $match = Resolve-ReshelfDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
         -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 
     if ($match.ErrorNote) {
@@ -826,7 +826,7 @@ function New-TaggerProposedRelease {
         $notes.Add("Discogs match status: $($match.Status)")
     }
 
-    $names = New-TaggerProposedReleaseNames -ArtistName $ArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
+    $names = New-ReshelfProposedReleaseNames -ArtistName $ArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
     if ($names.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$names.Substitutions) }
     if ($names.UsedSentinelYear) {
         $requiresReview = $true
@@ -843,22 +843,22 @@ function New-TaggerProposedRelease {
         }
     }
 
-    $trackSet = New-TaggerProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -Names $names -TrackFileTemplate $TrackFileTemplate `
+    $trackSet = New-ReshelfProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -Names $names -TrackFileTemplate $TrackFileTemplate `
         -TrackNumberPadWidth $TrackNumberPadWidth
     if ($trackSet.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$trackSet.Substitutions) }
 
-    $coverArt = New-TaggerCoverArtProposal -Match $match -Release $Release -CoverMaxDimension $CoverMaxDimension
+    $coverArt = New-ReshelfCoverArtProposal -Match $match -Release $Release -CoverMaxDimension $CoverMaxDimension
     if ($coverArt.candidates.Count -eq 0) {
         $requiresReview = $true
         $notes.Add('No cover art candidates found from Discogs or local companion files.')
     }
 
-    $companionProposal = New-TaggerCompanionProposal -CompanionFiles $Release.companionFiles
+    $companionProposal = New-ReshelfCompanionProposal -CompanionFiles $Release.companionFiles
     if ($companionProposal.Notes.Count -gt 0) { $notes.AddRange([string[]]$companionProposal.Notes) }
     if ($companionProposal.RequiresReview) { $requiresReview = $true }
 
     $proposedTargetPath = Join-Path $TargetRoot $names.ArtistFolderName $names.ReleaseFolderName
-    $comparison = Resolve-TaggerTargetComparison -Release $Release -StableKey $Release.stableKey -ProposedTargetPath $proposedTargetPath `
+    $comparison = Resolve-ReshelfTargetComparison -Release $Release -StableKey $Release.stableKey -ProposedTargetPath $proposedTargetPath `
         -TargetRoot $TargetRoot -TargetIndex $TargetIndex -SessionSeen $SessionSeen -Names $names -DataHome $DataHome
     if ($comparison.ForcedReviewNote) {
         $requiresReview = $true
@@ -908,7 +908,7 @@ function New-TaggerProposedRelease {
     }
 }
 
-function Invoke-TaggerEditProposal {
+function Invoke-ReshelfEditProposal {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -938,20 +938,20 @@ function Invoke-TaggerEditProposal {
         [string]$ProposalPath
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
     if (-not $ProposalPath) { $ProposalPath = Join-Path $DataHome 'sessions' $SessionId 'proposal.json' }
 
-    if (-not (Test-TaggerJson -SchemaName recognition -Path $RecognitionPath)) {
+    if (-not (Test-ReshelfJson -SchemaName recognition -Path $RecognitionPath)) {
         throw "Recognition document at '$RecognitionPath' does not match the recognition schema."
     }
     $recognition = Get-Content -LiteralPath $RecognitionPath -Raw | ConvertFrom-Json
 
-    $targetIndex = Build-TaggerTargetIndex -TargetRoot $TargetRoot
+    $targetIndex = Build-ReshelfTargetIndex -TargetRoot $TargetRoot
     $sessionSeen = [System.Collections.Generic.Dictionary[string, object]]::new()
 
     $artists = @(foreach ($artist in @($recognition.artists)) {
             $releases = @(foreach ($release in @($artist.releases)) {
-                    New-TaggerProposedRelease -ArtistName $artist.recognizedName -Release $release -TargetRoot $TargetRoot `
+                    New-ReshelfProposedRelease -ArtistName $artist.recognizedName -Release $release -TargetRoot $TargetRoot `
                         -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth `
                         -CoverMaxDimension $CoverMaxDimension -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute `
                         -TargetIndex $targetIndex -SessionSeen $sessionSeen -DataHome $DataHome
@@ -973,9 +973,9 @@ function Invoke-TaggerEditProposal {
         unrecognized   = @($recognition.unrecognized)
     }
 
-    Set-TaggerJsonFile -Path $ProposalPath -InputObject $document -SchemaName proposal -Depth 20 | Out-Null
+    Set-ReshelfJsonFile -Path $ProposalPath -InputObject $document -SchemaName proposal -Depth 20 | Out-Null
 
     return (Get-Content -LiteralPath $ProposalPath -Raw | ConvertFrom-Json)
 }
 
-Export-ModuleMember -Function Invoke-TaggerEditProposal, Build-TaggerTargetIndex, Test-TaggerTargetReleaseExists
+Export-ModuleMember -Function Invoke-ReshelfEditProposal, Build-ReshelfTargetIndex, Test-ReshelfTargetReleaseExists

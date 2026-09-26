@@ -14,8 +14,8 @@ param(
     [string]$TagLibSharpPath
 )
 
-Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Tagger.Json.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Tagger.Recognition.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Recognition.psm1') -Force
 
-Invoke-TaggerRecognition -SourceRoot $SourceRoot -SessionId $SessionId -DataHome $DataHome -OverridesPath $OverridesPath -TagLibSharpPath $TagLibSharpPath
+Invoke-ReshelfRecognition -SourceRoot $SourceRoot -SessionId $SessionId -DataHome $DataHome -OverridesPath $OverridesPath -TagLibSharpPath $TagLibSharpPath

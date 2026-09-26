@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Runs the Tagger Pester test suite.
+    Runs the Reshelf Pester test suite.
 .DESCRIPTION
     Thin wrapper around Invoke-Pester with two deliberate conveniences:
-    -SkipIntegration excludes tests/Tagger.TagLibSharp.Integration.Tests.ps1 (tag 'Integration'),
+    -SkipIntegration excludes tests/Reshelf.TagLibSharp.Integration.Tests.ps1 (tag 'Integration'),
     which needs a real TagLibSharp.dll and a real ffmpeg on the machine running the tests and
     fails (not skips) if either is missing - see plan/11-testing-and-verification-strategy.md.
     -IncludeUi additionally runs the Playwright UI suite (tests/ui) after the Pester tests pass -
@@ -21,11 +21,11 @@
     Test file(s)/folder(s) to run. Defaults to this script's own folder (tests/). Ignored by the
     -IncludeUi Playwright step, which always runs its own full suite.
 .EXAMPLE
-    pwsh tests/Invoke-TaggerTests.ps1 -SkipIntegration
+    pwsh tests/Invoke-ReshelfTests.ps1 -SkipIntegration
 .EXAMPLE
-    pwsh tests/Invoke-TaggerTests.ps1
+    pwsh tests/Invoke-ReshelfTests.ps1
 .EXAMPLE
-    pwsh tests/Invoke-TaggerTests.ps1 -IncludeUi
+    pwsh tests/Invoke-ReshelfTests.ps1 -IncludeUi
 #>
 [CmdletBinding()]
 param(

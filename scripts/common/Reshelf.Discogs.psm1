@@ -1,6 +1,6 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
 
 $script:DiscogsRequestTimestamps = [System.Collections.Generic.List[datetime]]::new()
 $script:DiscogsLowRemainingSignal = $false
@@ -20,7 +20,7 @@ function Get-DiscogsToken {
     # Read settings.json once, up front: it names the env var to check (discogsTokenEnvVar,
     # defaulting to DISCOGS_ACCESS_TOKEN when unset or the file doesn't exist yet) and, further
     # below, may itself hold the DPAPI-encrypted token - both come from the same file.
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
     $settingsPath = Join-Path $DataHome 'settings.json'
     $settings = $null
     $tokenEnvVarName = 'DISCOGS_ACCESS_TOKEN'
@@ -64,10 +64,10 @@ function Get-DiscogsToken {
     # stored DPAPI-encrypted in settings.json. Checked last so nothing already working today (the
     # env var or .env file) changes priority.
     if ($settings -and $settings.discogsTokenEncrypted) {
-        return Unprotect-TaggerSecret -EncryptedText $settings.discogsTokenEncrypted
+        return Unprotect-ReshelfSecret -EncryptedText $settings.discogsTokenEncrypted
     }
 
-    throw "Discogs access token not found. Checked environment variable '$tokenEnvVarName', .env file at '$EnvFilePath', and settings.json's discogsTokenEncrypted at '$settingsPath'. Set one of these, or run 'Tagger.ps1 settings set-token'."
+    throw "Discogs access token not found. Checked environment variable '$tokenEnvVarName', .env file at '$EnvFilePath', and settings.json's discogsTokenEncrypted at '$settingsPath'. Set one of these, or run 'Reshelf.ps1 settings set-token'."
 }
 
 function Get-DiscogsQueryPair {
@@ -216,7 +216,7 @@ function Invoke-DiscogsRequest {
     )
 
     if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
+        $DataHome = Resolve-ReshelfDataHome
     }
 
     if ($script:DiscogsCachePrunedDataHomes.Add($DataHome)) {
@@ -247,7 +247,7 @@ function Invoke-DiscogsRequest {
 
     $headers = @{
         'Authorization' = "Discogs token=$token"
-        'User-Agent'    = 'TaggerPersonalOrganizer/0.1 (+local)'
+        'User-Agent'    = 'ReshelfPersonalOrganizer/0.1 (+local)'
     }
 
     $maxAttempts = 3

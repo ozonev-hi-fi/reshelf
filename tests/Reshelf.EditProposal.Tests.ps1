@@ -3,22 +3,22 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Common.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.EditProposal.psm1" -Force
-    # Imported directly, after Tagger.EditProposal.psm1 (which nests it internally to reach
-    # Get-TaggerApplyLogEntry) - same "import it again, last" fix already relied on above for
-    # Common/Json/LossyTracking, restoring Add-TaggerApplyLogEntry to this script's top-level scope
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Common.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Discogs.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.LossyTracking.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.EditProposal.psm1" -Force
+    # Imported directly, after Reshelf.EditProposal.psm1 (which nests it internally to reach
+    # Get-ReshelfApplyLogEntry) - same "import it again, last" fix already relied on above for
+    # Common/Json/LossyTracking, restoring Add-ReshelfApplyLogEntry to this script's top-level scope
     # so the apply-log fixture helper below can call it directly.
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Implementation.psm1" -Force
 
     $script:SearchFixture = Get-Content -LiteralPath "$PSScriptRoot/fixtures/discogs-responses/search-response.json" -Raw | ConvertFrom-Json
     $script:ReleaseFixture = Get-Content -LiteralPath "$PSScriptRoot/fixtures/discogs-responses/release-response.json" -Raw | ConvertFrom-Json
 
-    # Tagger.EditProposal.psm1 re-imports Common/Json internally as part of loading, which turns
-    # them into nested modules of Tagger.EditProposal - PowerShell then hides their commands from
+    # Reshelf.EditProposal.psm1 re-imports Common/Json internally as part of loading, which turns
+    # them into nested modules of Reshelf.EditProposal - PowerShell then hides their commands from
     # this script's own top-level scope (order-dependent on what else has imported them). Routing
     # through EditProposal's own module scope, which always has them, avoids that fragility.
     function Get-TestStableKey {
@@ -32,9 +32,9 @@ BeforeAll {
             [Nullable[int]]$Year
         )
 
-        return InModuleScope Tagger.EditProposal -Parameters @{ artistName = $Artist; albumName = $Album; releaseYear = $Year } {
+        return InModuleScope Reshelf.EditProposal -Parameters @{ artistName = $Artist; albumName = $Album; releaseYear = $Year } {
             param($artistName, $albumName, $releaseYear)
-            Get-TaggerStableKey -Artist $artistName -Album $albumName -Year $releaseYear
+            Get-ReshelfStableKey -Artist $artistName -Album $albumName -Year $releaseYear
         }
     }
 
@@ -44,9 +44,9 @@ BeforeAll {
             [string]$Path
         )
 
-        return InModuleScope Tagger.EditProposal -Parameters @{ jsonPath = $Path } {
+        return InModuleScope Reshelf.EditProposal -Parameters @{ jsonPath = $Path } {
             param($jsonPath)
-            Test-TaggerJson -SchemaName proposal -Path $jsonPath
+            Test-ReshelfJson -SchemaName proposal -Path $jsonPath
         }
     }
 
@@ -64,9 +64,9 @@ BeforeAll {
             [int]$Depth = 20
         )
 
-        InModuleScope Tagger.EditProposal -Parameters @{ p = $Path; o = $InputObject; s = $SchemaName; d = $Depth } {
+        InModuleScope Reshelf.EditProposal -Parameters @{ p = $Path; o = $InputObject; s = $SchemaName; d = $Depth } {
             param($p, $o, $s, $d)
-            Set-TaggerJsonFile -Path $p -InputObject $o -SchemaName $s -Depth $d | Out-Null
+            Set-ReshelfJsonFile -Path $p -InputObject $o -SchemaName $s -Depth $d | Out-Null
         }
     }
 
@@ -79,9 +79,9 @@ BeforeAll {
             [string]$DataHome
         )
 
-        return InModuleScope Tagger.EditProposal -Parameters @{ k = $StableKey; dh = $DataHome } {
+        return InModuleScope Reshelf.EditProposal -Parameters @{ k = $StableKey; dh = $DataHome } {
             param($k, $dh)
-            Get-TaggerLossyTrackingEntry -StableKey $k -DataHome $dh
+            Get-ReshelfLossyTrackingEntry -StableKey $k -DataHome $dh
         }
     }
 
@@ -109,9 +109,9 @@ BeforeAll {
             [string]$DataHome
         )
 
-        InModuleScope Tagger.EditProposal -Parameters @{ k = $StableKey; a = $Artist; al = $Album; y = $Year; tp = $TargetPath; f = $Format; dh = $DataHome } {
+        InModuleScope Reshelf.EditProposal -Parameters @{ k = $StableKey; a = $Artist; al = $Album; y = $Year; tp = $TargetPath; f = $Format; dh = $DataHome } {
             param($k, $a, $al, $y, $tp, $f, $dh)
-            Add-TaggerLossyTrackingEntry -StableKey $k -Artist $a -Album $al -Year $y -TargetPath $tp -Format $f -DataHome $dh | Out-Null
+            Add-ReshelfLossyTrackingEntry -StableKey $k -Artist $a -Album $al -Year $y -TargetPath $tp -Format $f -DataHome $dh | Out-Null
         }
     }
 
@@ -129,9 +129,9 @@ BeforeAll {
         return $Path
     }
 
-    # Writes a fake apply-log.json entry directly, standing in for a real 'Tagger.ps1 apply' run -
-    # used to test Resolve-TaggerTargetComparison's re-run skip check (Tagger.EditProposal.psm1)
-    # without actually running Invoke-TaggerImplementation.
+    # Writes a fake apply-log.json entry directly, standing in for a real 'Reshelf.ps1 apply' run -
+    # used to test Resolve-ReshelfTargetComparison's re-run skip check (Reshelf.EditProposal.psm1)
+    # without actually running Invoke-ReshelfImplementation.
     function Add-TestApplyLogEntry {
         param(
             [Parameter(Mandatory)] [string]$StableKey,
@@ -141,18 +141,18 @@ BeforeAll {
             [string]$DataHome = $script:dataHome
         )
 
-        Add-TaggerApplyLogEntry -StableKey $StableKey -AppliedAtUtc (Get-Date) -Status $Status -TargetPath $TargetPath `
+        Add-ReshelfApplyLogEntry -StableKey $StableKey -AppliedAtUtc (Get-Date) -Status $Status -TargetPath $TargetPath `
             -SourceFileSetHash $SourceFileSetHash -ErrorMessage $null -Truncated $false -DataHome $DataHome | Out-Null
     }
 
-    # Same name|size hash Get-TaggerFileSetHash (Tagger.Common.psm1) computes - kept private to that
+    # Same name|size hash Get-ReshelfFileSetHash (Reshelf.Common.psm1) computes - kept private to that
     # module, so re-derived here via InModuleScope rather than exported just for this test file.
     function Get-TestFileSetHash {
         param([Parameter(Mandatory)] [string[]]$FilePaths)
 
-        return InModuleScope Tagger.EditProposal -Parameters @{ paths = $FilePaths } {
+        return InModuleScope Reshelf.EditProposal -Parameters @{ paths = $FilePaths } {
             param($paths)
-            Get-TaggerFileSetHash -FilePaths $paths
+            Get-ReshelfFileSetHash -FilePaths $paths
         }
     }
 
@@ -258,93 +258,93 @@ BeforeAll {
     }
 }
 
-Describe 'Get-TaggerProposalPadWidth (private)' {
+Describe 'Get-ReshelfProposalPadWidth (private)' {
     It 'returns 2 for track counts up to 99' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerProposalPadWidth -TotalTrackCount 1 | Should -Be 2
-            Get-TaggerProposalPadWidth -TotalTrackCount 9 | Should -Be 2
-            Get-TaggerProposalPadWidth -TotalTrackCount 99 | Should -Be 2
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfProposalPadWidth -TotalTrackCount 1 | Should -Be 2
+            Get-ReshelfProposalPadWidth -TotalTrackCount 9 | Should -Be 2
+            Get-ReshelfProposalPadWidth -TotalTrackCount 99 | Should -Be 2
         }
     }
 
     It 'grows beyond 2 for larger track counts' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerProposalPadWidth -TotalTrackCount 100 | Should -Be 3
-            Get-TaggerProposalPadWidth -TotalTrackCount 999 | Should -Be 3
-            Get-TaggerProposalPadWidth -TotalTrackCount 1000 | Should -Be 4
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfProposalPadWidth -TotalTrackCount 100 | Should -Be 3
+            Get-ReshelfProposalPadWidth -TotalTrackCount 999 | Should -Be 3
+            Get-ReshelfProposalPadWidth -TotalTrackCount 1000 | Should -Be 4
         }
     }
 
     It 'uses -MinWidth as a floor, not a fixed value, when settings.trackNumberPadWidth is raised' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerProposalPadWidth -TotalTrackCount 1 -MinWidth 3 | Should -Be 3
-            Get-TaggerProposalPadWidth -TotalTrackCount 9 -MinWidth 3 | Should -Be 3
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfProposalPadWidth -TotalTrackCount 1 -MinWidth 3 | Should -Be 3
+            Get-ReshelfProposalPadWidth -TotalTrackCount 9 -MinWidth 3 | Should -Be 3
             # A track count that already needs more digits than MinWidth still wins.
-            Get-TaggerProposalPadWidth -TotalTrackCount 1000 -MinWidth 3 | Should -Be 4
+            Get-ReshelfProposalPadWidth -TotalTrackCount 1000 -MinWidth 3 | Should -Be 4
         }
     }
 }
 
-Describe 'Get-TaggerStringSimilarity (private)' {
+Describe 'Get-ReshelfStringSimilarity (private)' {
     It 'returns 1.0 for identical strings' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerStringSimilarity -A 'radiohead' -B 'radiohead' | Should -Be 1.0
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfStringSimilarity -A 'radiohead' -B 'radiohead' | Should -Be 1.0
         }
     }
 
     It 'returns 1.0 when both sides are empty' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerStringSimilarity -A '' -B '' | Should -Be 1.0
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfStringSimilarity -A '' -B '' | Should -Be 1.0
         }
     }
 
     It 'returns 0.0 when only one side is empty' {
-        InModuleScope Tagger.EditProposal {
-            Get-TaggerStringSimilarity -A '' -B 'radiohead' | Should -Be 0.0
+        InModuleScope Reshelf.EditProposal {
+            Get-ReshelfStringSimilarity -A '' -B 'radiohead' | Should -Be 0.0
         }
     }
 
     It 'scores a near match higher than an unrelated pair' {
-        InModuleScope Tagger.EditProposal {
-            $near = Get-TaggerStringSimilarity -A 'ok computer' -B 'ok computr'
-            $unrelated = Get-TaggerStringSimilarity -A 'ok computer' -B 'kid a'
+        InModuleScope Reshelf.EditProposal {
+            $near = Get-ReshelfStringSimilarity -A 'ok computer' -B 'ok computr'
+            $unrelated = Get-ReshelfStringSimilarity -A 'ok computer' -B 'kid a'
             $near | Should -BeGreaterThan $unrelated
         }
     }
 }
 
-Describe 'Get-TaggerDiscogsCandidateScore (private)' {
+Describe 'Get-ReshelfDiscogsCandidateScore (private)' {
     It 'scores the correct artist/title/year at or above the match threshold' {
-        InModuleScope Tagger.EditProposal -Parameters @{ candidate = $script:SearchFixture.results[0] } {
+        InModuleScope Reshelf.EditProposal -Parameters @{ candidate = $script:SearchFixture.results[0] } {
             param($candidate)
-            $score = Get-TaggerDiscogsCandidateScore -ExpectedArtist 'Radiohead' -ExpectedTitle 'OK Computer' -ExpectedYear 1997 -Candidate $candidate
+            $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Radiohead' -ExpectedTitle 'OK Computer' -ExpectedYear 1997 -Candidate $candidate
             $score | Should -BeGreaterOrEqual 0.85
         }
     }
 
     It 'scores an unrelated artist/title well below the threshold' {
-        InModuleScope Tagger.EditProposal -Parameters @{ candidate = $script:SearchFixture.results[0] } {
+        InModuleScope Reshelf.EditProposal -Parameters @{ candidate = $script:SearchFixture.results[0] } {
             param($candidate)
-            $score = Get-TaggerDiscogsCandidateScore -ExpectedArtist 'Some Totally Different Band' -ExpectedTitle 'Unrelated Album Title' -ExpectedYear $null -Candidate $candidate
+            $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Totally Different Band' -ExpectedTitle 'Unrelated Album Title' -ExpectedYear $null -Candidate $candidate
             $score | Should -BeLessThan 0.85
         }
     }
 }
 
-Describe 'Resolve-TaggerDiscogsMatch (private)' {
+Describe 'Resolve-ReshelfDiscogsMatch (private)' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
     }
 
     It 'returns matched with fetched detail when the top score is above the threshold' {
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             if ($Path -eq '/database/search') { return $script:SearchFixture }
             return $script:ReleaseFixture
         }
 
-        $result = InModuleScope Tagger.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
             param($dataHome)
-            Resolve-TaggerDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
         }
 
         $result.Status | Should -Be 'matched'
@@ -354,14 +354,14 @@ Describe 'Resolve-TaggerDiscogsMatch (private)' {
     }
 
     It 'returns ambiguous with candidates but no detail fetch when the top score is below the threshold' {
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             if ($Path -eq '/database/search') { return $script:SearchFixture }
             throw 'detail should not be fetched for an ambiguous match'
         }
 
-        $result = InModuleScope Tagger.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
             param($dataHome)
-            Resolve-TaggerDiscogsMatch -ArtistName 'Some Totally Different Band' -Title 'Unrelated Album' -Year $null -DataHome $dataHome
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Some Totally Different Band' -Title 'Unrelated Album' -Year $null -DataHome $dataHome
         }
 
         $result.Status | Should -Be 'ambiguous'
@@ -371,26 +371,26 @@ Describe 'Resolve-TaggerDiscogsMatch (private)' {
     }
 
     It 'returns not-found when the search yields zero results' {
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             [pscustomobject]@{ results = @() }
         }
 
-        $result = InModuleScope Tagger.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
             param($dataHome)
-            Resolve-TaggerDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
         }
 
         $result.Status | Should -Be 'not-found'
     }
 
     It 'catches a network failure and returns not-found with an error note instead of throwing' {
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             throw 'network is down'
         }
 
-        $result = InModuleScope Tagger.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
             param($dataHome)
-            Resolve-TaggerDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Radiohead' -Title 'OK Computer' -Year 1997 -DataHome $dataHome
         }
 
         $result.Status | Should -Be 'not-found'
@@ -398,9 +398,9 @@ Describe 'Resolve-TaggerDiscogsMatch (private)' {
     }
 }
 
-Describe 'Build-TaggerTargetIndex and Test-TaggerTargetReleaseExists' {
+Describe 'Build-ReshelfTargetIndex and Test-ReshelfTargetReleaseExists' {
     It 'returns an empty index when the target root does not exist' {
-        $index = Build-TaggerTargetIndex -TargetRoot (Join-Path $TestDrive ([guid]::NewGuid().ToString('N')))
+        $index = Build-ReshelfTargetIndex -TargetRoot (Join-Path $TestDrive ([guid]::NewGuid().ToString('N')))
         $index.Count | Should -Be 0
     }
 
@@ -409,11 +409,11 @@ Describe 'Build-TaggerTargetIndex and Test-TaggerTargetReleaseExists' {
         New-Item -ItemType Directory -Path (Join-Path $targetRoot 'ArtistA' '1999 AlbumOne') -Force | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $targetRoot 'ArtistB' '2005 AlbumTwo') -Force | Out-Null
 
-        $index = Build-TaggerTargetIndex -TargetRoot $targetRoot
+        $index = Build-ReshelfTargetIndex -TargetRoot $targetRoot
 
         $index.Count | Should -Be 2
         $keyA = Get-TestStableKey -Artist 'ArtistA' -Album 'AlbumOne' -Year 1999
-        $entry = Test-TaggerTargetReleaseExists -TargetIndex $index -StableKey $keyA
+        $entry = Test-ReshelfTargetReleaseExists -TargetIndex $index -StableKey $keyA
         $entry | Should -Not -BeNullOrEmpty
         $entry.Path | Should -Be (Join-Path $targetRoot 'ArtistA' '1999 AlbumOne')
     }
@@ -422,13 +422,13 @@ Describe 'Build-TaggerTargetIndex and Test-TaggerTargetReleaseExists' {
         $targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $targetRoot 'ArtistA' 'Misc') -Force | Out-Null
 
-        $index = Build-TaggerTargetIndex -TargetRoot $targetRoot
+        $index = Build-ReshelfTargetIndex -TargetRoot $targetRoot
         $index.Count | Should -Be 0
     }
 
-    It 'returns $null from Test-TaggerTargetReleaseExists when the key is not indexed' {
-        $index = Build-TaggerTargetIndex -TargetRoot (Join-Path $TestDrive ([guid]::NewGuid().ToString('N')))
-        Test-TaggerTargetReleaseExists -TargetIndex $index -StableKey 'doesnotexist0000' | Should -BeNullOrEmpty
+    It 'returns $null from Test-ReshelfTargetReleaseExists when the key is not indexed' {
+        $index = Build-ReshelfTargetIndex -TargetRoot (Join-Path $TestDrive ([guid]::NewGuid().ToString('N')))
+        Test-ReshelfTargetReleaseExists -TargetIndex $index -StableKey 'doesnotexist0000' | Should -BeNullOrEmpty
     }
 
     It 'does not throw on a stable-key collision between two folders that normalize the same way' {
@@ -436,18 +436,18 @@ Describe 'Build-TaggerTargetIndex and Test-TaggerTargetReleaseExists' {
         New-Item -ItemType Directory -Path (Join-Path $targetRoot 'ZZ Top' '1999 XXX') -Force | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $targetRoot 'zz  top' '1999 XXX') -Force | Out-Null
 
-        $index = Build-TaggerTargetIndex -TargetRoot $targetRoot
+        $index = Build-ReshelfTargetIndex -TargetRoot $targetRoot
         $index.Count | Should -Be 1
     }
 }
 
-Describe 'New-TaggerCompanionProposal (private)' {
+Describe 'New-ReshelfCompanionProposal (private)' {
     It 'adds include = $true and leaves proposedFileName $null for a nested companion' {
-        InModuleScope Tagger.EditProposal {
+        InModuleScope Reshelf.EditProposal {
             $companions = @(
                 [pscustomobject]@{ sourcePath = 'C:\src\Scans\front.jpg'; kind = 'cover'; placement = 'nested' }
             )
-            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result = New-ReshelfCompanionProposal -CompanionFiles $companions
             $result.Companions.Count | Should -Be 1
             $result.Companions[0].include | Should -Be $true
             $result.Companions[0].proposedFileName | Should -BeNullOrEmpty
@@ -456,11 +456,11 @@ Describe 'New-TaggerCompanionProposal (private)' {
     }
 
     It 'proposes the same name unchanged for a loose companion that already starts with a letter' {
-        InModuleScope Tagger.EditProposal {
+        InModuleScope Reshelf.EditProposal {
             $companions = @(
                 [pscustomobject]@{ sourcePath = 'C:\src\folder.jpg'; kind = 'cover'; placement = 'loose' }
             )
-            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result = New-ReshelfCompanionProposal -CompanionFiles $companions
             $result.Companions[0].proposedFileName | Should -Be 'folder.jpg'
             $result.RequiresReview | Should -Be $false
             $result.Notes | Should -BeNullOrEmpty
@@ -468,11 +468,11 @@ Describe 'New-TaggerCompanionProposal (private)' {
     }
 
     It 'renames a digit-starting loose companion with its kind word prefix, flags review, and adds a note' {
-        InModuleScope Tagger.EditProposal {
+        InModuleScope Reshelf.EditProposal {
             $companions = @(
                 [pscustomobject]@{ sourcePath = 'C:\src\01 back.jpg'; kind = 'booklet'; placement = 'loose' }
             )
-            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result = New-ReshelfCompanionProposal -CompanionFiles $companions
             $result.Companions[0].proposedFileName | Should -Be 'Booklet 01 back.jpg'
             $result.RequiresReview | Should -Be $true
             $result.Notes.Count | Should -Be 1
@@ -481,15 +481,15 @@ Describe 'New-TaggerCompanionProposal (private)' {
     }
 
     It 'handles an empty companion list' {
-        InModuleScope Tagger.EditProposal {
-            $result = New-TaggerCompanionProposal -CompanionFiles @()
+        InModuleScope Reshelf.EditProposal {
+            $result = New-ReshelfCompanionProposal -CompanionFiles @()
             $result.Companions.Count | Should -Be 0
             $result.RequiresReview | Should -Be $false
         }
     }
 }
 
-Describe 'Invoke-TaggerEditProposal' {
+Describe 'Invoke-ReshelfEditProposal' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -516,12 +516,12 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 if ($Path -eq '/database/search') { return $script:SearchFixture }
                 return $script:ReleaseFixture
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
 
             $releaseResult = $result.artists[0].releases[0]
             $releaseResult.discogsMatch.status | Should -Be 'matched'
@@ -553,11 +553,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseTracks = $result.artists[0].releases[0].tracks
 
             # Copied row by row from MANIFESTO.md section 5: File Name | Disc Number | Track | Title.
@@ -615,12 +615,12 @@ Describe 'Invoke-TaggerEditProposal' {
                 )
             }
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 if ($Path -eq '/database/search') { return $script:customSearch }
                 return $script:customDetail
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.proposed.artistFolderName | Should -Be 'Metallica'
@@ -643,11 +643,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'AC/DC'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             # Folder/file names must be filesystem-safe.
@@ -679,12 +679,12 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 if ($Path -eq '/database/search') { return $script:SearchFixture }
                 return $script:ReleaseFixture
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.humanReview.required | Should -Be $true
@@ -702,12 +702,12 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Totally Different Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 if ($Path -eq '/database/search') { return $script:SearchFixture }
                 throw 'detail should not be fetched for an ambiguous match'
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.discogsMatch.status | Should -Be 'ambiguous'
@@ -730,11 +730,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot `
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot `
                 -DataHome $script:dataHome -TrackNumberPadWidth 3
             $releaseResult = $result.artists[0].releases[0]
 
@@ -752,11 +752,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'CON'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.proposed.artistFolderName | Should -Be 'CON_'
@@ -781,18 +781,18 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.coverArt.candidates.Count | Should -Be 1
             $releaseResult.coverArt.candidates[0].sourceEdition | Should -Be 'existing (local)'
             $releaseResult.coverArt.chosenCandidateUrl | Should -Be $coverPath
 
-            # New-TaggerCompanionProposal must be wired into the release doc: the loose 'cover.jpg'
+            # New-ReshelfCompanionProposal must be wired into the release doc: the loose 'cover.jpg'
             # already starts with a letter, so it's included as-is with no companion-triggered note.
             # (humanReview.required is already true here for an unrelated reason - no Discogs match.)
             $releaseResult.companionFiles.Count | Should -Be 1
@@ -811,12 +811,12 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 if ($Path -eq '/database/search') { return $script:SearchFixture }
                 return $script:ReleaseFixture
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             # Discogs matched and has an image (release-response.json fixture), but the track already
@@ -828,7 +828,7 @@ Describe 'Invoke-TaggerEditProposal' {
             $releaseResult.coverArt.chosenCandidateUrl | Should -Be $embeddedCoverPath
         }
 
-        It 'renames a digit-starting loose companion and forces review, end to end through Invoke-TaggerEditProposal' {
+        It 'renames a digit-starting loose companion and forces review, end to end through Invoke-ReshelfEditProposal' {
             $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Only Track.flac')
             $photoPath = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 back.jpg')
             $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Only Track.flac' -DetectedTrackNumberInDisc 1))
@@ -840,11 +840,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.companionFiles[0].proposedFileName | Should -Be 'Photo 01 back.jpg'
@@ -862,11 +862,11 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.coverArt.candidates.Count | Should -Be 0
@@ -877,7 +877,7 @@ Describe 'Invoke-TaggerEditProposal' {
 
     Context 'target comparison' {
         BeforeEach {
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
         }
@@ -892,7 +892,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'create-new'
         }
 
@@ -908,7 +908,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'skip-existing-identical'
         }
 
@@ -932,7 +932,7 @@ Describe 'Invoke-TaggerEditProposal' {
             $sourceHash = Get-TestFileSetHash -FilePaths @($t1)
             Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash $sourceHash
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'skip-existing-identical'
         }
 
@@ -956,7 +956,7 @@ Describe 'Invoke-TaggerEditProposal' {
             # Recorded hash deliberately doesn't match $t1's current content.
             Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash 'stale-hash-from-a-prior-apply'
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'conflict'
         }
 
@@ -977,7 +977,7 @@ Describe 'Invoke-TaggerEditProposal' {
             $sourceHash = Get-TestFileSetHash -FilePaths @($t1)
             Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash $sourceHash -Status 'failed'
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'conflict'
         }
 
@@ -993,7 +993,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.targetAction | Should -Be 'update-existing'
@@ -1012,7 +1012,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.targetAction | Should -Be 'conflict'
@@ -1033,7 +1033,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release1, $release2) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releases = $result.artists[0].releases
 
             $releases[0].targetAction | Should -Be 'create-new'
@@ -1043,7 +1043,7 @@ Describe 'Invoke-TaggerEditProposal' {
 
     Context 'lossy tracking' {
         BeforeEach {
-            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
                 [pscustomobject]@{ results = @() }
             }
         }
@@ -1058,7 +1058,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $releaseResult = $result.artists[0].releases[0]
 
             $releaseResult.lossyLossless.isLossy | Should -Be $true
@@ -1087,7 +1087,7 @@ Describe 'Invoke-TaggerEditProposal' {
                 [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
             )
 
-            Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome | Out-Null
+            Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome | Out-Null
 
             $entry = Get-TestLossyTrackingEntry -StableKey $stableKey -DataHome $script:dataHome
             $entry.status | Should -Be 'ignored'
@@ -1105,12 +1105,12 @@ Describe 'Invoke-TaggerEditProposal' {
             [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
         )
 
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             if ($Path -eq '/database/search') { return $script:SearchFixture }
             return $script:ReleaseFixture
         }
 
-        $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $releaseResult = $result.artists[0].releases[0]
 
         # This fixture's Discogs mock is a clean, matching, threshold-passing result (same as the
@@ -1131,11 +1131,11 @@ Describe 'Invoke-TaggerEditProposal' {
             [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
         )
 
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             [pscustomobject]@{ results = @() }
         }
 
-        Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome | Out-Null
+        Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome | Out-Null
 
         $proposalPath = Join-Path $script:dataHome 'sessions' 'test-session' 'proposal.json'
         Test-ProposalDocumentJson -Path $proposalPath | Should -Be $true

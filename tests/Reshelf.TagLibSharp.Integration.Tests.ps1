@@ -2,26 +2,26 @@
 
 Import-Module Pester -MinimumVersion 5.0
 
-# Every other test file mocks Set-TaggerAudioTags / Get-TaggerAudioTags, so no test anywhere opens a
+# Every other test file mocks Set-ReshelfAudioTags / Get-ReshelfAudioTags, so no test anywhere opens a
 # real audio file with the real TagLibSharp.dll (plan/11's "Implementation module verification" step
 # 3). This file closes that gap. It needs a real TagLibSharp.dll and a real ffmpeg on PATH - both are
 # hard requirements here (not skipped) since a silent skip would let this coverage gap go unnoticed
-# again; BeforeAll throws with the same install hint Import-TaggerTagLibSharp itself gives.
+# again; BeforeAll throws with the same install hint Import-ReshelfTagLibSharp itself gives.
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Common.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Recognition.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.EditProposal.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Common.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Settings.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Recognition.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Discogs.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.EditProposal.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Implementation.psm1" -Force
 
-    # Tagger.Implementation.psm1 re-imports Common internally as part of loading, which turns it into
-    # a nested module of Tagger.Implementation - PowerShell then hides Resolve-TaggerDataHome from
-    # this script's own top-level scope (same gotcha noted in Tagger.Implementation.Tests.ps1).
+    # Reshelf.Implementation.psm1 re-imports Common internally as part of loading, which turns it into
+    # a nested module of Reshelf.Implementation - PowerShell then hides Resolve-ReshelfDataHome from
+    # this script's own top-level scope (same gotcha noted in Reshelf.Implementation.Tests.ps1).
     # Routing through Implementation's own module scope, which always has it, avoids that fragility.
-    $script:DataHome = InModuleScope Tagger.Implementation { Resolve-TaggerDataHome }
+    $script:DataHome = InModuleScope Reshelf.Implementation { Resolve-ReshelfDataHome }
     $script:TagLibSharpPath = Join-Path $script:DataHome 'lib' 'TagLibSharp.dll'
     if (-not (Test-Path -LiteralPath $script:TagLibSharpPath -PathType Leaf)) {
         throw "TagLibSharp.dll not found at '$script:TagLibSharpPath'. Download the TagLibSharp NuGet " +
@@ -67,7 +67,7 @@ BeforeAll {
 
 }
 
-Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' {
+Describe 'Set-ReshelfAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' {
     BeforeEach {
         $script:workDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:workDir -Force | Out-Null
@@ -89,7 +89,7 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
                 track       = 2
                 title       = 'Paranoid Android'
             }
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
 
             $file = Open-TagLibFile -Path $script:audioPath
             try {
@@ -115,7 +115,7 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
                 artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2000
                 discNumber = 1; track = 1; title = 'Title'
             }
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tags -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tags -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
 
             $file = Open-TagLibFile -Path $script:audioPath
             try {
@@ -140,7 +140,7 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
                 track       = 1
                 title       = 'Ça plane pour moi'
             }
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
 
             $file = Open-TagLibFile -Path $script:audioPath
             try {
@@ -163,8 +163,8 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
             $tagsA = [pscustomobject]@{ artist = 'First'; albumArtist = 'First'; album = 'First Album'; year = 1990; discNumber = 1; track = 1; title = 'First Title' }
             $tagsB = [pscustomobject]@{ artist = 'Second'; albumArtist = 'Second'; album = 'Second Album'; year = 2020; discNumber = 2; track = 5; title = 'Second Title' }
 
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tagsA -CoverImagePath $coverA -TagLibSharpPath $script:TagLibSharpPath
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tagsB -CoverImagePath $coverB -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsA -CoverImagePath $coverA -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsB -CoverImagePath $coverB -TagLibSharpPath $script:TagLibSharpPath
 
             $file = Open-TagLibFile -Path $script:audioPath
             try {
@@ -190,8 +190,8 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
             $tagsWithCover = [pscustomobject]@{ artist = 'A'; albumArtist = 'A'; album = 'Alb'; year = 2000; discNumber = 1; track = 1; title = 'T1' }
             $tagsNoCover = [pscustomobject]@{ artist = 'A'; albumArtist = 'A'; album = 'Alb'; year = 2000; discNumber = 1; track = 2; title = 'T2' }
 
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tagsWithCover -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
-            Set-TaggerAudioTags -Path $script:audioPath -Tags $tagsNoCover -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsWithCover -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsNoCover -TagLibSharpPath $script:TagLibSharpPath
 
             $file = Open-TagLibFile -Path $script:audioPath
             try {
@@ -207,7 +207,7 @@ Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' 
     }
 }
 
-Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integration' {
+Describe 'Get-ReshelfAudioTags on a real file (real TagLibSharp)' -Tag 'Integration' {
     BeforeEach {
         $script:workDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:workDir -Force | Out-Null
@@ -217,9 +217,9 @@ Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integrati
         $path = Join-Path $script:workDir 'track.flac'
         New-TestAudioFile -Path $path -Format flac
         $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
-        Set-TaggerAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+        Set-ReshelfAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
 
-        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
 
         $result.Artist | Should -Be 'Artist'
         $result.Album | Should -Be 'Album'
@@ -234,9 +234,9 @@ Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integrati
         $path = Join-Path $script:workDir 'track.mp3'
         New-TestAudioFile -Path $path -Format mp3
         $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
-        Set-TaggerAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+        Set-ReshelfAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
 
-        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
 
         $result.Format | Should -Be 'mp3'
         $result.IsLossless | Should -Be $false
@@ -255,9 +255,9 @@ Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integrati
         New-TestCoverImage -Path $coverPath -Color 'green'
         $expectedBytes = [System.IO.File]::ReadAllBytes($coverPath)
         $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
-        Set-TaggerAudioTags -Path $path -Tags $tags -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
+        Set-ReshelfAudioTags -Path $path -Tags $tags -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
 
-        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome $isolatedDataHome
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome $isolatedDataHome
 
         $result.EmbeddedCoverPath | Should -Not -BeNullOrEmpty
         $result.EmbeddedCoverPath | Should -Exist
@@ -269,16 +269,16 @@ Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integrati
         $path = Join-Path $script:workDir 'track-no-cover.flac'
         New-TestAudioFile -Path $path -Format flac
         $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
-        Set-TaggerAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+        Set-ReshelfAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
 
-        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome (Join-Path $script:workDir 'data-home')
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome (Join-Path $script:workDir 'data-home')
 
         $result.EmbeddedCoverPath | Should -BeNullOrEmpty
     }
 }
 
 # End-to-end with real ffmpeg and real TagLibSharp, closing the same "only Recognition was ever
-# exercised against real media" gap Tagger.Pipeline.Tests.ps1 closed for the rest of the pipeline
+# exercised against real media" gap Reshelf.Pipeline.Tests.ps1 closed for the rest of the pipeline
 # with mocked media. Discogs is still mocked (the plan never intended live network calls in tests),
 # but its fixture is edited in memory to include filesystem-invalid characters, so this also covers
 # the "invalid characters through the full pipeline" case plan/11 only ever unit-tested directly on
@@ -290,15 +290,15 @@ Describe 'Full pipeline with real TagLibSharp and ffmpeg' -Tag 'Integration' {
         $script:releaseFixture.title = 'OK Computer? / Live: Edition'
         $script:releaseFixture.tracklist[1].title = 'Paranoid Android?'
 
-        Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
             param($Path)
             if ($Path -eq '/database/search') { return $script:searchFixture }
             return $script:releaseFixture
         }
 
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload {
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload {
             param($OutputPath)
-            # $OutputPath is 'cover-source.download' (the real Invoke-TaggerCoverDownload just saves
+            # $OutputPath is 'cover-source.download' (the real Invoke-ReshelfCoverDownload just saves
             # raw bytes via Invoke-WebRequest, extension-agnostic) - ffmpeg itself needs a recognized
             # extension to pick a muxer, so generate to a real .jpg first and copy the bytes over.
             $tempJpg = "$OutputPath.jpg"
@@ -318,19 +318,19 @@ Describe 'Full pipeline with real TagLibSharp and ffmpeg' -Tag 'Integration' {
         New-TestAudioFile -Path (Join-Path $releaseSourcePath '02 - Paranoid Android.flac') -Format flac
         New-TestAudioFile -Path (Join-Path $releaseSourcePath '03 - Subterranean Homesick Alien.flac') -Format flac
 
-        $session = New-TaggerSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $session = New-ReshelfSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
         $script:sessionId = $session.sessionId
 
-        Invoke-TaggerRecognition -SourceRoot $script:sourceRoot -SessionId $script:sessionId -DataHome $script:dataHome -TagLibSharpPath $script:TagLibSharpPath | Out-Null
+        Invoke-ReshelfRecognition -SourceRoot $script:sourceRoot -SessionId $script:sessionId -DataHome $script:dataHome -TagLibSharpPath $script:TagLibSharpPath | Out-Null
         $recognitionPath = Join-Path $script:dataHome 'sessions' $script:sessionId 'recognition.json'
 
-        $script:proposalResult = Invoke-TaggerEditProposal -SessionId $script:sessionId -RecognitionPath $recognitionPath `
+        $script:proposalResult = Invoke-ReshelfEditProposal -SessionId $script:sessionId -RecognitionPath $recognitionPath `
             -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $script:proposalPath = Join-Path $script:dataHome 'sessions' $script:sessionId 'proposal.json'
     }
 
     It 'applies the release, writes correct real tags and cover, and sanitizes invalid characters' {
-        $result = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath $script:FfmpegPath -TagLibSharpPath $script:TagLibSharpPath -DataHome $script:dataHome -IncludeUnresolved
 
         $result.Failed | Should -Be 0
@@ -371,7 +371,7 @@ Describe 'Full pipeline with real TagLibSharp and ffmpeg' -Tag 'Integration' {
             }
         }
 
-        # New-TaggerProposedReleaseNames/New-TaggerProposedTrackSet (Tagger.EditProposal.psm1) run
+        # New-ReshelfProposedReleaseNames/New-ReshelfProposedTrackSet (Reshelf.EditProposal.psm1) run
         # each Discogs-sourced string through ConvertTo-SafeFileName only for the filesystem-facing
         # name fields (releaseFolderName, artistFolderName, proposedFileName). The tag fields
         # (proposed.album, tags.album, tags.title, proposedTitle) keep the raw, un-sanitized text,

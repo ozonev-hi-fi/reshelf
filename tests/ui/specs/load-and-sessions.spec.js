@@ -61,7 +61,7 @@ test.describe('loading and switching sessions', () => {
       expect(dialog.message()).toMatch(/unsaved/i);
       await dialog.dismiss();
     });
-    // Sessions list newest-first (Get-TaggerSession's own sort) and the current session is
+    // Sessions list newest-first (Get-ReshelfSession's own sort) and the current session is
     // already selected at index 0 - index 1 is the older one, actually changing the <select>'s
     // value so a 'change' event fires at all.
     await page.locator('#session-history-select').selectOption({ index: 1 });

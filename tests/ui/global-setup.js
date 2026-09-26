@@ -1,6 +1,6 @@
 // @ts-check
-// Prepares an isolated TAGGER_HOME (settings.json + empty sessions folder) and starts a real
-// Start-TaggerUiServer.ps1 against it, exactly as a person running `Tagger.ps1 ui start` would -
+// Prepares an isolated RESHELF_HOME (settings.json + empty sessions folder) and starts a real
+// Start-ReshelfUiServer.ps1 against it, exactly as a person running `Reshelf.ps1 ui start` would -
 // this suite drives the real server, not a mock of it. State is written to .tmp/state.json so
 // every spec file (loaded after this finishes - Playwright runs globalSetup before collecting
 // test files) and global-teardown.js can find the same server/paths without re-deriving them.
@@ -46,11 +46,11 @@ async function waitUntilReady(url, timeoutMs) {
     }
     await new Promise((r) => setTimeout(r, 200));
   }
-  throw new Error(`Tagger UI server never became ready at ${url}: ${lastError?.message ?? 'timed out'}`);
+  throw new Error(`Reshelf UI server never became ready at ${url}: ${lastError?.message ?? 'timed out'}`);
 }
 
 module.exports = async function globalSetup() {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tagger-ui-'));
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'reshelf-ui-'));
   const dataHome = path.join(tmpRoot, 'data');
   const targetRoot = path.join(tmpRoot, 'target');
   const sourceRoot = path.join(tmpRoot, 'source');
@@ -58,13 +58,13 @@ module.exports = async function globalSetup() {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const env = { ...process.env, TAGGER_HOME: dataHome };
+  const env = { ...process.env, RESHELF_HOME: dataHome };
 
   // Non-interactive settings.json: real ffmpeg resolves via PATH (settings.default.json's
   // ffmpegPath is "" by design, see plan/01), but taglibSharpPath must be pointed at the repo's
   // own already-downloaded TagLibSharp.dll explicitly - this temp data home has no 'lib' folder
-  // of its own, and Import-TaggerTagLibSharp's fallback path is <DataHome>/lib/TagLibSharp.dll.
-  runPwsh(['-File', path.join(REPO_ROOT, 'scripts', 'Tagger.ps1'), 'settings', 'init', '-TargetRoot', targetRoot, '-Force'], env);
+  // of its own, and Import-ReshelfTagLibSharp's fallback path is <DataHome>/lib/TagLibSharp.dll.
+  runPwsh(['-File', path.join(REPO_ROOT, 'scripts', 'Reshelf.ps1'), 'settings', 'init', '-TargetRoot', targetRoot, '-Force'], env);
   const taglibSharpPath = path.join(REPO_ROOT, '.data', 'lib', 'TagLibSharp.dll');
   if (!fs.existsSync(taglibSharpPath)) {
     throw new Error(
@@ -72,14 +72,14 @@ module.exports = async function globalSetup() {
         'real DLL the rest of the test suite already requires (see plan/01, plan/11).'
     );
   }
-  runPwsh(['-File', path.join(REPO_ROOT, 'scripts', 'Tagger.ps1'), 'settings', 'set', '-Key', 'taglibSharpPath', '-Value', taglibSharpPath], env);
+  runPwsh(['-File', path.join(REPO_ROOT, 'scripts', 'Reshelf.ps1'), 'settings', 'set', '-Key', 'taglibSharpPath', '-Value', taglibSharpPath], env);
 
   const port = await findFreePort();
   const baseURL = `http://localhost:${port}`;
 
   const serverProcess = spawn(
     'pwsh',
-    ['-NoProfile', '-NoLogo', '-File', path.join(REPO_ROOT, 'scripts', 'Start-TaggerUiServer.ps1'), '-Port', String(port), '-NoBrowser'],
+    ['-NoProfile', '-NoLogo', '-File', path.join(REPO_ROOT, 'scripts', 'Start-ReshelfUiServer.ps1'), '-Port', String(port), '-NoBrowser'],
     { env, stdio: 'pipe', windowsHide: true }
   );
   serverProcess.unref();

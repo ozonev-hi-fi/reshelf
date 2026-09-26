@@ -1,4 +1,4 @@
-# MANIFESTO — Personal Music Collection Organizer ("Tagger")
+# MANIFESTO — Personal Music Collection Organizer ("Reshelf")
 
 This document is meant to be the source of truth for a future planning session. It contains no implementation plan — only the goal, the rules, some thoughts, and the open questions.
 
@@ -208,7 +208,7 @@ The process should be split into independently developed modules:
      parameter.
    - Templates for folder names, file names, and metadata fields (the
      rules from §4 and §5), with their placeholder values.
-   - Edit mode: copy source files. Source files are always read-only to Tagger — nothing it does,
+   - Edit mode: copy source files. Source files are always read-only to Reshelf — nothing it does,
      or any tool it calls (ffmpeg, TagLibSharp), may ever delete or modify a source file. (A
      "move" mode that deleted source files after applying existed briefly and was removed after it
      destroyed source releases with no other backup.)

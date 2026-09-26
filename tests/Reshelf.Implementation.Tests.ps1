@@ -3,27 +3,27 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Common.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Common.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Settings.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.LossyTracking.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Implementation.psm1" -Force
     Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
 
-    # Tagger.Implementation.psm1 re-imports Common/Json/Settings/LossyTracking internally as part of
-    # loading, which turns them into nested modules of Tagger.Implementation - PowerShell then hides
+    # Reshelf.Implementation.psm1 re-imports Common/Json/Settings/LossyTracking internally as part of
+    # loading, which turns them into nested modules of Reshelf.Implementation - PowerShell then hides
     # their commands from this script's own top-level scope (order-dependent on what else has
-    # imported them, same gotcha noted in Tagger.EditProposal.Tests.ps1 and
-    # Tagger.LossyTracking.Tests.ps1). Routing through Implementation's own module scope, which
+    # imported them, same gotcha noted in Reshelf.EditProposal.Tests.ps1 and
+    # Reshelf.LossyTracking.Tests.ps1). Routing through Implementation's own module scope, which
     # always has them, avoids that fragility.
     function New-TestSession {
         param(
             [Parameter(Mandatory)] [string]$SourceRoot,
             [Parameter(Mandatory)] [string]$DataHome
         )
-        return InModuleScope Tagger.Implementation -Parameters @{ sr = $SourceRoot; dh = $DataHome } {
+        return InModuleScope Reshelf.Implementation -Parameters @{ sr = $SourceRoot; dh = $DataHome } {
             param($sr, $dh)
-            New-TaggerSession -SourceRoot $sr -DataHome $dh
+            New-ReshelfSession -SourceRoot $sr -DataHome $dh
         }
     }
 
@@ -32,9 +32,9 @@ BeforeAll {
             [Parameter(Mandatory)] [string]$Path,
             [Parameter(Mandatory)] [object]$Document
         )
-        InModuleScope Tagger.Implementation -Parameters @{ p = $Path; o = $Document } {
+        InModuleScope Reshelf.Implementation -Parameters @{ p = $Path; o = $Document } {
             param($p, $o)
-            Set-TaggerJsonFile -Path $p -InputObject $o -SchemaName proposal -Depth 20 | Out-Null
+            Set-ReshelfJsonFile -Path $p -InputObject $o -SchemaName proposal -Depth 20 | Out-Null
         }
     }
 
@@ -43,9 +43,9 @@ BeforeAll {
             [Parameter(Mandatory)] [string]$StableKey,
             [Parameter(Mandatory)] [string]$DataHome
         )
-        return InModuleScope Tagger.Implementation -Parameters @{ k = $StableKey; dh = $DataHome } {
+        return InModuleScope Reshelf.Implementation -Parameters @{ k = $StableKey; dh = $DataHome } {
             param($k, $dh)
-            Get-TaggerLossyTrackingEntry -StableKey $k -DataHome $dh
+            Get-ReshelfLossyTrackingEntry -StableKey $k -DataHome $dh
         }
     }
 
@@ -59,9 +59,9 @@ BeforeAll {
             [Parameter(Mandatory)] [string]$Format,
             [Parameter(Mandatory)] [string]$DataHome
         )
-        InModuleScope Tagger.Implementation -Parameters @{ k = $StableKey; a = $Artist; al = $Album; y = $Year; tp = $TargetPath; f = $Format; dh = $DataHome } {
+        InModuleScope Reshelf.Implementation -Parameters @{ k = $StableKey; a = $Artist; al = $Album; y = $Year; tp = $TargetPath; f = $Format; dh = $DataHome } {
             param($k, $a, $al, $y, $tp, $f, $dh)
-            Add-TaggerLossyTrackingEntry -StableKey $k -Artist $a -Album $al -Year $y -TargetPath $tp -Format $f -DataHome $dh | Out-Null
+            Add-ReshelfLossyTrackingEntry -StableKey $k -Artist $a -Album $al -Year $y -TargetPath $tp -Format $f -DataHome $dh | Out-Null
         }
     }
 
@@ -196,10 +196,10 @@ BeforeAll {
     }
 }
 
-Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting' {
+Describe 'Invoke-ReshelfFfmpegSplit / Invoke-ReshelfFfmpegResize argument quoting' {
     It 'wraps a space-containing source/output path as a single quoted argv element for ffmpeg split' {
         $script:capturedArgs = $null
-        Mock -ModuleName Tagger.Implementation Start-Process {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
             $script:capturedArgs = $ArgumentList
             [pscustomobject]@{ ExitCode = 0 }
         }
@@ -211,7 +211,7 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
         $sourcePath = Join-Path $PSScriptRoot 'fixtures' 'sample-source-tree' 'Pink Floyd' '1994 Live In Concert (Bootleg)' 'Live In Concert.flac'
         $outputPath = Join-Path $TestDrive 'staged output with spaces.flac'
 
-        Invoke-TaggerFfmpegSplit -SourceAudioPath $sourcePath -StartTimestamp '00:00:00' -OutputPath $outputPath -FfmpegPath 'ffmpeg.exe'
+        Invoke-ReshelfFfmpegSplit -SourceAudioPath $sourcePath -StartTimestamp '00:00:00' -OutputPath $outputPath -FfmpegPath 'ffmpeg.exe'
 
         $script:capturedArgs | Should -Contain "`"$sourcePath`""
         $script:capturedArgs | Should -Contain "`"$outputPath`""
@@ -223,7 +223,7 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
 
     It 'wraps a space-containing source/output path as a single quoted argv element for ffmpeg resize' {
         $script:capturedArgs = $null
-        Mock -ModuleName Tagger.Implementation Start-Process {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
             $script:capturedArgs = $ArgumentList
             [pscustomobject]@{ ExitCode = 0 }
         }
@@ -231,7 +231,7 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
         $sourcePath = Join-Path $TestDrive 'cover art (large).jpg'
         $outputPath = Join-Path $TestDrive 'cover resized.jpg'
 
-        Invoke-TaggerFfmpegResize -SourceImagePath $sourcePath -MaxDimension 600 -OutputPath $outputPath -FfmpegPath 'ffmpeg.exe'
+        Invoke-ReshelfFfmpegResize -SourceImagePath $sourcePath -MaxDimension 600 -OutputPath $outputPath -FfmpegPath 'ffmpeg.exe'
 
         $script:capturedArgs | Should -Contain "`"$sourcePath`""
         $script:capturedArgs | Should -Contain "`"$outputPath`""
@@ -240,15 +240,15 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
     }
 }
 
-Describe 'Invoke-TaggerFfmpegSplit codec selection' {
+Describe 'Invoke-ReshelfFfmpegSplit codec selection' {
     It 'uses -c copy (stream copy) for a source that is neither .ape nor .flac' {
         $script:capturedArgs = $null
-        Mock -ModuleName Tagger.Implementation Start-Process {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
             $script:capturedArgs = $ArgumentList
             [pscustomobject]@{ ExitCode = 0 }
         }
 
-        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.wav') -StartTimestamp '0.000' `
+        Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.wav') -StartTimestamp '0.000' `
             -OutputPath (Join-Path $TestDrive 'out.wav') -FfmpegPath 'ffmpeg.exe'
 
         $script:capturedArgs | Should -Contain '-c'
@@ -258,12 +258,12 @@ Describe 'Invoke-TaggerFfmpegSplit codec selection' {
 
     It 'uses -c:a flac (re-encode) for an .ape source, since ffmpeg cannot write .ape' {
         $script:capturedArgs = $null
-        Mock -ModuleName Tagger.Implementation Start-Process {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
             $script:capturedArgs = $ArgumentList
             [pscustomobject]@{ ExitCode = 0 }
         }
 
-        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.ape') -StartTimestamp '0.000' `
+        Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.ape') -StartTimestamp '0.000' `
             -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe'
 
         $script:capturedArgs | Should -Contain '-c:a'
@@ -273,12 +273,12 @@ Describe 'Invoke-TaggerFfmpegSplit codec selection' {
 
     It 'uses -c:a flac (re-encode) for a .flac source, since stream-copy does not recompute STREAMINFO duration after trimming' {
         $script:capturedArgs = $null
-        Mock -ModuleName Tagger.Implementation Start-Process {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
             $script:capturedArgs = $ArgumentList
             [pscustomobject]@{ ExitCode = 0 }
         }
 
-        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '0.000' `
+        Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '0.000' `
             -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe'
 
         $script:capturedArgs | Should -Contain '-c:a'
@@ -287,7 +287,7 @@ Describe 'Invoke-TaggerFfmpegSplit codec selection' {
     }
 }
 
-Describe 'Resolve-TaggerTruncatedReleaseNames' {
+Describe 'Resolve-ReshelfTruncatedReleaseNames' {
     BeforeAll {
         function New-TruncationTestRelease {
             param(
@@ -305,7 +305,7 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
 
     It 'leaves normal short names unchanged' {
         $release = New-TruncationTestRelease
-        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot 'D:\Music'
+        $result = Resolve-ReshelfTruncatedReleaseNames -Release $release -TargetRoot 'D:\Music'
 
         $result.Truncated | Should -Be $false
         $result.ArtistFolderName | Should -Be 'Some Band'
@@ -320,7 +320,7 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
         $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
 
         $release = New-TruncationTestRelease -ArtistFolderName $longArtist -ReleaseFolderName $longAlbum -TrackFileNames @($longTrack)
-        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+        $result = Resolve-ReshelfTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
 
         $result.Truncated | Should -Be $true
         $result.ReleaseFolderName | Should -BeLike '2010 *'
@@ -342,7 +342,7 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
         $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
 
         $release = New-TruncationTestRelease -TrackFileNames @($trackA, $trackB)
-        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+        $result = Resolve-ReshelfTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
 
         $result.Truncated | Should -Be $true
         $result.TrackFileNames[$trackA] | Should -Not -Be $result.TrackFileNames[$trackB]
@@ -358,7 +358,7 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
         $deepRoot = Join-Path $TestDrive (('deeply' + ('\nested' * 15)))
 
         $release = New-TruncationTestRelease -TrackFileNames @($longDashTrack)
-        $result = Resolve-TaggerTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
+        $result = Resolve-ReshelfTruncatedReleaseNames -Release $release -TargetRoot $deepRoot -MaxPathLength 250
 
         $result.Truncated | Should -Be $true
         $result.TrackFileNames[$longDashTrack] | Should -BeLike '01 - *'
@@ -375,54 +375,54 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
         $root = 'C:\M'
 
         $yearRelease = New-TruncationTestRelease -ArtistFolderName $hugeArtist -ReleaseFolderName '2010 Some Album' -TrackFileNames @($hugeTrack)
-        $yearResult = Resolve-TaggerTruncatedReleaseNames -Release $yearRelease -TargetRoot $root -MaxPathLength 250
+        $yearResult = Resolve-ReshelfTruncatedReleaseNames -Release $yearRelease -TargetRoot $root -MaxPathLength 250
         $yearResult.ReleaseFolderName.Length | Should -Be 6
         $yearResult.ReleaseFolderName | Should -BeLike '2010 *'
 
         $catalogRelease = New-TruncationTestRelease -ArtistFolderName $hugeArtist -ReleaseFolderName '3218 Some Catalog Album' -TrackFileNames @($hugeTrack)
-        $catalogResult = Resolve-TaggerTruncatedReleaseNames -Release $catalogRelease -TargetRoot $root -MaxPathLength 250
+        $catalogResult = Resolve-ReshelfTruncatedReleaseNames -Release $catalogRelease -TargetRoot $root -MaxPathLength 250
         $catalogResult.ReleaseFolderName.Length | Should -Be 1
         $catalogResult.ReleaseFolderName | Should -Not -BeLike '3218*'
     }
 }
 
-Describe 'Get-TaggerApplyLogPath / Get-TaggerApplyLog / Add-TaggerApplyLogEntry' {
+Describe 'Get-ReshelfApplyLogPath / Get-ReshelfApplyLog / Add-ReshelfApplyLogEntry' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
     }
 
     It 'returns apply-log.json under the given data home' {
-        Get-TaggerApplyLogPath -DataHome $script:dataHome | Should -Be (Join-Path $script:dataHome 'apply-log.json')
+        Get-ReshelfApplyLogPath -DataHome $script:dataHome | Should -Be (Join-Path $script:dataHome 'apply-log.json')
     }
 
     It 'returns an empty array, not an error, when apply-log.json does not exist yet' {
-        @(Get-TaggerApplyLog -DataHome $script:dataHome).Count | Should -Be 0
+        @(Get-ReshelfApplyLog -DataHome $script:dataHome).Count | Should -Be 0
     }
 
     It 'appends a new entry and writes a file that validates against the apply-log schema' {
-        $log = Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        $log = Add-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome
 
         $log.Count | Should -Be 1
-        $logPath = Get-TaggerApplyLogPath -DataHome $script:dataHome
+        $logPath = Get-ReshelfApplyLogPath -DataHome $script:dataHome
         Test-Path -LiteralPath $logPath | Should -Be $true
-        # Test-TaggerJson comes from Tagger.Json.psm1, which Tagger.Implementation.psm1 re-imports
+        # Test-ReshelfJson comes from Reshelf.Json.psm1, which Reshelf.Implementation.psm1 re-imports
         # internally as a nested module - that hides this file's own top-level copy of it (same
-        # shadowing gotcha the BeforeAll comment above documents for Set-TaggerJsonFile).
-        InModuleScope Tagger.Implementation -Parameters @{ p = $logPath } {
+        # shadowing gotcha the BeforeAll comment above documents for Set-ReshelfJsonFile).
+        InModuleScope Reshelf.Implementation -Parameters @{ p = $logPath } {
             param($p)
-            Test-TaggerJson -SchemaName apply-log -Path $p
+            Test-ReshelfJson -SchemaName apply-log -Path $p
         } | Should -Be $true
 
-        (Get-TaggerApplyLog -DataHome $script:dataHome).Count | Should -Be 1
+        (Get-ReshelfApplyLog -DataHome $script:dataHome).Count | Should -Be 1
     }
 
     It 'upserts (replaces, not appends) an existing entry for the same stableKey' {
-        Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
+        Add-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
             -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage 'boom' -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        $log = Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        $log = Add-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome
 
         $log.Count | Should -Be 1
@@ -431,7 +431,7 @@ Describe 'Get-TaggerApplyLogPath / Get-TaggerApplyLog / Add-TaggerApplyLogEntry'
     }
 }
 
-Describe 'Test-TaggerReleaseNeedsApply' {
+Describe 'Test-ReshelfReleaseNeedsApply' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
@@ -445,7 +445,7 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $release = New-TestReleaseDoc -StableKey 'aaaaaaaaaaaaaaaa' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
 
-        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result = Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $result.NeedsApply | Should -Be $true
         $result.Hash | Should -Not -BeNullOrEmpty
     }
@@ -459,11 +459,11 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
         New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
 
-        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
-        Add-TaggerApplyLogEntry -StableKey 'bbbbbbbbbbbbbbbb' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        $hash = (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-ReshelfApplyLogEntry -StableKey 'bbbbbbbbbbbbbbbb' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $false
+        (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $false
     }
 
     It 'reports NeedsApply true when the logged entry is applied but the source file set hash has changed' {
@@ -475,10 +475,10 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
         New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
 
-        Add-TaggerApplyLogEntry -StableKey 'cccccccccccccccc' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        Add-ReshelfApplyLogEntry -StableKey 'cccccccccccccccc' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath $appliedTargetPath -SourceFileSetHash 'stale-hash-that-cannot-match' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+        (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
     }
 
     It 'reports NeedsApply true when the logged entry exists but its status is failed, even with a matching hash' {
@@ -490,15 +490,15 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
         New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
 
-        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
-        Add-TaggerApplyLogEntry -StableKey 'dddddddddddddddd' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
+        $hash = (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-ReshelfApplyLogEntry -StableKey 'dddddddddddddddd' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
             -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage 'boom' -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+        (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
     }
 
     It 'falls back to a null Hash and treats a missing/already-applied entry as not needing re-apply, when every source file is already gone' {
-        # Tagger never deletes source files, but they can still go missing for reasons outside its
+        # Reshelf never deletes source files, but they can still go missing for reasons outside its
         # control (moved/deleted externally, drive offline, ...) - that's not an error on a re-run.
         $missingSourcePath = Join-Path $TestDrive 'needs-apply-5' 'gone.flac'
         $track = New-TestTrack -SourceFilePath $missingSourcePath -ProposedFileName '01 Track.flac'
@@ -508,10 +508,10 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
         New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
 
-        Add-TaggerApplyLogEntry -StableKey 'eeeeeeeeeeeeeeee' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        Add-ReshelfApplyLogEntry -StableKey 'eeeeeeeeeeeeeeee' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath $appliedTargetPath -SourceFileSetHash 'irrelevant' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result = Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $result.NeedsApply | Should -Be $false
         $result.Hash | Should -BeNullOrEmpty
     }
@@ -522,7 +522,7 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $release = New-TestReleaseDoc -StableKey 'ffffffffffffffff' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $missingSourcePath) -Tracks @($track)
 
-        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result = Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
         $result.NeedsApply | Should -Be $true
         $result.Hash | Should -BeNullOrEmpty
     }
@@ -539,11 +539,11 @@ Describe 'Test-TaggerReleaseNeedsApply' {
         $appliedTargetPath = Join-Path $oldTargetRoot 'Some Band\2010 Some Album'
         New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
 
-        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
-        Add-TaggerApplyLogEntry -StableKey 'a1a1a1a1a1a1a1a1' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        $hash = (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-ReshelfApplyLogEntry -StableKey 'a1a1a1a1a1a1a1a1' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+        (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
     }
 
     It 'reports NeedsApply true when the logged entry is applied with a matching hash and TargetRoot, but the target folder was deleted' {
@@ -553,25 +553,25 @@ Describe 'Test-TaggerReleaseNeedsApply' {
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
 
         # Never created on disk - simulates the applied release folder having been deleted/renamed
-        # outside Tagger since the log entry was written.
+        # outside Reshelf since the log entry was written.
         $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
 
-        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
-        Add-TaggerApplyLogEntry -StableKey 'b2b2b2b2b2b2b2b2' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+        $hash = (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-ReshelfApplyLogEntry -StableKey 'b2b2b2b2b2b2b2b2' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
             -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
 
-        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+        (Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
     }
 }
 
-Describe 'ConvertFrom-TaggerCueTrackRanges' {
+Describe 'ConvertFrom-ReshelfCueTrackRanges' {
     It 'sorts by proposedTrackNumber and pairs each track''s own cueTimestamp as Start with the next track''s as End' {
         $t1 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '02 Second.flac' -ProposedTrackNumber 2 -CueTimestamp '00:03:00' -IsCueVirtualTrack $true
         $t2 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '01 First.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true
         $t3 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '03 Third.flac' -ProposedTrackNumber 3 -CueTimestamp '00:07:30' -IsCueVirtualTrack $true
 
         # Deliberately out of order - the function must sort by proposedTrackNumber itself.
-        $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks @($t1, $t2, $t3)
+        $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks @($t1, $t2, $t3)
 
         $ranges.Count | Should -Be 3
         $ranges[0].Track.proposedTrackNumber | Should -Be 1
@@ -588,7 +588,7 @@ Describe 'ConvertFrom-TaggerCueTrackRanges' {
     It 'returns a single range with a null EndTimestamp for a single-track cue release' {
         $t1 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '01 Only.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true
 
-        $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks @($t1)
+        $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks @($t1)
 
         $ranges.Count | Should -Be 1
         $ranges[0].StartTimestamp | Should -Be '0.000'
@@ -596,31 +596,31 @@ Describe 'ConvertFrom-TaggerCueTrackRanges' {
     }
 
     It 'returns an empty array, not an error, for an empty track list' {
-        @(ConvertFrom-TaggerCueTrackRanges -Tracks @()).Count | Should -Be 0
+        @(ConvertFrom-ReshelfCueTrackRanges -Tracks @()).Count | Should -Be 0
     }
 }
 
-Describe 'ConvertTo-TaggerFfmpegSeconds' {
+Describe 'ConvertTo-ReshelfFfmpegSeconds' {
     It 'converts MM:SS:FF cue frames (00-74) into fractional seconds, not HH:MM:SS' {
         # The exact case from the reported bug: frames=73 is invalid as an HH:MM:SS seconds field
         # (ffmpeg errored with "Invalid duration for option to: 09:26:73") but is a perfectly valid
         # cue frame count and must convert cleanly.
-        ConvertTo-TaggerFfmpegSeconds '09:26:73' | Should -Be '566.973'
-        ConvertTo-TaggerFfmpegSeconds '00:00:00' | Should -Be '0.000'
+        ConvertTo-ReshelfFfmpegSeconds '09:26:73' | Should -Be '566.973'
+        ConvertTo-ReshelfFfmpegSeconds '00:00:00' | Should -Be '0.000'
         # frames=45 is < 60, so the old buggy code silently accepted it as HH:MM:SS (3h12m45s)
         # instead of erroring - this is the real-fixture case (Pink Floyd cue) that never surfaced
         # as a visible failure but produced a wrongly-timed split.
-        ConvertTo-TaggerFfmpegSeconds '03:12:45' | Should -Be '192.600'
+        ConvertTo-ReshelfFfmpegSeconds '03:12:45' | Should -Be '192.600'
     }
 }
 
-Describe 'Resolve-TaggerCompanionTargetPath' {
+Describe 'Resolve-ReshelfCompanionTargetPath' {
     It 'keeps a nested companion''s relative subfolder path and sanitized file name unchanged' {
         $releaseSource = Join-Path $TestDrive 'nested-companion' 'Some Band' '2010 Album'
         $companionSource = Join-Path $releaseSource 'Scans' 'back cover.jpg'
         $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'photo'; placement = 'nested' }
 
-        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+        $result = Resolve-ReshelfCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
 
         $result | Should -Be (Join-Path 'C:\target\Some Band\2010 Album' 'Scans' 'back cover.jpg')
     }
@@ -630,7 +630,7 @@ Describe 'Resolve-TaggerCompanionTargetPath' {
         $companionSource = Join-Path $releaseSource '01 back.jpg'
         $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'cover'; placement = 'loose'; proposedFileName = 'Booklet 01 back.jpg' }
 
-        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+        $result = Resolve-ReshelfCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
 
         $result | Should -Be (Join-Path 'C:\target\Some Band\2010 Album' 'Booklet 01 back.jpg')
     }
@@ -640,22 +640,22 @@ Describe 'Resolve-TaggerCompanionTargetPath' {
         $companionSource = Join-Path $releaseSource '01 back.jpg'
         $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'cover'; placement = 'loose' }
 
-        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+        $result = Resolve-ReshelfCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
 
         (Split-Path -Leaf $result) | Should -Not -BeLike '0*'
         (Split-Path -Leaf $result) | Should -Match '^[A-Za-z]'
     }
 }
 
-Describe 'Invoke-TaggerReleaseStaging' {
+Describe 'Invoke-ReshelfReleaseStaging' {
     BeforeEach {
         $script:stagingRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'staging'
         $script:targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'target'
 
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegSplit { }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegSplit { }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { }
     }
 
     It 'stages tracks and a nested companion, returning Success with the untruncated final target path' {
@@ -666,7 +666,7 @@ Describe 'Invoke-TaggerReleaseStaging' {
         $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
 
-        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+        $result = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
 
         $result.Success | Should -Be $true
         $result.Truncated | Should -Be $false
@@ -686,7 +686,7 @@ Describe 'Invoke-TaggerReleaseStaging' {
         $release = New-TestReleaseDoc -StableKey 'b1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
 
-        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+        $result = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
 
         $result.Success | Should -Be $false
         $result.ErrorMessage | Should -BeLike '*must start with a letter*'
@@ -705,7 +705,7 @@ Describe 'Invoke-TaggerReleaseStaging' {
         $release = New-TestReleaseDoc -StableKey 'c1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
 
-        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+        $result = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
 
         $result.Success | Should -Be $false
         $result.ErrorMessage | Should -BeLike '*same as a track file name*'
@@ -721,7 +721,7 @@ Describe 'Invoke-TaggerReleaseStaging' {
         $release = New-TestReleaseDoc -StableKey 'd1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($c1, $c2)
 
-        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+        $result = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
 
         $result.Success | Should -Be $false
         $result.ErrorMessage | Should -BeLike '*would both be copied*'
@@ -736,24 +736,24 @@ Describe 'Invoke-TaggerReleaseStaging' {
         $release = New-TestReleaseDoc -StableKey 'e1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
             -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
 
-        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+        $result = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
 
         $result.Success | Should -Be $true
         Test-Path -LiteralPath (Join-Path $script:stagingRoot 'e1b2c3d4e5f60708' '1 bad name.jpg') | Should -Be $false
     }
 }
 
-Describe 'Invoke-TaggerImplementation' {
+Describe 'Invoke-ReshelfImplementation' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $script:targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
 
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegSplit { }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
-        Mock -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegSplit { }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { }
     }
 
     It '-WhatIf produces zero filesystem writes but still returns a full summary' {
@@ -768,7 +768,7 @@ Describe 'Invoke-TaggerImplementation' {
         $roots = @($script:sourceRoot, $script:dataHome, $script:targetRoot)
         $before = Get-TreeSnapshot -Path $roots
 
-        $result = Invoke-TaggerImplementation -SessionId 'whatif-session' -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId 'whatif-session' -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -WhatIf
 
         Get-TreeSnapshot -Path $roots | Should -Be $before
@@ -778,12 +778,12 @@ Describe 'Invoke-TaggerImplementation' {
 
         Test-Path -LiteralPath $script:targetRoot | Should -Be $false
         Test-Path -LiteralPath (Join-Path $script:dataHome 'apply-log.json') | Should -Be $false
-        Should -Invoke -ModuleName Tagger.Implementation Set-TaggerAudioTags -Times 0
+        Should -Invoke -ModuleName Reshelf.Implementation Set-ReshelfAudioTags -Times 0
     }
 
     It 'falls back to plain "ffmpeg" (PATH resolution) when -FfmpegPath is omitted or empty, instead of failing on the empty settings.json default' {
         # settings.default.json's ffmpegPath is "" by design (plan/01's Definition of Done: ffmpeg
-        # resolves via PATH or a documented full path) - scripts/Tagger.ps1's apply command passes
+        # resolves via PATH or a documented full path) - scripts/Reshelf.ps1's apply command passes
         # that straight through, so this must not throw a parameter-binding error for an empty string.
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
@@ -794,14 +794,14 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath '' -DataHome $script:dataHome
         $result.Applied | Should -Be 1
     }
 
-    It 'produces the correct final layout, calls Set-TaggerAudioTags per track with the expected tags/cover, cleans up working files, and writes a correct apply-log entry' {
+    It 'produces the correct final layout, calls Set-ReshelfAudioTags per track with the expected tags/cover, cleans up working files, and writes a correct apply-log entry' {
         $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags {
             $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; Tags = $Tags; CoverImagePath = $CoverImagePath })
         }
 
@@ -818,7 +818,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -831,11 +831,11 @@ Describe 'Invoke-TaggerImplementation' {
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'cover.jpg') | Should -Be $false
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'cover-source.download') | Should -Be $false
 
-        Should -Invoke -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload -Times 1
-        Should -Invoke -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize -Times 1
+        Should -Invoke -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload -Times 1
+        Should -Invoke -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize -Times 1
         $script:audioTagsCalls.Count | Should -Be 1
-        $expectedFilePath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '01 Track.flac'
-        $expectedCoverPath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '.tagger-cover-resized.jpg'
+        $expectedFilePath = Join-Path $script:targetRoot '.reshelf-staging' 'a1b2c3d4e5f60708' '01 Track.flac'
+        $expectedCoverPath = Join-Path $script:targetRoot '.reshelf-staging' 'a1b2c3d4e5f60708' '.reshelf-cover-resized.jpg'
         $script:audioTagsCalls[0].Path | Should -Be $expectedFilePath
         $script:audioTagsCalls[0].CoverImagePath | Should -Be $expectedCoverPath
         $script:audioTagsCalls[0].Tags.artist | Should -Be 'Some Band'
@@ -846,7 +846,7 @@ Describe 'Invoke-TaggerImplementation' {
         $script:audioTagsCalls[0].Tags.track | Should -Be 1
         $script:audioTagsCalls[0].Tags.title | Should -Be 'Track'
 
-        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry = Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
         $entry.status | Should -Be 'applied'
         $entry.targetPath | Should -Be $finalReleasePath
         $entry.errorMessage | Should -BeNullOrEmpty
@@ -856,7 +856,7 @@ Describe 'Invoke-TaggerImplementation' {
 
     It 'leaves a track''s picture tag untouched when the chosen cover is "existing (embedded)" and that track already has one' {
         $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags {
             $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; CoverImagePath = $CoverImagePath })
         }
 
@@ -874,21 +874,21 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
         # The resize step still runs (a gap-fill copy might be needed by another track in the
         # release), but this specific track already had its own cover, so it gets $null - Set-
-        # TaggerAudioTags then leaves that file's Tag.Pictures completely untouched.
-        Should -Invoke -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize -Times 1
+        # ReshelfAudioTags then leaves that file's Tag.Pictures completely untouched.
+        Should -Invoke -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize -Times 1
         $script:audioTagsCalls.Count | Should -Be 1
         $script:audioTagsCalls[0].CoverImagePath | Should -BeNullOrEmpty
     }
 
     It 'gap-fills the found cover into a track that has no embedded cover of its own' {
         $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags {
             $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; CoverImagePath = $CoverImagePath })
         }
 
@@ -907,12 +907,12 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
         $script:audioTagsCalls.Count | Should -Be 1
-        $expectedCoverPath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '.tagger-cover-resized.jpg'
+        $expectedCoverPath = Join-Path $script:targetRoot '.reshelf-staging' 'a1b2c3d4e5f60708' '.reshelf-cover-resized.jpg'
         $script:audioTagsCalls[0].CoverImagePath | Should -Be $expectedCoverPath
     }
 
@@ -930,7 +930,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -939,7 +939,7 @@ Describe 'Invoke-TaggerImplementation' {
         # "cover.jpg" companion is a real target-layout file (manifesto section 4.5) and must survive.
         $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'cover.jpg') | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $finalReleasePath '.tagger-cover-resized.jpg') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $finalReleasePath '.reshelf-cover-resized.jpg') | Should -Be $false
     }
 
     It 'truncates human-readable names and records it, when the fully-assembled target path would exceed the limit' {
@@ -957,12 +957,12 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
 
-        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry = Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
         $entry.status | Should -Be 'applied'
         $entry.truncated | Should -Be $true
         $entry.targetPath.Length | Should -BeLessOrEqual 250
@@ -974,7 +974,7 @@ Describe 'Invoke-TaggerImplementation' {
     }
 
     It 'logs the truncated staged path, not the raw untruncated one, when the commit step fails after staging succeeded' {
-        Mock -ModuleName Tagger.Implementation Move-TaggerStagedReleaseToTarget { throw 'commit boom' }
+        Mock -ModuleName Reshelf.Implementation Move-ReshelfStagedReleaseToTarget { throw 'commit boom' }
 
         $deepTargetRoot = Join-Path $script:targetRoot (('deeply' + ('\nested' * 15)))
         $longArtist = 'The ' + ('Extremely ' * 10) + 'Long Band Name'
@@ -990,12 +990,12 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $deepTargetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Failed | Should -Be 1
 
-        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry = Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
         $entry.status | Should -Be 'failed'
         $rawUntruncatedPath = Join-Path $deepTargetRoot $longArtist $longAlbum
         $entry.targetPath | Should -Not -Be $rawUntruncatedPath
@@ -1003,8 +1003,8 @@ Describe 'Invoke-TaggerImplementation' {
         $entry.truncated | Should -Be $true
     }
 
-    It 'removes the now-empty .tagger-staging folder after every release applies, but leaves a failed release staged for inspection' {
-        Mock -ModuleName Tagger.Implementation Move-TaggerStagedReleaseToTarget { throw 'commit boom' }
+    It 'removes the now-empty .reshelf-staging folder after every release applies, but leaves a failed release staged for inspection' {
+        Mock -ModuleName Reshelf.Implementation Move-ReshelfStagedReleaseToTarget { throw 'commit boom' }
 
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
@@ -1015,18 +1015,18 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Failed | Should -Be 1
         # plan/08 "Edge cases": a failed release's staging folder is left in place for inspection -
-        # so .tagger-staging itself must still exist, and this one release's subfolder inside it too.
-        $stagingRoot = Join-Path $script:targetRoot '.tagger-staging'
+        # so .reshelf-staging itself must still exist, and this one release's subfolder inside it too.
+        $stagingRoot = Join-Path $script:targetRoot '.reshelf-staging'
         Test-Path -LiteralPath $stagingRoot | Should -Be $true
         Test-Path -LiteralPath (Join-Path $stagingRoot 'a1b2c3d4e5f60708') | Should -Be $true
     }
 
-    It 'removes the empty .tagger-staging folder once every release in the run has applied successfully' {
+    It 'removes the empty .reshelf-staging folder once every release in the run has applied successfully' {
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
         $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
@@ -1036,11 +1036,11 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
-        Test-Path -LiteralPath (Join-Path $script:targetRoot '.tagger-staging') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $script:targetRoot '.reshelf-staging') | Should -Be $false
     }
 
     It 'skips every release on a second, unchanged run and makes no ffmpeg/tag-writing calls' {
@@ -1053,18 +1053,18 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $firstResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $firstResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
         $firstResult.Applied | Should -Be 1
 
-        $secondResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $secondResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $secondResult.Applied | Should -Be 0
         $secondResult.Skipped | Should -Be 1
         $secondResult.Failed | Should -Be 0
 
-        Should -Invoke -ModuleName Tagger.Implementation Set-TaggerAudioTags -Times 1
+        Should -Invoke -ModuleName Reshelf.Implementation Set-ReshelfAudioTags -Times 1
     }
 
     It 'logs status failed and continues to the next release when tag-writing throws, leaving the staging folder behind' {
@@ -1079,7 +1079,7 @@ Describe 'Invoke-TaggerImplementation' {
         $releaseOk = New-TestReleaseDoc -StableKey $okKey -ArtistFolderName 'Band Two' -ReleaseFolderName '2011 Album Two' `
             -Year 2011 -Album 'Album Two' -SourceFolderPath (Split-Path $t2) -Tracks @((New-TestTrack -SourceFilePath $t2 -ProposedFileName '01 Track.flac'))
 
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags {
             if ($Path -like "*$failingKey*") { throw 'tag write boom' }
         }
 
@@ -1087,21 +1087,21 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseFail, $releaseOk))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
         $result.Failed | Should -Be 1
 
-        $failedEntry = Get-TaggerApplyLogEntry -StableKey $failingKey -DataHome $script:dataHome
+        $failedEntry = Get-ReshelfApplyLogEntry -StableKey $failingKey -DataHome $script:dataHome
         $failedEntry.status | Should -Be 'failed'
         $failedEntry.errorMessage | Should -BeLike '*tag write boom*'
 
-        Test-Path -LiteralPath (Join-Path $script:targetRoot '.tagger-staging' $failingKey) | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $script:targetRoot '.reshelf-staging' $failingKey) | Should -Be $true
         Test-Path -LiteralPath (Join-Path $script:targetRoot 'Band One' '2010 Album One') | Should -Be $false
         Test-Path -LiteralPath (Join-Path $script:targetRoot 'Band Two' '2011 Album Two' '01 Track.flac') | Should -Be $true
 
-        $okEntry = Get-TaggerApplyLogEntry -StableKey $okKey -DataHome $script:dataHome
+        $okEntry = Get-ReshelfApplyLogEntry -StableKey $okKey -DataHome $script:dataHome
         $okEntry.status | Should -Be 'applied'
     }
 
@@ -1121,17 +1121,17 @@ Describe 'Invoke-TaggerImplementation' {
 
         Remove-Item -LiteralPath (Split-Path $t1) -Recurse -Force
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Failed | Should -Be 1
         $result.Applied | Should -Be 0
         Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album') | Should -Be $false
 
-        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry = Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
         $entry.status | Should -Be 'failed'
         $entry.errorMessage | Should -BeLike "*$([System.Management.Automation.WildcardPattern]::Escape($t1))*"
-        $entry.errorMessage | Should -Not -BeLike '*.tagger-staging*'
+        $entry.errorMessage | Should -Not -BeLike '*.reshelf-staging*'
     }
 
     It 'sets the session stage to applied when everything succeeds, partially-applied when something fails, and applied (not partially-applied) when releases are only skipped' {
@@ -1144,30 +1144,30 @@ Describe 'Invoke-TaggerImplementation' {
         $okProposalPath = Join-Path $script:dataHome 'sessions' $okSession.sessionId 'proposal.json'
         New-TestProposalFile -Path $okProposalPath -Document (New-TestProposalDocument -SessionId $okSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseOk))
 
-        Invoke-TaggerImplementation -SessionId $okSession.sessionId -ProposalPath $okProposalPath -TargetRoot $script:targetRoot `
+        Invoke-ReshelfImplementation -SessionId $okSession.sessionId -ProposalPath $okProposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome | Out-Null
 
-        (Get-TaggerSession -SessionId $okSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
+        (Get-ReshelfSession -SessionId $okSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
 
         # One failure among others.
         $t2 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Band Two' '2011 Album Two' '01 Track.flac')
         $failingKey = 'bbbbbbbbbbbbbbbb'
         $releaseFail = New-TestReleaseDoc -StableKey $failingKey -ArtistFolderName 'Band Two' -ReleaseFolderName '2011 Album Two' `
             -Year 2011 -Album 'Album Two' -SourceFolderPath (Split-Path $t2) -Tracks @((New-TestTrack -SourceFilePath $t2 -ProposedFileName '01 Track.flac'))
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { throw 'tag write boom' }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { throw 'tag write boom' }
 
         $failSession = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
         $failProposalPath = Join-Path $script:dataHome 'sessions' $failSession.sessionId 'proposal.json'
         New-TestProposalFile -Path $failProposalPath -Document (New-TestProposalDocument -SessionId $failSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseFail))
 
-        Invoke-TaggerImplementation -SessionId $failSession.sessionId -ProposalPath $failProposalPath -TargetRoot $script:targetRoot `
+        Invoke-ReshelfImplementation -SessionId $failSession.sessionId -ProposalPath $failProposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome | Out-Null
 
-        (Get-TaggerSession -SessionId $failSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'partially-applied'
+        (Get-ReshelfSession -SessionId $failSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'partially-applied'
 
         # Skipped-only (an unresolved release, not included) must stay 'applied', not 'partially-applied' -
         # a skip is "nothing to do yet", not a failure (plan/10).
-        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { }
         $t3 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Band Three' '2012 Album Three' '01 Track.flac')
         $releaseUnresolved = New-TestReleaseDoc -StableKey 'cccccccccccccccc' -ArtistFolderName 'Band Three' -ReleaseFolderName '2012 Album Three' `
             -Year 2012 -Album 'Album Three' -SourceFolderPath (Split-Path $t3) -Tracks @((New-TestTrack -SourceFilePath $t3 -ProposedFileName '01 Track.flac')) `
@@ -1177,12 +1177,12 @@ Describe 'Invoke-TaggerImplementation' {
         $skipProposalPath = Join-Path $script:dataHome 'sessions' $skipSession.sessionId 'proposal.json'
         New-TestProposalFile -Path $skipProposalPath -Document (New-TestProposalDocument -SessionId $skipSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseUnresolved))
 
-        $skipResult = Invoke-TaggerImplementation -SessionId $skipSession.sessionId -ProposalPath $skipProposalPath -TargetRoot $script:targetRoot `
+        $skipResult = Invoke-ReshelfImplementation -SessionId $skipSession.sessionId -ProposalPath $skipProposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
         $skipResult.Skipped | Should -Be 1
         $skipResult.Failed | Should -Be 0
 
-        (Get-TaggerSession -SessionId $skipSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
+        (Get-ReshelfSession -SessionId $skipSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
     }
 
     It 'marks the lossy-tracking entry upgraded on a replace-existing release' {
@@ -1199,7 +1199,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -1224,13 +1224,13 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $defaultResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $defaultResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
         $defaultResult.Skipped | Should -Be 1
         $defaultResult.Applied | Should -Be 0
         Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album') | Should -Be $false
 
-        $includedResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $includedResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $includedResult.Applied | Should -Be 1
         Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.flac') | Should -Be $true
@@ -1240,7 +1240,7 @@ Describe 'Invoke-TaggerImplementation' {
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'new-source-content'
         # Pre-existing, DIFFERENT content already at the final target path - proves it survives
         # untouched when the conflict release is correctly skipped (this is exactly the scenario
-        # Move-TaggerStagedReleaseToTarget's unconditional overwrite would otherwise silently destroy).
+        # Move-ReshelfStagedReleaseToTarget's unconditional overwrite would otherwise silently destroy).
         $existingTargetFile = New-TestAudioFile -Path (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'pre-existing-different-content'
 
         $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
@@ -1252,14 +1252,14 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $defaultResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $defaultResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
         $defaultResult.Skipped | Should -Be 1
         $defaultResult.Applied | Should -Be 0
-        Test-Path -LiteralPath (Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $script:targetRoot '.reshelf-staging' 'a1b2c3d4e5f60708') | Should -Be $false
         (Get-Content -LiteralPath $existingTargetFile -Raw) | Should -Be 'pre-existing-different-content'
 
-        $includedResult = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $includedResult = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $includedResult.Applied | Should -Be 1
         (Get-Content -LiteralPath $existingTargetFile -Raw) | Should -Be 'new-source-content'
@@ -1279,7 +1279,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
         $result.Rejected | Should -Be 1
         $result.Applied | Should -Be 0
@@ -1300,7 +1300,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -1342,7 +1342,7 @@ Describe 'Invoke-TaggerImplementation' {
             New-TestAudioFile -Path (Join-Path $script:cueReleaseDir 'Live In Concert.flac') | Out-Null
 
             $script:splitCalls = [System.Collections.Generic.List[object]]::new()
-            Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegSplit {
+            Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegSplit {
                 $script:splitCalls.Add([pscustomobject]@{ Start = $StartTimestamp; End = $EndTimestamp; Output = $OutputPath })
                 Set-Content -LiteralPath $OutputPath -Value 'split' -NoNewline
             }
@@ -1354,7 +1354,7 @@ Describe 'Invoke-TaggerImplementation' {
             $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
             New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-            $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
                 -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
             $result.Applied | Should -Be 1
@@ -1375,14 +1375,14 @@ Describe 'Invoke-TaggerImplementation' {
         }
 
         It 'leaves the cue/audio source in place when the release fails after splitting' {
-            Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { throw 'tag write boom' }
+            Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { throw 'tag write boom' }
 
             $release = New-TestCueRelease
             $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
             $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
             New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-            $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
                 -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
             $result.Failed | Should -Be 1
@@ -1408,14 +1408,14 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
 
         $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
         # No proposedFileName was supplied (simulating a proposal.json written before that field
-        # existed), so Resolve-TaggerCompanionTargetPath falls back to computing a letter-first name
+        # existed), so Resolve-ReshelfCompanionTargetPath falls back to computing a letter-first name
         # from the companion's kind ('photo' -> 'Photo ...') - never the old '_' digit prefix, which
         # would sort *before* tracks in Explorer and so broke manifesto SS4.5.
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'Photo 01-photo.jpg') | Should -Be $true
@@ -1437,7 +1437,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -1460,7 +1460,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
@@ -1486,7 +1486,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Failed | Should -Be 1
@@ -1510,7 +1510,7 @@ Describe 'Invoke-TaggerImplementation' {
         $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
-        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
             -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Failed | Should -Be 1

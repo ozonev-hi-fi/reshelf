@@ -10,7 +10,7 @@ task plus a small reusable request wrapper.
 
 - Input: none.
 - Output: a Discogs Personal Access Token, and the design for
-  `Tagger.Discogs.psm1`'s request/cache/rate-limit wrapper used by
+  `Reshelf.Discogs.psm1`'s request/cache/rate-limit wrapper used by
   [06-edit-proposal-module.md](06-edit-proposal-module.md).
 
 ## Detailed design
@@ -24,14 +24,14 @@ task plus a small reusable request wrapper.
 4. Store the token as `DISCOGS_ACCESS_TOKEN`, either:
    - a real environment variable, or
    - a `.env` file at the repo root (git-ignored — never write the token into
-     any file inside the repo that isn't git-ignored, or into `TAGGER_HOME`
+     any file inside the repo that isn't git-ignored, or into `RESHELF_HOME`
      plaintext config).
 
-   See **Token resolution** below for how `Tagger.Discogs.psm1` finds it.
+   See **Token resolution** below for how `Reshelf.Discogs.psm1` finds it.
 
 ### Token resolution — `Get-DiscogsToken`
 
-`Tagger.Discogs.psm1` exposes `Get-DiscogsToken`, checked by
+`Reshelf.Discogs.psm1` exposes `Get-DiscogsToken`, checked by
 `Invoke-DiscogsRequest` before every call:
 
 1. Check the environment variable named by `settings.json`'s
@@ -55,7 +55,7 @@ repo should carry a `permissions.deny` rule blocking Claude Code's own tools
 from reading `.env` directly — so the token stays out of both the git
 history and any AI-assisted session's context. `Get-DiscogsToken` itself,
 run by the user's own PowerShell process, still needs to read the file to
-work — the deny rule restricts Claude Code, not the Tagger scripts
+work — the deny rule restricts Claude Code, not the Reshelf scripts
 themselves.
 
 ### API basics
@@ -63,7 +63,7 @@ themselves.
 - Base URL: `https://api.discogs.com`
 - Auth header: `Authorization: Discogs token=<value from Get-DiscogsToken>`
 - Discogs requires a descriptive `User-Agent` header (generic/missing ones get
-  rejected) — e.g. `TaggerPersonalOrganizer/0.1 (+local)`.
+  rejected) — e.g. `ReshelfPersonalOrganizer/0.1 (+local)`.
 - Endpoints used:
   - `GET /database/search?type=release&q=...&artist=...&year=...` — candidate search.
   - `GET /releases/{id}` — full detail: tracklist, images, year, format, credited artists.
@@ -72,7 +72,7 @@ themselves.
 
 - Discogs enforces a per-minute limit for authenticated requests (check current
   published limit at build time; treat ~60/min as the working assumption).
-- `Invoke-DiscogsRequest` (in `Tagger.Discogs.psm1`) enforces a conservative
+- `Invoke-DiscogsRequest` (in `Reshelf.Discogs.psm1`) enforces a conservative
   self-imposed ceiling (e.g. 55/min sliding window) and additionally reads back
   the `X-Discogs-Ratelimit-Remaining` response header to back off proactively
   before Discogs itself would reject the request.
@@ -87,7 +87,7 @@ while tuning `overrides.json` (see [10](10-error-handling-and-edge-cases.md),
 [12](12-build-order-and-milestones.md) milestone 3), doesn't re-query and
 re-throttle on releases it already resolved in the current working session.
 
-- On-disk cache: `$TAGGER_HOME\cache\discogs\<hash-of-normalized-query-or-release-id>.json`
+- On-disk cache: `$RESHELF_HOME\cache\discogs\<hash-of-normalized-query-or-release-id>.json`
 - TTL: 30 days by default (long enough to cover a multi-day working session,
   short enough that the cache doesn't quietly become a stale archive) —
   configurable in `settings.json`.
@@ -96,7 +96,7 @@ re-throttle on releases it already resolved in the current working session.
   source fast and rate-limit-friendly (see [10](10-error-handling-and-edge-cases.md)).
 - An entry older than the TTL, or one that fails to parse as JSON, is
   **physically deleted**, not just ignored — `Remove-DiscogsExpiredCache`
-  (`Tagger.Discogs.psm1`) runs once per process on the first Discogs request,
+  (`Reshelf.Discogs.psm1`) runs once per process on the first Discogs request,
   so a release resolved once and never revisited doesn't leave its cache
   entry on disk forever.
 

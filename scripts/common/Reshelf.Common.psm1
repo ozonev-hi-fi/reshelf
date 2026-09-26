@@ -1,25 +1,25 @@
 #Requires -Version 7.4
 
-$script:TaggerAudioExtensions = @('.flac', '.mp3', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.ape')
-$script:TaggerInvalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars() + @('<', '>', ':', '"', '/', '\', '|', '?', '*')
-$script:TaggerReservedDeviceNames = @('CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9')
+$script:ReshelfAudioExtensions = @('.flac', '.mp3', '.m4a', '.wav', '.ogg', '.wma', '.aac', '.ape')
+$script:ReshelfInvalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars() + @('<', '>', ':', '"', '/', '\', '|', '?', '*')
+$script:ReshelfReservedDeviceNames = @('CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9')
 
-# Set once per Recognition/Implementation run (via Set-TaggerTagLibSharpContext) so the many deep,
-# per-file callers of Import-TaggerTagLibSharp don't each need -TagLibSharpPath/-DataHome threaded
+# Set once per Recognition/Implementation run (via Set-ReshelfTagLibSharpContext) so the many deep,
+# per-file callers of Import-ReshelfTagLibSharp don't each need -TagLibSharpPath/-DataHome threaded
 # all the way down their call chains.
-$script:TaggerTagLibSharpPath = $null
-$script:TaggerDataHome = $null
+$script:ReshelfTagLibSharpPath = $null
+$script:ReshelfDataHome = $null
 
-function Resolve-TaggerDataHome {
+function Resolve-ReshelfDataHome {
     [CmdletBinding()]
     param()
 
     # Default is a git-ignored '.data' folder inside the repo (same $PSScriptRoot '..' '..' pattern
-    # Tagger.Json.psm1 and Tagger.Settings.psm1 use for schemas/config) - keeps all generated/user
+    # Reshelf.Json.psm1 and Reshelf.Settings.psm1 use for schemas/config) - keeps all generated/user
     # data next to the code instead of scattered in the profile, while staying untracked by git.
-    # TAGGER_HOME still overrides this for anyone who wants a different location.
-    if ($env:TAGGER_HOME) {
-        $dataHome = $env:TAGGER_HOME
+    # RESHELF_HOME still overrides this for anyone who wants a different location.
+    if ($env:RESHELF_HOME) {
+        $dataHome = $env:RESHELF_HOME
     }
     else {
         $dataHome = Join-Path $PSScriptRoot '..' '..' '.data'
@@ -27,7 +27,7 @@ function Resolve-TaggerDataHome {
 
     if (Test-Path -LiteralPath $dataHome) {
         if (-not (Test-Path -LiteralPath $dataHome -PathType Container)) {
-            throw "Tagger data home '$dataHome' exists but is not a directory."
+            throw "Reshelf data home '$dataHome' exists but is not a directory."
         }
     }
     else {
@@ -37,7 +37,7 @@ function Resolve-TaggerDataHome {
     return (Resolve-Path -LiteralPath $dataHome).Path
 }
 
-function ConvertTo-TaggerNormalizedText {
+function ConvertTo-ReshelfNormalizedText {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -51,7 +51,7 @@ function ConvertTo-TaggerNormalizedText {
     return [regex]::Replace($stripped, '\s+', ' ').Trim()
 }
 
-function ConvertTo-TaggerCueTimestampSeconds {
+function ConvertTo-ReshelfCueTimestampSeconds {
     [CmdletBinding()]
     [OutputType([double])]
     param(
@@ -68,7 +68,7 @@ function ConvertTo-TaggerCueTimestampSeconds {
     return [Math]::Round((($minutes * 60) + $seconds + ($frames / 75.0)), 3)
 }
 
-function Get-TaggerSha256Hex {
+function Get-ReshelfSha256Hex {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -82,7 +82,7 @@ function Get-TaggerSha256Hex {
     return [System.Convert]::ToHexString($hashBytes).ToLowerInvariant()
 }
 
-function Get-TaggerStableKey {
+function Get-ReshelfStableKey {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -96,15 +96,15 @@ function Get-TaggerStableKey {
         [Nullable[int]]$Year
     )
 
-    $normalizedArtist = ConvertTo-TaggerNormalizedText -Text $Artist
-    $normalizedAlbum = ConvertTo-TaggerNormalizedText -Text $Album
+    $normalizedArtist = ConvertTo-ReshelfNormalizedText -Text $Artist
+    $normalizedAlbum = ConvertTo-ReshelfNormalizedText -Text $Album
     $normalizedYear = if ($null -eq $Year) { '' } else { [string]$Year }
 
     $canonical = "$normalizedArtist|$normalizedAlbum|$normalizedYear"
-    return (Get-TaggerSha256Hex -Text $canonical).Substring(0, 16)
+    return (Get-ReshelfSha256Hex -Text $canonical).Substring(0, 16)
 }
 
-function ConvertTo-TaggerLongPath {
+function ConvertTo-ReshelfLongPath {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -129,7 +129,7 @@ function ConvertTo-TaggerLongPath {
     return "\\?\$Path"
 }
 
-function Test-TaggerIsAudioExtension {
+function Test-ReshelfIsAudioExtension {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -141,10 +141,10 @@ function Test-TaggerIsAudioExtension {
         [string]$Extension
     )
 
-    return $script:TaggerAudioExtensions -contains $Extension.ToLowerInvariant()
+    return $script:ReshelfAudioExtensions -contains $Extension.ToLowerInvariant()
 }
 
-function Test-TaggerIsLosslessFormat {
+function Test-ReshelfIsLosslessFormat {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -157,7 +157,7 @@ function Test-TaggerIsLosslessFormat {
     return $losslessExtensions -contains $Extension.ToLowerInvariant()
 }
 
-function Get-TaggerAudioFilesInFolder {
+function Get-ReshelfAudioFilesInFolder {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -169,10 +169,10 @@ function Get-TaggerAudioFilesInFolder {
     $params = @{ LiteralPath = $Path; File = $true; ErrorAction = 'SilentlyContinue' }
     if ($Recurse) { $params['Recurse'] = $true }
 
-    return @(Get-ChildItem @params | Where-Object { Test-TaggerIsAudioExtension -Extension $_.Extension })
+    return @(Get-ChildItem @params | Where-Object { Test-ReshelfIsAudioExtension -Extension $_.Extension })
 }
 
-function ConvertFrom-TaggerTrackFileName {
+function ConvertFrom-ReshelfTrackFileName {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -206,7 +206,7 @@ function ConvertTo-SafeFileName {
     $substitutions = [System.Collections.Generic.List[string]]::new()
     $result = $Name
 
-    foreach ($invalidChar in $script:TaggerInvalidFileNameChars | Select-Object -Unique) {
+    foreach ($invalidChar in $script:ReshelfInvalidFileNameChars | Select-Object -Unique) {
         if ($result.Contains($invalidChar)) {
             $substitutions.Add("${prefix}invalid character '$invalidChar' replaced with '_'")
             $result = $result.Replace([string]$invalidChar, '_')
@@ -224,7 +224,7 @@ function ConvertTo-SafeFileName {
     # extension survives unchanged.
     $dotIndex = $result.IndexOf('.')
     $stem = if ($dotIndex -ge 0) { $result.Substring(0, $dotIndex) } else { $result }
-    if ($script:TaggerReservedDeviceNames -icontains $stem) {
+    if ($script:ReshelfReservedDeviceNames -icontains $stem) {
         $substitutions.Add("${prefix}reserved device name '$stem' suffixed with '_'")
         $result = "${stem}_" + $result.Substring($stem.Length)
     }
@@ -236,7 +236,7 @@ function ConvertTo-SafeFileName {
     }
 }
 
-function Test-TaggerLooseCompanionFileName {
+function Test-ReshelfLooseCompanionFileName {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -252,10 +252,10 @@ function Test-TaggerLooseCompanionFileName {
 }
 
 # Kind -> the word prefixed onto a loose companion file name that doesn't start with a letter,
-# so the result both satisfies Test-TaggerLooseCompanionFileName and stays human-readable about
+# so the result both satisfies Test-ReshelfLooseCompanionFileName and stays human-readable about
 # what the file actually is (a plain '_' prefix, the old behavior, gave no such hint and also
 # broke manifesto SS4.5: Explorer sorts '_' *before* digits, so it would still sort above tracks).
-$script:TaggerCompanionKindPrefixWords = @{
+$script:ReshelfCompanionKindPrefixWords = @{
     cover   = 'Cover'
     booklet = 'Booklet'
     photo   = 'Photo'
@@ -263,7 +263,7 @@ $script:TaggerCompanionKindPrefixWords = @{
     other   = 'Extra'
 }
 
-function Get-TaggerLooseCompanionFileName {
+function Get-ReshelfLooseCompanionFileName {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -277,17 +277,17 @@ function Get-TaggerLooseCompanionFileName {
 
     $safe = (ConvertTo-SafeFileName -Name $FileName).SafeName
 
-    if (Test-TaggerLooseCompanionFileName -FileName $safe) {
+    if (Test-ReshelfLooseCompanionFileName -FileName $safe) {
         return [pscustomobject]@{ FileName = $safe; WasPrefixed = $false }
     }
 
-    $prefixWord = $script:TaggerCompanionKindPrefixWords[$Kind]
-    if (-not $prefixWord) { $prefixWord = $script:TaggerCompanionKindPrefixWords['other'] }
+    $prefixWord = $script:ReshelfCompanionKindPrefixWords[$Kind]
+    if (-not $prefixWord) { $prefixWord = $script:ReshelfCompanionKindPrefixWords['other'] }
 
     return [pscustomobject]@{ FileName = "$prefixWord $safe"; WasPrefixed = $true }
 }
 
-function ConvertTo-TaggerTruncatedSegment {
+function ConvertTo-ReshelfTruncatedSegment {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -332,7 +332,7 @@ function ConvertTo-TaggerTruncatedSegment {
     return [pscustomobject]@{ Value = "$Prefix$truncatedBody$Suffix"; Truncated = $true }
 }
 
-function Get-TaggerRelativePath {
+function Get-ReshelfRelativePath {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -352,7 +352,7 @@ function Get-TaggerRelativePath {
     return ($relative -replace '\\', '/')
 }
 
-function Get-TaggerFileSetHash {
+function Get-ReshelfFileSetHash {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -365,14 +365,14 @@ function Get-TaggerFileSetHash {
         # -ErrorAction Stop: Get-Item's default is a non-terminating error, which would otherwise
         # leave $item as $null and fail one line later with a confusing "cannot call a method on a
         # null-valued expression" instead of this cmdlet's own clear "cannot find path" message.
-        $item = Get-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $path) -ErrorAction Stop
+        $item = Get-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $path) -ErrorAction Stop
         "$($item.Name.ToLowerInvariant())|$($item.Length)"
     }
 
     $sorted = [string[]]@($entries)
     [Array]::Sort($sorted, [StringComparer]::Ordinal)
     $joined = $sorted -join "`n"
-    return Get-TaggerSha256Hex -Text $joined
+    return Get-ReshelfSha256Hex -Text $joined
 }
 
 # --- Secrets at rest ------------------------------------------------------------
@@ -380,7 +380,7 @@ function Get-TaggerFileSetHash {
 # this machine. Generic (not Discogs-specific): any secret this tool needs to persist should use
 # these two, not hand-roll its own encoding.
 
-function Protect-TaggerSecret {
+function Protect-ReshelfSecret {
     [CmdletBinding()]
     [OutputType([string])]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
@@ -394,7 +394,7 @@ function Protect-TaggerSecret {
     return (ConvertTo-SecureString -String $PlainText -AsPlainText -Force) | ConvertFrom-SecureString
 }
 
-function Unprotect-TaggerSecret {
+function Unprotect-ReshelfSecret {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -406,10 +406,10 @@ function Unprotect-TaggerSecret {
 }
 
 # --- TagLibSharp --------------------------------------------------------------
-# Shared by Tagger.Recognition.psm1 (reading tags) and Tagger.Implementation.psm1 (writing tags) -
+# Shared by Reshelf.Recognition.psm1 (reading tags) and Reshelf.Implementation.psm1 (writing tags) -
 # both go through the same TagLibSharp.dll load, so there is exactly one Add-Type call site.
 
-function Set-TaggerTagLibSharpContext {
+function Set-ReshelfTagLibSharpContext {
     [CmdletBinding()]
     param(
         [string]$TagLibSharpPath,
@@ -417,28 +417,28 @@ function Set-TaggerTagLibSharpContext {
         [string]$DataHome
     )
 
-    $script:TaggerTagLibSharpPath = $TagLibSharpPath
-    $script:TaggerDataHome = $DataHome
+    $script:ReshelfTagLibSharpPath = $TagLibSharpPath
+    $script:ReshelfDataHome = $DataHome
 }
 
-function Get-TaggerEffectiveDataHome {
+function Get-ReshelfEffectiveDataHome {
     [CmdletBinding()]
     [OutputType([string])]
     param(
         [string]$DataHome
     )
 
-    # Same fallback Import-TaggerTagLibSharp already uses to locate the DLL (explicit param, else
-    # the context Set-TaggerTagLibSharpContext stashed for this run, else the on-disk default) -
-    # exposed here so callers outside this module (e.g. Tagger.Recognition.psm1's embedded-cover
+    # Same fallback Import-ReshelfTagLibSharp already uses to locate the DLL (explicit param, else
+    # the context Set-ReshelfTagLibSharpContext stashed for this run, else the on-disk default) -
+    # exposed here so callers outside this module (e.g. Reshelf.Recognition.psm1's embedded-cover
     # cache) resolve to the same data home a run was actually configured with, not always the
     # repo-default '.data' folder.
-    if (-not $DataHome) { $DataHome = $script:TaggerDataHome }
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = $script:ReshelfDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
     return $DataHome
 }
 
-function Import-TaggerTagLibSharp {
+function Import-ReshelfTagLibSharp {
     [CmdletBinding()]
     param(
         [string]$TagLibSharpPath,
@@ -450,11 +450,11 @@ function Import-TaggerTagLibSharp {
         return
     }
 
-    if (-not $TagLibSharpPath) { $TagLibSharpPath = $script:TaggerTagLibSharpPath }
+    if (-not $TagLibSharpPath) { $TagLibSharpPath = $script:ReshelfTagLibSharpPath }
 
     if (-not $TagLibSharpPath) {
-        if (-not $DataHome) { $DataHome = $script:TaggerDataHome }
-        if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+        if (-not $DataHome) { $DataHome = $script:ReshelfDataHome }
+        if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
         $TagLibSharpPath = Join-Path $DataHome 'lib' 'TagLibSharp.dll'
     }
 
@@ -465,8 +465,8 @@ function Import-TaggerTagLibSharp {
     Add-Type -Path $TagLibSharpPath
 }
 
-Export-ModuleMember -Function Resolve-TaggerDataHome, Get-TaggerEffectiveDataHome, Get-TaggerStableKey, ConvertTo-TaggerLongPath, `
-    ConvertTo-TaggerNormalizedText, ConvertTo-TaggerCueTimestampSeconds, Get-TaggerSha256Hex, Test-TaggerIsAudioExtension, Test-TaggerIsLosslessFormat, `
-    Get-TaggerAudioFilesInFolder, ConvertFrom-TaggerTrackFileName, ConvertTo-SafeFileName, Get-TaggerFileSetHash, `
-    Set-TaggerTagLibSharpContext, Import-TaggerTagLibSharp, Protect-TaggerSecret, Unprotect-TaggerSecret, Get-TaggerRelativePath, `
-    ConvertTo-TaggerTruncatedSegment, Test-TaggerLooseCompanionFileName, Get-TaggerLooseCompanionFileName
+Export-ModuleMember -Function Resolve-ReshelfDataHome, Get-ReshelfEffectiveDataHome, Get-ReshelfStableKey, ConvertTo-ReshelfLongPath, `
+    ConvertTo-ReshelfNormalizedText, ConvertTo-ReshelfCueTimestampSeconds, Get-ReshelfSha256Hex, Test-ReshelfIsAudioExtension, Test-ReshelfIsLosslessFormat, `
+    Get-ReshelfAudioFilesInFolder, ConvertFrom-ReshelfTrackFileName, ConvertTo-SafeFileName, Get-ReshelfFileSetHash, `
+    Set-ReshelfTagLibSharpContext, Import-ReshelfTagLibSharp, Protect-ReshelfSecret, Unprotect-ReshelfSecret, Get-ReshelfRelativePath, `
+    ConvertTo-ReshelfTruncatedSegment, Test-ReshelfLooseCompanionFileName, Get-ReshelfLooseCompanionFileName

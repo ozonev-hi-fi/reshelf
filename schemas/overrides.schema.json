@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://tagger.local/schemas/overrides.schema.json",
-  "title": "Tagger overrides.json",
+  "$id": "https://reshelf.local/schemas/overrides.schema.json",
+  "title": "Reshelf overrides.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "sourceRoot", "entries"],

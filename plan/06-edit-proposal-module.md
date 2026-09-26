@@ -79,7 +79,7 @@ per-request cache (`cacheTtlDays`) is what keeps a re-run cheap, not a
 skip-the-query shortcut — and the target comparison below runs afterwards,
 independent of the Discogs match:
 
-- `Test-TaggerTargetReleaseExists -StableKey <key>` checks whether the target
+- `Test-ReshelfTargetReleaseExists -StableKey <key>` checks whether the target
   already has a release with this `stableKey`, by scanning `TargetRoot`'s
   actual folder tree and recomputing each folder's `stableKey` from its
   on-disk name. This can't be relied on alone for a release whose
@@ -102,7 +102,7 @@ independent of the Discogs match:
   - Present and effectively identical by file-set hash (same `stableKey`, same
     source file-set hash — see [10](10-error-handling-and-edge-cases.md)) →
     `targetAction = "skip-existing-identical"`. In practice this path only
-    fires for a target Tagger didn't create itself (e.g. a manually
+    fires for a target Reshelf didn't create itself (e.g. a manually
     pre-populated target folder) — a real `apply`'s own target is caught by
     the apply-log check above instead.
   - Present but different in a way that isn't a lossy→lossless upgrade →

@@ -10,8 +10,8 @@ param(
     [switch]$NoBrowser
 )
 
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.UiServer.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'common' 'Tagger.Settings.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.UiServer.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Settings.psm1') -Force
 
 $resolvedUiRoot = (Resolve-Path -LiteralPath $UiRoot -ErrorAction SilentlyContinue).Path
 if (-not $resolvedUiRoot) {
@@ -20,9 +20,9 @@ if (-not $resolvedUiRoot) {
 
 # Resolved once at startup, same as every CLI command - the browser never picks or knows this
 # path; the server reads/writes proposal.json on its behalf instead of via a browser folder pick.
-$dataHome = (Get-TaggerSettings).dataHome
+$dataHome = (Get-ReshelfSettings).dataHome
 
-function Write-TaggerUiJsonResponse {
+function Write-ReshelfUiJsonResponse {
     param($Response, [int]$StatusCode, $Payload)
 
     $Response.StatusCode = $StatusCode
@@ -33,7 +33,7 @@ function Write-TaggerUiJsonResponse {
     $Response.OutputStream.Write($bytes, 0, $bytes.Length)
 }
 
-function Write-TaggerUiRawJsonResponse {
+function Write-ReshelfUiRawJsonResponse {
     # Writes a JSON string through as-is (proposal.json's own content) instead of round-tripping
     # it through ConvertFrom-Json/ConvertTo-Json, which would reformat it and risk losing precision
     # on values PowerShell doesn't round-trip exactly.
@@ -46,19 +46,19 @@ function Write-TaggerUiRawJsonResponse {
     $Response.OutputStream.Write($bytes, 0, $bytes.Length)
 }
 
-function Write-TaggerUiErrorResponse {
+function Write-ReshelfUiErrorResponse {
     param($Response, [int]$StatusCode, [string]$Message)
-    Write-TaggerUiJsonResponse -Response $Response -StatusCode $StatusCode -Payload @{ error = $Message }
+    Write-ReshelfUiJsonResponse -Response $Response -StatusCode $StatusCode -Payload @{ error = $Message }
 }
 
-function Read-TaggerUiRequestBody {
+function Read-ReshelfUiRequestBody {
     param($Request)
     $reader = [System.IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
     try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
 }
 
-function Read-TaggerUiRequestBodyBytes {
-    # Reads the raw request body as bytes, not text - StreamReader (Read-TaggerUiRequestBody
+function Read-ReshelfUiRequestBodyBytes {
+    # Reads the raw request body as bytes, not text - StreamReader (Read-ReshelfUiRequestBody
     # above) decodes as UTF8, which would corrupt binary image data. Checked against
     # ContentLength64 as a cheap early reject, then against the actual buffered length too,
     # since a client's declared Content-Length header isn't trustworthy on its own.
@@ -81,23 +81,23 @@ function Read-TaggerUiRequestBodyBytes {
     }
 }
 
-function Invoke-TaggerUiApiRequest {
+function Invoke-ReshelfUiApiRequest {
     param($Route, $Request, $Response, [string]$DataHome)
 
     switch ($Route.Action) {
         'BadRequest' {
-            Write-TaggerUiErrorResponse -Response $Response -StatusCode 400 -Message $Route.Message
+            Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $Route.Message
         }
         'CurrentSession' {
-            $current = Get-TaggerUiCurrentSession -DataHome $DataHome
+            $current = Get-ReshelfUiCurrentSession -DataHome $DataHome
             if (-not $current) {
-                Write-TaggerUiJsonResponse -Response $Response -StatusCode 200 -Payload @{
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{
                     found   = $false
                     message = 'No session has a proposal yet - run recognize and propose first.'
                 }
                 return
             }
-            $proposalContent = Get-TaggerUiProposalContent -DataHome $DataHome -SessionId $current.sessionId
+            $proposalContent = Get-ReshelfUiProposalContent -DataHome $DataHome -SessionId $current.sessionId
             $json = [pscustomobject]@{
                 found        = $true
                 sessionId    = $current.sessionId
@@ -106,65 +106,65 @@ function Invoke-TaggerUiApiRequest {
                 updatedAtUtc = $current.updatedAtUtc
                 proposal     = ($proposalContent | ConvertFrom-Json)
             } | ConvertTo-Json -Depth 20
-            Write-TaggerUiRawJsonResponse -Response $Response -StatusCode 200 -Json $json
+            Write-ReshelfUiRawJsonResponse -Response $Response -StatusCode 200 -Json $json
         }
         'ListSessions' {
-            $summary = Get-TaggerUiSessionsSummary -DataHome $DataHome
-            Write-TaggerUiJsonResponse -Response $Response -StatusCode 200 -Payload $summary
+            $summary = Get-ReshelfUiSessionsSummary -DataHome $DataHome
+            Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload $summary
         }
         'GetProposal' {
             try {
-                $content = Get-TaggerUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId
-                Write-TaggerUiRawJsonResponse -Response $Response -StatusCode 200 -Json $content
+                $content = Get-ReshelfUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId
+                Write-ReshelfUiRawJsonResponse -Response $Response -StatusCode 200 -Json $content
             }
             catch {
-                Write-TaggerUiErrorResponse -Response $Response -StatusCode 404 -Message $_.Exception.Message
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 404 -Message $_.Exception.Message
             }
         }
         'SaveProposal' {
             try {
-                $body = Read-TaggerUiRequestBody -Request $Request
-                Save-TaggerUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId -Content $body
-                Write-TaggerUiJsonResponse -Response $Response -StatusCode 200 -Payload @{ savedAtUtc = (Get-Date).ToUniversalTime().ToString('o') }
+                $body = Read-ReshelfUiRequestBody -Request $Request
+                Save-ReshelfUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId -Content $body
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{ savedAtUtc = (Get-Date).ToUniversalTime().ToString('o') }
             }
             catch {
-                Write-TaggerUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
             }
         }
         'LocalFile' {
             try {
                 $requestedPath = [System.Web.HttpUtility]::ParseQueryString($Request.Url.Query)['path']
                 if (-not $requestedPath) {
-                    Write-TaggerUiErrorResponse -Response $Response -StatusCode 400 -Message "Missing 'path' query parameter."
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message "Missing 'path' query parameter."
                     return
                 }
-                $file = Get-TaggerUiLocalFileBytes -DataHome $DataHome -SessionId $Route.SessionId -RequestedPath $requestedPath
+                $file = Get-ReshelfUiLocalFileBytes -DataHome $DataHome -SessionId $Route.SessionId -RequestedPath $requestedPath
                 $Response.StatusCode = 200
                 $Response.ContentType = $file.ContentType
                 $Response.ContentLength64 = $file.Bytes.Length
                 $Response.OutputStream.Write($file.Bytes, 0, $file.Bytes.Length)
             }
             catch {
-                Write-TaggerUiErrorResponse -Response $Response -StatusCode 403 -Message $_.Exception.Message
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 403 -Message $_.Exception.Message
             }
         }
         'SaveManualCover' {
             try {
                 $fileName = [System.Web.HttpUtility]::ParseQueryString($Request.Url.Query)['filename']
                 if (-not $fileName) {
-                    Write-TaggerUiErrorResponse -Response $Response -StatusCode 400 -Message "Missing 'filename' query parameter."
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message "Missing 'filename' query parameter."
                     return
                 }
-                $bytes = Read-TaggerUiRequestBodyBytes -Request $Request
-                $saved = Save-TaggerUiManualCoverFile -DataHome $DataHome -SessionId $Route.SessionId -FileName $fileName -Bytes $bytes
-                Write-TaggerUiJsonResponse -Response $Response -StatusCode 200 -Payload @{
+                $bytes = Read-ReshelfUiRequestBodyBytes -Request $Request
+                $saved = Save-ReshelfUiManualCoverFile -DataHome $DataHome -SessionId $Route.SessionId -FileName $fileName -Bytes $bytes
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{
                     url    = $saved.Url
                     width  = $saved.Width
                     height = $saved.Height
                 }
             }
             catch {
-                Write-TaggerUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
             }
         }
     }
@@ -175,7 +175,7 @@ $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add($url)
 $listener.Start()
 
-Write-Host "Tagger UI running at $url - press Ctrl+C to stop."
+Write-Host "Reshelf UI running at $url - press Ctrl+C to stop."
 if (-not $NoBrowser) {
     Start-Process $url
 }
@@ -195,12 +195,12 @@ try {
         $response = $context.Response
 
         try {
-            $route = Get-TaggerUiApiRoute -Method $request.HttpMethod -Path $request.Url.AbsolutePath
+            $route = Get-ReshelfUiApiRoute -Method $request.HttpMethod -Path $request.Url.AbsolutePath
             if ($route) {
-                Invoke-TaggerUiApiRequest -Route $route -Request $request -Response $response -DataHome $dataHome
+                Invoke-ReshelfUiApiRequest -Route $route -Request $request -Response $response -DataHome $dataHome
             }
             else {
-                $filePath = Resolve-TaggerUiRequestPath -UiRoot $resolvedUiRoot -RequestPath $request.Url.AbsolutePath
+                $filePath = Resolve-ReshelfUiRequestPath -UiRoot $resolvedUiRoot -RequestPath $request.Url.AbsolutePath
                 if (-not $filePath) {
                     $response.StatusCode = 404
                     $body = [System.Text.Encoding]::UTF8.GetBytes("Not found: $($request.Url.AbsolutePath)")
@@ -209,7 +209,7 @@ try {
                 }
                 else {
                     $bytes = [System.IO.File]::ReadAllBytes($filePath)
-                    $response.ContentType = Get-TaggerUiMimeType -Path $filePath
+                    $response.ContentType = Get-ReshelfUiMimeType -Path $filePath
                     $response.ContentLength64 = $bytes.Length
                     $response.OutputStream.Write($bytes, 0, $bytes.Length)
                 }

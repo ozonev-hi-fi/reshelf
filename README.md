@@ -1,6 +1,6 @@
-# Tagger — Personal Music Collection Organizer
+# Reshelf — Personal Music Collection Organizer
 
-Tagger reorganizes a messy pile of music folders into a clean, consistent structure, one release
+Reshelf reorganizes a messy pile of music folders into a clean, consistent structure, one release
 at a time, using [Discogs](https://www.discogs.com) as the source of truth for names, tags and
 cover art.
 
@@ -46,7 +46,7 @@ source folder
 All commands below are run from the repo root with PowerShell 7:
 
 ```powershell
-pwsh scripts/Tagger.ps1 <command> ...
+pwsh scripts/Reshelf.ps1 <command> ...
 ```
 
 ## Requirements
@@ -74,7 +74,7 @@ pwsh scripts/Tagger.ps1 <command> ...
    - Copy the token. You won't need an OAuth app — this is a single-user tool.
 4. Run first-time setup:
    ```powershell
-   pwsh scripts/Tagger.ps1 settings init
+   pwsh scripts/Reshelf.ps1 settings init
    ```
    It prompts for:
    - **Target root** (where organized music will be written) — required.
@@ -88,14 +88,14 @@ pwsh scripts/Tagger.ps1 <command> ...
    `settings init` checks that the target root is writable before saving anything.
 5. If you skipped the token, store it now:
    ```powershell
-   pwsh scripts/Tagger.ps1 settings set-token
+   pwsh scripts/Reshelf.ps1 settings set-token
    ```
    The token lookup order is: the `DISCOGS_ACCESS_TOKEN` environment variable → a `.env` file at
    the repo root (`DISCOGS_ACCESS_TOKEN=...`) → the encrypted value in `settings.json` set by
    `set-token`/`init`.
 6. Check everything looks right:
    ```powershell
-   pwsh scripts/Tagger.ps1 settings show
+   pwsh scripts/Reshelf.ps1 settings show
    ```
 
 > Note: if `settings.json` doesn't exist yet, the first `recognize`/`propose`/`apply`/`ui start`
@@ -106,7 +106,7 @@ pwsh scripts/Tagger.ps1 <command> ...
 ### 1. Recognize
 
 ```powershell
-pwsh scripts/Tagger.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -SaveAsDefault
+pwsh scripts/Reshelf.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -SaveAsDefault
 ```
 
 - `-SourceRoot` — the folder to scan. If omitted, the configured `defaultSourceRoot` is used.
@@ -131,7 +131,7 @@ it, then re-run `recognize`.
 ### 2. Propose
 
 ```powershell
-pwsh scripts/Tagger.ps1 propose -SessionId 2026-09-25-0007
+pwsh scripts/Reshelf.ps1 propose -SessionId 2026-09-25-0007
 ```
 
 This looks up every release on Discogs, proposes new folder/file names, tags and cover art, and
@@ -165,7 +165,7 @@ NeedsReviewCount : 15
 ### 3. Review in the browser
 
 ```powershell
-pwsh scripts/Tagger.ps1 ui start
+pwsh scripts/Reshelf.ps1 ui start
 ```
 
 Opens `http://localhost:4173/` in your default browser (use `-Port <N>` for a different port). The
@@ -211,7 +211,7 @@ What you'll see, top to bottom:
 ### 4. Mark reviewed (optional)
 
 ```powershell
-pwsh scripts/Tagger.ps1 session mark-reviewed 2026-09-25-0007
+pwsh scripts/Reshelf.ps1 session mark-reviewed 2026-09-25-0007
 ```
 
 This only updates the session's stage (for your own bookkeeping and the `session resume` hint).
@@ -222,20 +222,20 @@ This only updates the session's stage (for your own bookkeeping and the `session
 Dry-run first to see what would happen, with no files touched:
 
 ```powershell
-pwsh scripts/Tagger.ps1 apply -SessionId 2026-09-25-0007 -WhatIf
+pwsh scripts/Reshelf.ps1 apply -SessionId 2026-09-25-0007 -WhatIf
 ```
 
 Then for real:
 
 ```powershell
-pwsh scripts/Tagger.ps1 apply -SessionId 2026-09-25-0007
+pwsh scripts/Reshelf.ps1 apply -SessionId 2026-09-25-0007
 ```
 
 - `-IncludeUnresolved` — also applies releases nobody reviewed (rejected releases are still never
   applied).
 
 For each approved release, `apply`:
-1. Stages files under `<targetRoot>\.tagger-staging\<stableKey>\`.
+1. Stages files under `<targetRoot>\.reshelf-staging\<stableKey>\`.
 2. Splits single-file+cue releases with ffmpeg (no re-encoding), or copies tracks as-is.
 3. Downloads/reads the chosen cover, resizes it to `coverMaxDimension` (600 px default) with
    ffmpeg.
@@ -246,7 +246,7 @@ For each approved release, `apply`:
 
 > ⚠️ If a folder already exists at that target path, it is **deleted and replaced**.
 
-Source files are always read-only to Tagger: apply never deletes or modifies anything under your
+Source files are always read-only to Reshelf: apply never deletes or modifies anything under your
 source root, including single-file+cue sources after a successful split. There used to be a
 "move" copy mode that deleted source files after applying - it was removed after an incident
 destroyed source releases with no other backup, so `copy` is now the only copy mode.
@@ -273,7 +273,7 @@ Look at `<targetRoot>` for the organized folders. If any lossy (e.g. mp3) releas
 check the lossy-tracking ledger:
 
 ```powershell
-pwsh scripts/Tagger.ps1 lossy list
+pwsh scripts/Reshelf.ps1 lossy list
 ```
 
 See [Lossy/lossless tracking](#reference-lossylossless-tracking) below.
@@ -286,11 +286,11 @@ Each `recognize` run creates a session that moves through stages:
 recognized -> proposed -> reviewed -> applied (or partially-applied)
 ```
 
-- `pwsh scripts/Tagger.ps1 session list` — table of all sessions (id, stage, source root, updated
+- `pwsh scripts/Reshelf.ps1 session list` — table of all sessions (id, stage, source root, updated
   time).
-- `pwsh scripts/Tagger.ps1 session show <id>` — full session details as JSON.
-- `pwsh scripts/Tagger.ps1 session resume <id>` — prints the stage and the suggested next command.
-- `pwsh scripts/Tagger.ps1 session mark-reviewed <id>` — see [step 4](#4-mark-reviewed-optional).
+- `pwsh scripts/Reshelf.ps1 session show <id>` — full session details as JSON.
+- `pwsh scripts/Reshelf.ps1 session resume <id>` — prints the stage and the suggested next command.
+- `pwsh scripts/Reshelf.ps1 session mark-reviewed <id>` — see [step 4](#4-mark-reviewed-optional).
 
 Re-running `apply` on the same session is safe: releases already applied (with unchanged source
 files) are skipped, and previously failed releases are retried.
@@ -318,7 +318,7 @@ folder. `propose` compares each release's stableKey against what's already in `t
 change simple (non-nested) keys with:
 
 ```powershell
-pwsh scripts/Tagger.ps1 settings set -Key <key> -Value <value>
+pwsh scripts/Reshelf.ps1 settings set -Key <key> -Value <value>
 ```
 
 | Key | Default | Meaning |
@@ -351,7 +351,7 @@ When those heuristics guess wrong, or a folder can't be classified at all (`reco
 overrides file and pass it with `-OverridesPath`:
 
 ```powershell
-pwsh scripts/Tagger.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -OverridesPath ".\my-overrides.json"
+pwsh scripts/Reshelf.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -OverridesPath ".\my-overrides.json"
 ```
 
 Example (all 5 fields on each entry are required):
@@ -404,9 +404,9 @@ If a release's source files are lossy (e.g. mp3) instead of lossless (e.g. flac)
 it in a ledger so it can be found and upgraded later.
 
 - Statuses: `pending-upgrade`, `upgraded`, `ignored`.
-- `pwsh scripts/Tagger.ps1 lossy list [-Status pending-upgrade|upgraded|ignored]`
-- `pwsh scripts/Tagger.ps1 lossy ignore <stableKey>` — stop tracking this one.
-- `pwsh scripts/Tagger.ps1 lossy mark-upgraded <stableKey>` — mark it upgraded manually (e.g. you
+- `pwsh scripts/Reshelf.ps1 lossy list [-Status pending-upgrade|upgraded|ignored]`
+- `pwsh scripts/Reshelf.ps1 lossy ignore <stableKey>` — stop tracking this one.
+- `pwsh scripts/Reshelf.ps1 lossy mark-upgraded <stableKey>` — mark it upgraded manually (e.g. you
   replaced it outside the tool).
 
 If you later import a fully lossless version of a release that's already in the target as lossy,
@@ -416,7 +416,7 @@ folder and marks the ledger entry `upgraded` for you.
 ## Reference: data folder
 
 All generated/user data lives in `.data\` inside the repo by default (git-ignored). Override the
-location with the `TAGGER_HOME` environment variable.
+location with the `RESHELF_HOME` environment variable.
 
 ```
 <dataHome>\
@@ -437,7 +437,7 @@ location with the `TAGGER_HOME` environment variable.
 ## Troubleshooting / known limitations
 
 - **A release failed to apply** — read its `errorMessage` in `apply-log.json`, and check
-  `<targetRoot>\.tagger-staging\<stableKey>\` for what was staged. Fix the problem and run `apply`
+  `<targetRoot>\.reshelf-staging\<stableKey>\` for what was staged. Fix the problem and run `apply`
   again; it retries failed releases automatically.
 - **Port already in use** — pass `-Port <N>` to `ui start`.
 - **Discogs 401 Unauthorized** — your token is missing or invalid; re-run `settings set-token`.
@@ -452,11 +452,11 @@ Tests use [Pester](https://pester.dev/) 5+ (Windows ships an older built-in vers
 newer one first). Run them from the repo root:
 
 ```powershell
-pwsh tests/Invoke-TaggerTests.ps1
+pwsh tests/Invoke-ReshelfTests.ps1
 ```
 
 `-SkipIntegration` excludes the tests that need a real `TagLibSharp.dll` and `ffmpeg`
-(`tests/Tagger.TagLibSharp.Integration.Tests.ps1`). Plain `Invoke-Pester ./tests` also works if
+(`tests/Reshelf.TagLibSharp.Integration.Tests.ps1`). Plain `Invoke-Pester ./tests` also works if
 you don't need those two conveniences.
 
 The editing UI (step 07) has its own Playwright suite under `tests/ui`, one-time setup:
@@ -471,7 +471,7 @@ Then run it either directly (`npx playwright test` from `tests/ui`) or as part o
 run:
 
 ```powershell
-pwsh tests/Invoke-TaggerTests.ps1 -IncludeUi
+pwsh tests/Invoke-ReshelfTests.ps1 -IncludeUi
 ```
 
 See [plan/11-testing-and-verification-strategy.md](plan/11-testing-and-verification-strategy.md)

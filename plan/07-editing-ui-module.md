@@ -4,7 +4,7 @@
 
 A static-site UI for human review of `proposal.json`: before/after display,
 manual correction, cover selection, approval. Matches manifesto §7 module 4.
-Persistence approach: the local `Start-TaggerUiServer.ps1` server reads and
+Persistence approach: the local `Start-ReshelfUiServer.ps1` server reads and
 writes `proposal.json` on the browser's behalf (see "Server-side persistence"
 below) — superseding an earlier File System Access API design that needed a
 folder pick on every first visit, per user feedback that "session" should be
@@ -26,7 +26,7 @@ HTML with minimal JS" philosophy (§8).
 
 ### Server-side persistence
 
-- `Start-TaggerUiServer.ps1` already runs as a local PowerShell process with
+- `Start-ReshelfUiServer.ps1` already runs as a local PowerShell process with
   full, unrestricted disk access — unlike the browser, which needs a
   permission grant (and, before this design, a manual folder pick) for every
   file it touches. The server now reads and writes `proposal.json` itself and
@@ -55,7 +55,7 @@ HTML with minimal JS" philosophy (§8).
 - This is a real change from the original "no backend" framing (see Decisions
   below): the server now has a few application-specific routes, not just
   static file serving. It stays localhost-only, single-user, with no auth —
-  the same trust boundary `Start-TaggerUiServer.ps1` already had.
+  the same trust boundary `Start-ReshelfUiServer.ps1` already had.
 - Since the browser no longer touches the filesystem directly, the File
   System Access API (and its Chromium-only requirement) is gone entirely —
   the page works in any modern browser with `fetch()`.
@@ -102,7 +102,7 @@ HTML with minimal JS" philosophy (§8).
 `humanReview.required`/`.resolved` is the one general "does a human need to
 look at this before applying" signal - set whenever
 [06-edit-proposal-module.md](06-edit-proposal-module.md)'s
-`New-TaggerProposedRelease` flags a release for any reason (an ambiguous
+`New-ReshelfProposedRelease` flags a release for any reason (an ambiguous
 Discogs match, an unresolved year, a tracklist mismatch, missing cover art, a
 target conflict, or a carried-over Recognition ambiguity such as a
 grouping-folder or artist-name-split guess) - not just an ambiguous Discogs
@@ -140,7 +140,7 @@ where the user only wants one kept.
   system nobody asked for.
 - **Session id validated against its real shape before touching disk**:
   `/api/sessions/{id}/...` checks `id` against the `yyyy-mm-dd-nnnn` pattern
-  `New-TaggerSessionId` actually produces before it's ever handed to a
+  `New-ReshelfSessionId` actually produces before it's ever handed to a
   filesystem call, so a crafted id in a URL can't reach outside the sessions
   folder.
 

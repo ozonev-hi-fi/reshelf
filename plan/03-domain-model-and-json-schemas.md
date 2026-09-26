@@ -234,8 +234,8 @@ schema — it's a standalone, library-wide ledger rather than per-session.
 - A release with no year known yet (recognized but not matched to Discogs) →
   `recognizedYear: null` permitted in `recognition.json`. As implemented
   (checked 2026-09-26), `proposal.json` does **not** block on this the way
-  originally planned: `New-TaggerProposedReleaseNames`
-  (`Tagger.EditProposal.psm1`) substitutes a fixed sentinel year (`1900`,
+  originally planned: `New-ReshelfProposedReleaseNames`
+  (`Reshelf.EditProposal.psm1`) substitutes a fixed sentinel year (`1900`,
   `schema:UnresolvedYearSentinel`, the schema's own minimum) for the folder
   name and forces `humanReview.required = true` with a
   `"UNRESOLVED YEAR: placeholder value used, must be corrected before

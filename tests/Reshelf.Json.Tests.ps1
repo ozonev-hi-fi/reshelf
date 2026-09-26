@@ -3,51 +3,51 @@
 Import-Module Pester -MinimumVersion 5.0
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Json.psm1" -Force
+    Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Json.psm1" -Force
 }
 
-Describe 'Test-TaggerJson' {
+Describe 'Test-ReshelfJson' {
     It 'validates a well-formed file via -Path' {
         $path = "$PSScriptRoot/fixtures/schema-examples/settings-example.json"
-        Test-TaggerJson -SchemaName settings -Path $path | Should -Be $true
+        Test-ReshelfJson -SchemaName settings -Path $path | Should -Be $true
     }
 
     It 'validates a well-formed in-memory object via -InputObject' {
         $obj = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/settings-example.json" | ConvertFrom-Json
-        Test-TaggerJson -SchemaName settings -InputObject $obj | Should -Be $true
+        Test-ReshelfJson -SchemaName settings -InputObject $obj | Should -Be $true
     }
 
     It 'validates a well-formed raw string via -Json' {
         $json = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/settings-example.json"
-        Test-TaggerJson -SchemaName settings -Json $json | Should -Be $true
+        Test-ReshelfJson -SchemaName settings -Json $json | Should -Be $true
     }
 
     It 'returns false for a document missing a required field' {
         $obj = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/settings-example.json" | ConvertFrom-Json
         $obj.PSObject.Properties.Remove('targetRoot')
-        Test-TaggerJson -SchemaName settings -InputObject $obj | Should -Be $false
+        Test-ReshelfJson -SchemaName settings -InputObject $obj | Should -Be $false
     }
 
     It 'throws when the schema name does not resolve to a file' {
-        { Test-TaggerJson -SchemaName 'does-not-exist' -Json '{}' } | Should -Throw
+        { Test-ReshelfJson -SchemaName 'does-not-exist' -Json '{}' } | Should -Throw
     }
 
     It 'validates a single-element array via -InputObject without collapsing it to an object' {
         $entries = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/lossy-tracking-example.json" | ConvertFrom-Json
-        Test-TaggerJson -SchemaName lossy-tracking -InputObject @($entries[0]) | Should -Be $true
+        Test-ReshelfJson -SchemaName lossy-tracking -InputObject @($entries[0]) | Should -Be $true
     }
 
     It 'validates an empty array via -InputObject' {
-        Test-TaggerJson -SchemaName lossy-tracking -InputObject @() | Should -Be $true
+        Test-ReshelfJson -SchemaName lossy-tracking -InputObject @() | Should -Be $true
     }
 }
 
-Describe 'Set-TaggerJsonFile' {
+Describe 'Set-ReshelfJsonFile' {
     It 'writes the file and returns its path when the document is valid' {
         $settings = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/settings-example.json" | ConvertFrom-Json
         $targetPath = Join-Path $TestDrive 'settings.json'
 
-        $result = Set-TaggerJsonFile -Path $targetPath -InputObject $settings -SchemaName settings
+        $result = Set-ReshelfJsonFile -Path $targetPath -InputObject $settings -SchemaName settings
 
         $result | Should -Be $targetPath
         $targetPath | Should -Exist
@@ -58,7 +58,7 @@ Describe 'Set-TaggerJsonFile' {
         $settings.PSObject.Properties.Remove('targetRoot')
         $targetPath = Join-Path $TestDrive 'invalid-settings.json'
 
-        { Set-TaggerJsonFile -Path $targetPath -InputObject $settings -SchemaName settings } | Should -Throw
+        { Set-ReshelfJsonFile -Path $targetPath -InputObject $settings -SchemaName settings } | Should -Throw
         $targetPath | Should -Not -Exist
     }
 
@@ -66,7 +66,7 @@ Describe 'Set-TaggerJsonFile' {
         $settings = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/settings-example.json" | ConvertFrom-Json
         $targetPath = Join-Path $TestDrive 'nested/dir/settings.json'
 
-        Set-TaggerJsonFile -Path $targetPath -InputObject $settings -SchemaName settings | Out-Null
+        Set-ReshelfJsonFile -Path $targetPath -InputObject $settings -SchemaName settings | Out-Null
 
         $targetPath | Should -Exist
     }
@@ -75,7 +75,7 @@ Describe 'Set-TaggerJsonFile' {
         $entries = Get-Content -Raw "$PSScriptRoot/fixtures/schema-examples/lossy-tracking-example.json" | ConvertFrom-Json
         $targetPath = Join-Path $TestDrive 'lossy-tracking.json'
 
-        Set-TaggerJsonFile -Path $targetPath -InputObject @($entries[0]) -SchemaName lossy-tracking | Out-Null
+        Set-ReshelfJsonFile -Path $targetPath -InputObject @($entries[0]) -SchemaName lossy-tracking | Out-Null
 
         (Get-Content -Raw $targetPath).TrimStart().StartsWith('[') | Should -Be $true
     }

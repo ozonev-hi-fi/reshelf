@@ -2,7 +2,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 // The server under test is a single-threaded System.Net.HttpListener loop
-// (scripts/Start-TaggerUiServer.ps1) - one blocking GetContext() per request, so concurrent
+// (scripts/Start-ReshelfUiServer.ps1) - one blocking GetContext() per request, so concurrent
 // requests from parallel workers would just queue up behind each other anyway. workers: 1 makes
 // that explicit instead of fighting it, and keeps every spec file's own seeded session data from
 // racing another spec file's.

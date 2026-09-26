@@ -1,7 +1,7 @@
 {
-  "name": "tagger-ui-tests",
+  "name": "reshelf-ui-tests",
   "private": true,
-  "description": "Playwright suite for the Tagger editing UI (plan/07, plan/11) - automates what was tests/manual/ui-checklist.md.",
+  "description": "Playwright suite for the Reshelf editing UI (plan/07, plan/11) - automates what was tests/manual/ui-checklist.md.",
   "scripts": {
     "test": "playwright test"
   },

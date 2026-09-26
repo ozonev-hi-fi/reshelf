@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://tagger.local/schemas/recognition.schema.json",
-  "title": "Tagger recognition.json",
+  "$id": "https://reshelf.local/schemas/recognition.schema.json",
+  "title": "Reshelf recognition.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "sessionId", "sourceRoot", "generatedAtUtc", "artists", "unrecognized"],

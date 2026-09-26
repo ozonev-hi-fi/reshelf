@@ -9,7 +9,7 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
 ## Inputs / outputs
 
 - Input: `lossyLossless` decisions from `proposal.json`.
-- Output: `$TAGGER_HOME\lossy-tracking.json` — a single, library-wide ledger
+- Output: `$RESHELF_HOME\lossy-tracking.json` — a single, library-wide ledger
   (not per-session, since it needs to persist and accumulate across every
   run of the tool over time).
 
@@ -49,10 +49,10 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
 
 ### CLI helpers
 
-- `Tagger.ps1 lossy list [-Status pending-upgrade]`
-- `Tagger.ps1 lossy ignore <stableKey>` — sets `status = "ignored"` for a
+- `Reshelf.ps1 lossy list [-Status pending-upgrade]`
+- `Reshelf.ps1 lossy ignore <stableKey>` — sets `status = "ignored"` for a
   release the user has decided not to chase a lossless copy of.
-- `Tagger.ps1 lossy mark-upgraded <stableKey>` — manual override, for cases
+- `Reshelf.ps1 lossy mark-upgraded <stableKey>` — manual override, for cases
   handled outside the normal pipeline.
 
 ## Decisions & rationale
@@ -80,4 +80,4 @@ None.
 - A lossy import creates a `pending-upgrade` entry.
 - A subsequent lossless import of the same release flips it to `upgraded`
   and the target file is actually replaced.
-- `Tagger.ps1 lossy list` shows the current pending-upgrade backlog.
+- `Reshelf.ps1 lossy list` shows the current pending-upgrade backlog.

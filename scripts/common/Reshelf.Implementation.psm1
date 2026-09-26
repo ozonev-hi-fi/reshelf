@@ -1,50 +1,50 @@
 #Requires -Version 7.4
 
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'Tagger.LossyTracking.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Common.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Reshelf.LossyTracking.psm1') -Force
 
-# Invoke-TaggerImplementation's last step calls Set-TaggerSessionStage (Tagger.Settings.psm1), but
-# that module is deliberately NOT imported here: re-importing a module that a caller (Tagger.ps1,
+# Invoke-ReshelfImplementation's last step calls Set-ReshelfSessionStage (Reshelf.Settings.psm1), but
+# that module is deliberately NOT imported here: re-importing a module that a caller (Reshelf.ps1,
 # Invoke-Implementation.ps1) already imported directly hides that caller's own top-level copy of
 # its functions (PowerShell nested-module shadowing - verified empirically, not theoretical).
-# Every caller of this module must import Tagger.Settings.psm1 itself before calling
-# Invoke-TaggerImplementation, same as Tagger.ps1's 'propose' case already relies on having
-# imported Tagger.Settings.psm1 itself rather than via Tagger.EditProposal.psm1.
+# Every caller of this module must import Reshelf.Settings.psm1 itself before calling
+# Invoke-ReshelfImplementation, same as Reshelf.ps1's 'propose' case already relies on having
+# imported Reshelf.Settings.psm1 itself rather than via Reshelf.EditProposal.psm1.
 
 # --- apply-log.json ----------------------------------------------------------------
 
-function Get-TaggerApplyLogPath {
+function Get-ReshelfApplyLogPath {
     [CmdletBinding()]
     param(
         [string]$DataHome
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
     return Join-Path $DataHome 'apply-log.json'
 }
 
-function Get-TaggerApplyLog {
+function Get-ReshelfApplyLog {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
         [string]$DataHome
     )
 
-    $logPath = Get-TaggerApplyLogPath -DataHome $DataHome
+    $logPath = Get-ReshelfApplyLogPath -DataHome $DataHome
 
     if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
         return @()
     }
 
-    if (-not (Test-TaggerJson -SchemaName apply-log -Path $logPath)) {
+    if (-not (Test-ReshelfJson -SchemaName apply-log -Path $logPath)) {
         throw "Apply log at '$logPath' does not match the apply-log schema."
     }
 
     return @(Get-Content -LiteralPath $logPath -Raw | ConvertFrom-Json)
 }
 
-function Get-TaggerApplyLogEntry {
+function Get-ReshelfApplyLogEntry {
     [CmdletBinding()]
     [OutputType([object])]
     param(
@@ -54,10 +54,10 @@ function Get-TaggerApplyLogEntry {
         [string]$DataHome
     )
 
-    return Get-TaggerApplyLog -DataHome $DataHome | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+    return Get-ReshelfApplyLog -DataHome $DataHome | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
 }
 
-function Add-TaggerApplyLogEntry {
+function Add-ReshelfApplyLogEntry {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -86,11 +86,11 @@ function Add-TaggerApplyLogEntry {
         [string]$DataHome
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
-    # Upsert, not touch-only (unlike Add-TaggerLossyTrackingEntry) - a retry after a failure must
+    # Upsert, not touch-only (unlike Add-ReshelfLossyTrackingEntry) - a retry after a failure must
     # replace the old row wholesale (e.g. failed -> applied), not just bump a timestamp on it.
-    $log = @(Get-TaggerApplyLog -DataHome $DataHome | Where-Object { $_.stableKey -ne $StableKey })
+    $log = @(Get-ReshelfApplyLog -DataHome $DataHome | Where-Object { $_.stableKey -ne $StableKey })
 
     $entry = [pscustomobject]@{
         stableKey         = $StableKey
@@ -103,13 +103,13 @@ function Add-TaggerApplyLogEntry {
     }
     $log = @($log) + $entry
 
-    $logPath = Get-TaggerApplyLogPath -DataHome $DataHome
-    Set-TaggerJsonFile -Path $logPath -InputObject $log -SchemaName apply-log -Depth 10 | Out-Null
+    $logPath = Get-ReshelfApplyLogPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $logPath -InputObject $log -SchemaName apply-log -Depth 10 | Out-Null
 
     return $log
 }
 
-function Test-TaggerAppliedEntryValid {
+function Test-ReshelfAppliedEntryValid {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -123,10 +123,10 @@ function Test-TaggerAppliedEntryValid {
     # An 'applied' log entry only means "already done" if it still points at somewhere under
     # *this* run's TargetRoot and that folder is actually still there - otherwise (TargetRoot was
     # changed since, e.g. moved to a new drive/folder, or the folder was deleted/renamed outside
-    # Tagger) the log is stale and the release still needs a real apply, even though its recorded
+    # Reshelf) the log is stale and the release still needs a real apply, even though its recorded
     # status/hash look fine. OrdinalIgnoreCase because Windows paths are case-insensitive.
-    # Shared between Test-TaggerReleaseNeedsApply (this module, plan/08) and
-    # Resolve-TaggerTargetComparison (Tagger.EditProposal.psm1, plan/06/10) - both need the exact
+    # Shared between Test-ReshelfReleaseNeedsApply (this module, plan/08) and
+    # Resolve-ReshelfTargetComparison (Reshelf.EditProposal.psm1, plan/06/10) - both need the exact
     # same "is this apply-log entry still trustworthy" answer, just for different callers.
     if (-not $Entry) { return $false }
     if ($Entry.status -ne 'applied') { return $false }
@@ -136,10 +136,10 @@ function Test-TaggerAppliedEntryValid {
         return $false
     }
 
-    return [bool](Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $Entry.targetPath))
+    return [bool](Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $Entry.targetPath))
 }
 
-function Test-TaggerReleaseNeedsApply {
+function Test-ReshelfReleaseNeedsApply {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -152,17 +152,17 @@ function Test-TaggerReleaseNeedsApply {
         [string]$DataHome
     )
 
-    $entry = Get-TaggerApplyLogEntry -StableKey $Release.stableKey -DataHome $DataHome
-    $appliedEntryStillValid = Test-TaggerAppliedEntryValid -Entry $entry -TargetRoot $TargetRoot
+    $entry = Get-ReshelfApplyLogEntry -StableKey $Release.stableKey -DataHome $DataHome
+    $appliedEntryStillValid = Test-ReshelfAppliedEntryValid -Entry $entry -TargetRoot $TargetRoot
 
     try {
         $sourcePaths = @($Release.tracks.sourceFilePath | Select-Object -Unique)
-        $currentHash = Get-TaggerFileSetHash -FilePaths $sourcePaths
+        $currentHash = Get-ReshelfFileSetHash -FilePaths $sourcePaths
     }
     catch {
-        # Tagger never deletes or modifies source files (they are always read-only to it) - but a
+        # Reshelf never deletes or modifies source files (they are always read-only to it) - but a
         # source file can still legitimately go missing by the time of a later re-run for reasons
-        # outside Tagger's control (the user moved/deleted it, an external drive went offline,
+        # outside Reshelf's control (the user moved/deleted it, an external drive went offline,
         # ...). Its absence, paired with a still-valid 'applied' entry, is exactly what an
         # already-completed release looks like on rerun - not a reason to recompute a hash that
         # has nothing left to hash.
@@ -178,7 +178,7 @@ function Test-TaggerReleaseNeedsApply {
 
 # --- Cue splitting -------------------------------------------------------------------
 
-function ConvertTo-TaggerFfmpegSeconds {
+function ConvertTo-ReshelfFfmpegSeconds {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -191,14 +191,14 @@ function ConvertTo-TaggerFfmpegSeconds {
     # frames become seconds. That's silently wrong whenever frames < 60 (ffmpeg just accepts the
     # bogus value), and loudly wrong (an invalid duration) whenever frames >= 60. Converting to
     # plain seconds here sidesteps the field-meaning mismatch entirely.
-    $totalSeconds = ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $CueTimestamp
+    $totalSeconds = ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $CueTimestamp
 
     # ffmpeg requires a dot decimal separator regardless of the machine's regional settings -
     # InvariantCulture avoids a comma showing up here on e.g. a Ukrainian-locale Windows box.
     return $totalSeconds.ToString('F3', [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
-function ConvertFrom-TaggerCueTrackRanges {
+function ConvertFrom-ReshelfCueTrackRanges {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -210,10 +210,10 @@ function ConvertFrom-TaggerCueTrackRanges {
     $sorted = @($Tracks | Sort-Object -Property proposedTrackNumber)
 
     $result = for ($i = 0; $i -lt $sorted.Count; $i++) {
-        $endTimestamp = if ($i -lt ($sorted.Count - 1)) { ConvertTo-TaggerFfmpegSeconds $sorted[$i + 1].cueTimestamp } else { $null }
+        $endTimestamp = if ($i -lt ($sorted.Count - 1)) { ConvertTo-ReshelfFfmpegSeconds $sorted[$i + 1].cueTimestamp } else { $null }
         [pscustomobject]@{
             Track          = $sorted[$i]
-            StartTimestamp = ConvertTo-TaggerFfmpegSeconds $sorted[$i].cueTimestamp
+            StartTimestamp = ConvertTo-ReshelfFfmpegSeconds $sorted[$i].cueTimestamp
             EndTimestamp   = $endTimestamp
         }
     }
@@ -221,7 +221,7 @@ function ConvertFrom-TaggerCueTrackRanges {
     return @($result)
 }
 
-function Invoke-TaggerFfmpegSplit {
+function Invoke-ReshelfFfmpegSplit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -250,7 +250,7 @@ function Invoke-TaggerFfmpegSplit {
 
     # ffmpeg ships an ape *decoder* but no ape encoder/muxer (Monkey's Audio's own licensing terms
     # historically blocked third-party encoders) - stream-copying (-c copy) into a .ape output
-    # always fails. An .ape source must be re-encoded instead; Tagger.Recognition.psm1 already
+    # always fails. An .ape source must be re-encoded instead; Reshelf.Recognition.psm1 already
     # points these tracks' proposedFileName at .flac for the same reason, so the codec below must
     # match that container.
     #
@@ -276,7 +276,7 @@ function Invoke-TaggerFfmpegSplit {
     }
 }
 
-function Invoke-TaggerFfmpegResize {
+function Invoke-ReshelfFfmpegResize {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -295,7 +295,7 @@ function Invoke-TaggerFfmpegResize {
     # Scale down only - min(N,iw/ih) + force_original_aspect_ratio=decrease never upscales a
     # source that's already smaller than the target max dimension.
     $scaleFilter = "scale=w='min($MaxDimension,iw)':h='min($MaxDimension,ih)':force_original_aspect_ratio=decrease"
-    # See Invoke-TaggerFfmpegSplit - path-bearing arguments need literal double quotes because
+    # See Invoke-ReshelfFfmpegSplit - path-bearing arguments need literal double quotes because
     # Start-Process -ArgumentList does not quote array elements containing spaces.
     $ffmpegArgs = @('-hide_banner', '-loglevel', 'error', '-y', '-i', "`"$SourceImagePath`"", '-vf', $scaleFilter, "`"$OutputPath`"")
 
@@ -305,7 +305,7 @@ function Invoke-TaggerFfmpegResize {
     }
 }
 
-function Invoke-TaggerCoverDownload {
+function Invoke-ReshelfCoverDownload {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -316,19 +316,19 @@ function Invoke-TaggerCoverDownload {
     )
 
     # A Discogs-matched release's chosenCandidateUrl is a remote https:// image URL - only the
-    # no-match fallback in Tagger.EditProposal.psm1 ever picks a local companion-file path.
+    # no-match fallback in Reshelf.EditProposal.psm1 ever picks a local companion-file path.
     # Without this, cover art would only ever get embedded in that fallback case.
     Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing
 }
 
 # --- Tagging -------------------------------------------------------------------------
 # Tags and cover art are written via TagLibSharp (in-process, Add-Type - no external process, no
-# GUI, no manual Action-Group authoring), the same library Tagger.Recognition.psm1 uses to read
+# GUI, no manual Action-Group authoring), the same library Reshelf.Recognition.psm1 uses to read
 # tags. Kept as its own function (no inline TagLib calls elsewhere) so tests can
-# `Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags` the same way the ffmpeg/cover-
+# `Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags` the same way the ffmpeg/cover-
 # download wrappers are mocked.
 
-function Set-TaggerAudioTags {
+function Set-ReshelfAudioTags {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -344,9 +344,9 @@ function Set-TaggerAudioTags {
         [string]$DataHome
     )
 
-    Import-TaggerTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
+    Import-ReshelfTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
-    $file = [TagLib.File]::Create((ConvertTo-TaggerLongPath -Path $Path))
+    $file = [TagLib.File]::Create((ConvertTo-ReshelfLongPath -Path $Path))
     try {
         $file.Tag.Performers = @($Tags.artist)
         $file.Tag.AlbumArtists = @($Tags.albumArtist)
@@ -356,11 +356,11 @@ function Set-TaggerAudioTags {
         $file.Tag.Track = [uint32]$Tags.track
         $file.Tag.Title = $Tags.title
 
-        if ($CoverImagePath -and (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $CoverImagePath) -PathType Leaf)) {
+        if ($CoverImagePath -and (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $CoverImagePath) -PathType Leaf)) {
             # The Picture(string) constructor reads the file's bytes and auto-detects MimeType from
             # its extension (verified against the real TagLibSharp.dll: a .jpg round-trips as
             # image/jpeg) - simpler and less error-prone than building a ByteVector by hand.
-            $picture = [TagLib.Picture]::new((ConvertTo-TaggerLongPath -Path $CoverImagePath))
+            $picture = [TagLib.Picture]::new((ConvertTo-ReshelfLongPath -Path $CoverImagePath))
             $picture.Type = [TagLib.PictureType]::FrontCover
             $file.Tag.Pictures = @($picture)
         }
@@ -373,10 +373,10 @@ function Set-TaggerAudioTags {
 }
 
 # --- Companion files -----------------------------------------------------------------
-# The relative-path helper itself lives in Tagger.Common.psm1 (shared with
-# Tagger.Recognition.psm1) - already imported above.
+# The relative-path helper itself lives in Reshelf.Common.psm1 (shared with
+# Reshelf.Recognition.psm1) - already imported above.
 
-function Resolve-TaggerCompanionTargetPath {
+function Resolve-ReshelfCompanionTargetPath {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -392,7 +392,7 @@ function Resolve-TaggerCompanionTargetPath {
 
     if ($CompanionFile.placement -eq 'nested') {
         $fileNameSan = (ConvertTo-SafeFileName -Name (Split-Path -Leaf $CompanionFile.sourcePath)).SafeName
-        $relative = Get-TaggerRelativePath -SourceRoot $ReleaseSourceFolderPath -Path $CompanionFile.sourcePath
+        $relative = Get-ReshelfRelativePath -SourceRoot $ReleaseSourceFolderPath -Path $CompanionFile.sourcePath
         $relativeDir = Split-Path -Parent $relative
         if ($relativeDir) {
             return Join-Path $ReleaseFolderPath $relativeDir $fileNameSan
@@ -402,7 +402,7 @@ function Resolve-TaggerCompanionTargetPath {
 
     # Loose: manifesto SS4.5 - a loose companion must start with a letter, so alphabetical sorting
     # in a file explorer always puts numbered tracks first. The Edit Proposal step
-    # (New-TaggerCompanionProposal) already computed the letter-first proposedFileName - a '_'
+    # (New-ReshelfCompanionProposal) already computed the letter-first proposedFileName - a '_'
     # prefix (the old behavior here) sorts *before* digits in Explorer, which is the opposite of
     # what SS4.5 wants, so it's never used. A $null/missing proposedFileName only happens for a
     # proposal.json written before this field existed - fall back to computing it fresh here.
@@ -410,13 +410,13 @@ function Resolve-TaggerCompanionTargetPath {
         (ConvertTo-SafeFileName -Name $CompanionFile.proposedFileName).SafeName
     }
     else {
-        (Get-TaggerLooseCompanionFileName -FileName (Split-Path -Leaf $CompanionFile.sourcePath) -Kind $CompanionFile.kind).FileName
+        (Get-ReshelfLooseCompanionFileName -FileName (Split-Path -Leaf $CompanionFile.sourcePath) -Kind $CompanionFile.kind).FileName
     }
     return Join-Path $ReleaseFolderPath $fileNameSan
 }
 
 # --- Path-length truncation -----------------------------------------------------------
-# ConvertTo-TaggerLongPath (Tagger.Common.psm1) already lifts the hard ~260-char Windows path
+# ConvertTo-ReshelfLongPath (Reshelf.Common.psm1) already lifts the hard ~260-char Windows path
 # limit via the \\?\ prefix, but plan/10 also wants human-facing names kept short by construction:
 # some external tools and everyday Explorer/zip/cloud-sync use don't handle \\?\ consistently, so a
 # fully-assembled target path is still truncated above ~250 chars, with the cut always recorded
@@ -425,10 +425,10 @@ function Resolve-TaggerCompanionTargetPath {
 # prefixes/extension - an already-very-deep TargetRoot is a real, if narrow, ceiling on what this
 # can promise, same as it would be for any path-shortening scheme.
 
-function Split-TaggerTrackFileName {
+function Split-ReshelfTrackFileName {
     # Splits a proposed track file name into its never-truncated leading track-number prefix (if
     # any), the truncatable title body, and the extension. Mirrors both forms
-    # ConvertFrom-TaggerTrackFileName (Tagger.Common.psm1) already accepts - dash-separated
+    # ConvertFrom-ReshelfTrackFileName (Reshelf.Common.psm1) already accepts - dash-separated
     # ("01 - Title") and space-separated ("01 Title") - so the "never truncate the NN prefix"
     # guarantee holds regardless of which TrackFileTemplate produced the name, not just the default.
     [CmdletBinding()]
@@ -458,7 +458,7 @@ function Split-TaggerTrackFileName {
     }
 }
 
-function Get-TaggerRemainingPathBudget {
+function Get-ReshelfRemainingPathBudget {
     # MaxLength minus what's already consumed (including the separator leading into this segment)
     # minus what must be reserved for every segment still to come (including their own leading
     # separators) - centralizes the subtraction so each call site only has to state its own
@@ -479,7 +479,7 @@ function Get-TaggerRemainingPathBudget {
     return [Math]::Max($MaxLength - $Consumed - $Reserved, 1)
 }
 
-function Resolve-TaggerTruncatedReleaseNames {
+function Resolve-ReshelfTruncatedReleaseNames {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -496,7 +496,7 @@ function Resolve-TaggerTruncatedReleaseNames {
     $root = $TargetRoot.TrimEnd('\', '/')
 
     # Release folder (Level 2): preserve a leading "yyyy " prefix if the name has one. Bounds-
-    # checked to 1900-2100 like Tagger.Recognition.psm1's equivalent pattern, so a catalog-number-
+    # checked to 1900-2100 like Reshelf.Recognition.psm1's equivalent pattern, so a catalog-number-
     # prefixed title (e.g. "3218 (Edition) Album Title") isn't mistaken for a year and protected
     # from truncation it was never meant to have.
     $releaseRaw = $Release.proposed.releaseFolderName
@@ -515,7 +515,7 @@ function Resolve-TaggerTruncatedReleaseNames {
     $parsedTracks = @($Release.tracks) | ForEach-Object {
         [pscustomobject]@{
             Original = $_.proposedFileName
-            Split    = Split-TaggerTrackFileName -FileName $_.proposedFileName
+            Split    = Split-ReshelfTrackFileName -FileName $_.proposedFileName
         }
     }
 
@@ -532,16 +532,16 @@ function Resolve-TaggerTruncatedReleaseNames {
     # Artist folder (Level 1): no structural prefix defined for it, so the whole name is the body.
     # Reserves room for '\' + release folder's floor + '\' + the largest track floor, so truncating
     # the artist name can never starve the levels below it of their own minimum.
-    $artistBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1) `
+    $artistBudget = Get-ReshelfRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1) `
         -Reserved (1 + $releaseFloor + 1 + $maxTrackFloor)
-    $artistResult = ConvertTo-TaggerTruncatedSegment -Prefix '' -Body $Release.proposed.artistFolderName -Suffix '' -MaxLength $artistBudget
+    $artistResult = ConvertTo-ReshelfTruncatedSegment -Prefix '' -Body $Release.proposed.artistFolderName -Suffix '' -MaxLength $artistBudget
     if ($artistResult.Truncated) { $truncatedAny = $true }
     $artistFolderName = $artistResult.Value
 
     # Release folder budget likewise reserves room for '\' + the largest track floor after it.
-    $releaseBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1 + $artistFolderName.Length + 1) `
+    $releaseBudget = Get-ReshelfRemainingPathBudget -MaxLength $MaxPathLength -Consumed ($root.Length + 1 + $artistFolderName.Length + 1) `
         -Reserved (1 + $maxTrackFloor)
-    $releaseResult = ConvertTo-TaggerTruncatedSegment -Prefix $releasePrefix -Body $releaseBody -Suffix '' `
+    $releaseResult = ConvertTo-ReshelfTruncatedSegment -Prefix $releasePrefix -Body $releaseBody -Suffix '' `
         -MaxLength ([Math]::Max($releaseBudget, $releaseFloor))
     if ($releaseResult.Truncated) { $truncatedAny = $true }
     $releaseFolderName = $releaseResult.Value
@@ -551,7 +551,7 @@ function Resolve-TaggerTruncatedReleaseNames {
     # disambiguation reserve), every track's own floor - and one collision retry - is guaranteed to
     # fit in the budget computed here.
     $releasePathLength = $root.Length + 1 + $artistFolderName.Length + 1 + $releaseFolderName.Length + 1
-    $trackBudget = Get-TaggerRemainingPathBudget -MaxLength $MaxPathLength -Consumed $releasePathLength -Reserved 0
+    $trackBudget = Get-ReshelfRemainingPathBudget -MaxLength $MaxPathLength -Consumed $releasePathLength -Reserved 0
 
     $trackFileNames = @{}
     $usedNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -568,7 +568,7 @@ function Resolve-TaggerTruncatedReleaseNames {
         $attempt = 1
         do {
             $suffix = if ($attempt -eq 1) { $extension } else { "~$attempt$extension" }
-            $candidate = ConvertTo-TaggerTruncatedSegment -Prefix $prefix -Body $body -Suffix $suffix -MaxLength $trackBudget
+            $candidate = ConvertTo-ReshelfTruncatedSegment -Prefix $prefix -Body $body -Suffix $suffix -MaxLength $trackBudget
             if ($candidate.Truncated) { $truncatedAny = $true }
             $finalName = $candidate.Value
             $attempt++
@@ -587,7 +587,7 @@ function Resolve-TaggerTruncatedReleaseNames {
 
 # --- Per-release staging ---------------------------------------------------------------
 
-function Invoke-TaggerReleaseStaging {
+function Invoke-ReshelfReleaseStaging {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([pscustomobject])]
     param(
@@ -606,7 +606,7 @@ function Invoke-TaggerReleaseStaging {
         [string]$TagLibSharpPath
     )
 
-    $truncatedLayout = Resolve-TaggerTruncatedReleaseNames -Release $Release -TargetRoot $TargetRoot
+    $truncatedLayout = Resolve-ReshelfTruncatedReleaseNames -Release $Release -TargetRoot $TargetRoot
     $finalTargetPath = Join-Path $TargetRoot $truncatedLayout.ArtistFolderName $truncatedLayout.ReleaseFolderName
     $stagingReleasePath = Join-Path $StagingRoot $Release.stableKey
     $truncated = $truncatedLayout.Truncated
@@ -622,12 +622,12 @@ function Invoke-TaggerReleaseStaging {
         $companionTargetPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
         foreach ($companion in $includedCompanions) {
-            $companionTargetPath = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
+            $companionTargetPath = Resolve-ReshelfCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
                 -ReleaseFolderPath $stagingReleasePath
 
             if ($companion.placement -eq 'loose') {
                 $targetFileName = Split-Path -Leaf $companionTargetPath
-                if (-not (Test-TaggerLooseCompanionFileName -FileName $targetFileName)) {
+                if (-not (Test-ReshelfLooseCompanionFileName -FileName $targetFileName)) {
                     throw "Companion file '$($companion.sourcePath)' has an invalid target name '$targetFileName' - a loose companion must start with a letter (manifesto SS4.5). Rename it in the Editing UI."
                 }
                 if ($trackFileNameSet.Contains($targetFileName)) {
@@ -641,17 +641,17 @@ function Invoke-TaggerReleaseStaging {
         }
 
         if ($PSCmdlet.ShouldProcess($stagingReleasePath, 'Create staging folder')) {
-            New-Item -ItemType Directory -Path (ConvertTo-TaggerLongPath -Path $stagingReleasePath) -Force | Out-Null
+            New-Item -ItemType Directory -Path (ConvertTo-ReshelfLongPath -Path $stagingReleasePath) -Force | Out-Null
         }
 
         $stagedTrackInfos = [System.Collections.Generic.List[object]]::new()
 
         if ($Release.cueSheet) {
-            $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks $Release.tracks
+            $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks $Release.tracks
             foreach ($range in $ranges) {
                 $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$range.Track.proposedFileName]
                 if ($PSCmdlet.ShouldProcess($outputPath, 'ffmpeg split track from cue source')) {
-                    Invoke-TaggerFfmpegSplit -SourceAudioPath $Release.cueSheet.audioFilePath -StartTimestamp $range.StartTimestamp `
+                    Invoke-ReshelfFfmpegSplit -SourceAudioPath $Release.cueSheet.audioFilePath -StartTimestamp $range.StartTimestamp `
                         -EndTimestamp $range.EndTimestamp -OutputPath $outputPath -FfmpegPath $FfmpegPath
                 }
                 $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $range.Track.tags; HasExistingCover = [bool]$range.Track.existingCoverArtPath })
@@ -661,7 +661,7 @@ function Invoke-TaggerReleaseStaging {
             # catches the rarer case of it exiting 0 without actually producing every output file.
             if (-not $WhatIfPreference) {
                 foreach ($info in $stagedTrackInfos) {
-                    if (-not (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $info.FilePath) -PathType Leaf)) {
+                    if (-not (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $info.FilePath) -PathType Leaf)) {
                         throw "Cue split for release '$($Release.stableKey)' did not produce expected file '$($info.FilePath)'."
                     }
                 }
@@ -675,7 +675,7 @@ function Invoke-TaggerReleaseStaging {
                     # otherwise let execution continue as if the copy succeeded - the release would
                     # then fail two steps later at tag-writing, with a message blaming the missing
                     # staged file instead of the real cause (the source file is gone).
-                    Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-TaggerLongPath -Path $outputPath) -Force -ErrorAction Stop
+                    Copy-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-ReshelfLongPath -Path $outputPath) -Force -ErrorAction Stop
                 }
                 $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $track.tags; HasExistingCover = [bool]$track.existingCoverArtPath })
             }
@@ -686,19 +686,19 @@ function Invoke-TaggerReleaseStaging {
             # A dot-prefixed tool-specific name, never a plain 'cover.jpg': a loose companion named
             # 'cover.jpg' (valid per manifesto SS4.5) is copied into this same staging folder below,
             # and a shared name let the working-file cleanup delete that real companion with it.
-            $coverOutputPath = Join-Path $stagingReleasePath '.tagger-cover-resized.jpg'
+            $coverOutputPath = Join-Path $stagingReleasePath '.reshelf-cover-resized.jpg'
             $sourceForResize = $Release.coverArt.chosenCandidateUrl
 
             if ($sourceForResize -match '^https?://') {
                 $downloadPath = Join-Path $stagingReleasePath 'cover-source.download'
                 if ($PSCmdlet.ShouldProcess($downloadPath, 'Download cover art')) {
-                    Invoke-TaggerCoverDownload -Url $sourceForResize -OutputPath $downloadPath
+                    Invoke-ReshelfCoverDownload -Url $sourceForResize -OutputPath $downloadPath
                 }
                 $sourceForResize = $downloadPath
             }
 
             if ($PSCmdlet.ShouldProcess($coverOutputPath, 'Resize cover art')) {
-                Invoke-TaggerFfmpegResize -SourceImagePath $sourceForResize -MaxDimension $Release.coverArt.targetMaxDimension `
+                Invoke-ReshelfFfmpegResize -SourceImagePath $sourceForResize -MaxDimension $Release.coverArt.targetMaxDimension `
                     -OutputPath $coverOutputPath -FfmpegPath $FfmpegPath
             }
         }
@@ -713,19 +713,19 @@ function Invoke-TaggerReleaseStaging {
         foreach ($info in $stagedTrackInfos) {
             $coverPathForTrack = if ($isKeepExistingCover -and $info.HasExistingCover) { $null } else { $coverOutputPath }
             if ($PSCmdlet.ShouldProcess($info.FilePath, 'Write tags via TagLibSharp')) {
-                Set-TaggerAudioTags -Path $info.FilePath -Tags $info.Tags -CoverImagePath $coverPathForTrack -TagLibSharpPath $TagLibSharpPath
+                Set-ReshelfAudioTags -Path $info.FilePath -Tags $info.Tags -CoverImagePath $coverPathForTrack -TagLibSharpPath $TagLibSharpPath
             }
         }
 
         foreach ($companion in $includedCompanions) {
-            $companionTargetPath = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
+            $companionTargetPath = Resolve-ReshelfCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
                 -ReleaseFolderPath $stagingReleasePath
             if ($PSCmdlet.ShouldProcess($companionTargetPath, 'Copy companion file')) {
                 $companionParentDir = Split-Path -Path $companionTargetPath -Parent
-                if ($companionParentDir -and -not (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $companionParentDir))) {
-                    New-Item -ItemType Directory -Path (ConvertTo-TaggerLongPath -Path $companionParentDir) -Force | Out-Null
+                if ($companionParentDir -and -not (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $companionParentDir))) {
+                    New-Item -ItemType Directory -Path (ConvertTo-ReshelfLongPath -Path $companionParentDir) -Force | Out-Null
                 }
-                Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $companion.sourcePath) -Destination (ConvertTo-TaggerLongPath -Path $companionTargetPath) -Force -ErrorAction Stop
+                Copy-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $companion.sourcePath) -Destination (ConvertTo-ReshelfLongPath -Path $companionTargetPath) -Force -ErrorAction Stop
             }
         }
 
@@ -746,7 +746,7 @@ function Invoke-TaggerReleaseStaging {
     }
 }
 
-function Move-TaggerStagedReleaseToTarget {
+function Move-ReshelfStagedReleaseToTarget {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([string])]
     param(
@@ -759,18 +759,18 @@ function Move-TaggerStagedReleaseToTarget {
 
     if ($PSCmdlet.ShouldProcess($FinalPath, "Move staged release from '$StagingPath'")) {
         $parentDir = Split-Path -Path $FinalPath -Parent
-        if ($parentDir -and -not (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $parentDir))) {
-            New-Item -ItemType Directory -Path (ConvertTo-TaggerLongPath -Path $parentDir) -Force | Out-Null
+        if ($parentDir -and -not (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $parentDir))) {
+            New-Item -ItemType Directory -Path (ConvertTo-ReshelfLongPath -Path $parentDir) -Force | Out-Null
         }
 
         # A pre-existing final folder only happens for the update-existing/replace-existing case -
         # targetAction already decided back in Step 6 this is a clean replace, never a conflict -
         # so removing it here is safe. Move-Item onto an existing folder would otherwise fail.
-        if (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $FinalPath)) {
-            Remove-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $FinalPath) -Recurse -Force
+        if (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $FinalPath)) {
+            Remove-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $FinalPath) -Recurse -Force
         }
 
-        Move-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $StagingPath) -Destination (ConvertTo-TaggerLongPath -Path $FinalPath) -Force
+        Move-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $StagingPath) -Destination (ConvertTo-ReshelfLongPath -Path $FinalPath) -Force
     }
 
     return $FinalPath
@@ -778,7 +778,7 @@ function Move-TaggerStagedReleaseToTarget {
 
 # --- Orchestration ---------------------------------------------------------------------
 
-function Invoke-TaggerImplementation {
+function Invoke-ReshelfImplementation {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([pscustomobject])]
     param(
@@ -804,19 +804,19 @@ function Invoke-TaggerImplementation {
         [switch]$IncludeUnresolved
     )
 
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
 
-    # Mirrors Import-TaggerTagLibSharp's own fallback just above this module in the import chain:
+    # Mirrors Import-ReshelfTagLibSharp's own fallback just above this module in the import chain:
     # an empty settings.ffmpegPath (the documented default, plan/01) means "resolve via PATH", not
     # "no ffmpeg" - 'ffmpeg' here lets Start-Process find it on PATH, same as any other CLI call to it.
     if (-not $FfmpegPath) { $FfmpegPath = 'ffmpeg' }
 
-    if (-not (Test-TaggerJson -SchemaName proposal -Path $ProposalPath)) {
+    if (-not (Test-ReshelfJson -SchemaName proposal -Path $ProposalPath)) {
         throw "Proposal document at '$ProposalPath' does not match the proposal schema."
     }
     $proposal = Get-Content -LiteralPath $ProposalPath -Raw | ConvertFrom-Json
 
-    $stagingRoot = Join-Path $TargetRoot '.tagger-staging'
+    $stagingRoot = Join-Path $TargetRoot '.reshelf-staging'
     $releases = @($proposal.artists.releases)
 
     $appliedCount = 0
@@ -836,17 +836,17 @@ function Invoke-TaggerImplementation {
         }
 
         # humanReview.required/.resolved is the one general "does a human need to look at this
-        # before apply touches it" gate (set by Tagger.EditProposal.psm1's New-TaggerProposedRelease
+        # before apply touches it" gate (set by Reshelf.EditProposal.psm1's New-ReshelfProposedRelease
         # for every reason it flags a release, not just an ambiguous Discogs match) - gating on it
         # directly, for whatever reason it was set, is correct; special-casing just the ambiguous
         # case let a targetAction: "conflict" release (pre-existing, different target content)
-        # proceed straight through to Move-TaggerStagedReleaseToTarget's unconditional overwrite.
+        # proceed straight through to Move-ReshelfStagedReleaseToTarget's unconditional overwrite.
         if (-not $release.humanReview.resolved -and -not $IncludeUnresolved) {
             $skippedCount++
             continue
         }
 
-        $needsApplyResult = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $TargetRoot -DataHome $DataHome
+        $needsApplyResult = Test-ReshelfReleaseNeedsApply -Release $release -TargetRoot $TargetRoot -DataHome $DataHome
         if (-not $needsApplyResult.NeedsApply) {
             $skippedCount++
             continue
@@ -854,9 +854,9 @@ function Invoke-TaggerImplementation {
 
         $stagingReleasePath = Join-Path $stagingRoot $release.stableKey
         $finalTargetPath = Join-Path $TargetRoot $release.proposed.artistFolderName $release.proposed.releaseFolderName
-        # Test-TaggerReleaseNeedsApply already computed this hash once for the skip decision - reuse
+        # Test-ReshelfReleaseNeedsApply already computed this hash once for the skip decision - reuse
         # it instead of hashing every source file again. It can be $null when the source files went
-        # missing for reasons outside Tagger's control (Tagger itself never deletes them) but the
+        # missing for reasons outside Reshelf's control (Reshelf itself never deletes them) but the
         # release still needs (re-)applying anyway (e.g. a previously-failed attempt) - fall back to
         # the same "can't compute one" sentinel used elsewhere in this function for that case.
         $sourceHash = if ($needsApplyResult.Hash) { $needsApplyResult.Hash } else { 'unavailable-source-missing' }
@@ -867,30 +867,30 @@ function Invoke-TaggerImplementation {
         $stagingResult = $null
 
         try {
-            $stagingResult = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $stagingRoot -TargetRoot $TargetRoot `
+            $stagingResult = Invoke-ReshelfReleaseStaging -Release $release -StagingRoot $stagingRoot -TargetRoot $TargetRoot `
                 -FfmpegPath $FfmpegPath -TagLibSharpPath $TagLibSharpPath
 
             if ($stagingResult.Success) {
                 if ($PSCmdlet.ShouldProcess($stagingResult.TargetPath, 'Commit staged release to target')) {
-                    Move-TaggerStagedReleaseToTarget -StagingPath $stagingReleasePath -FinalPath $stagingResult.TargetPath | Out-Null
+                    Move-ReshelfStagedReleaseToTarget -StagingPath $stagingReleasePath -FinalPath $stagingResult.TargetPath | Out-Null
                 }
 
-                # Source files are always read-only to Tagger: nothing here ever deletes or modifies
+                # Source files are always read-only to Reshelf: nothing here ever deletes or modifies
                 # a source path, cue-sheet or otherwise, no matter what CopyMode says. A prior
                 # design deleted the cue-sheet source after a successful split, and deleted moved
                 # per-track/companion sources in a "move" copy mode - both were removed after an
                 # incident destroyed source releases that had no other backup. CopyMode now only
-                # ever accepts 'copy' (enforced in Tagger.Settings.psm1); the parameter and its
+                # ever accepts 'copy' (enforced in Reshelf.Settings.psm1); the parameter and its
                 # ValidateSet stay for backward-compatible callers, but nothing branches on it here.
 
                 if ($release.lossyLossless.action -eq 'replace-existing') {
                     if ($PSCmdlet.ShouldProcess($release.stableKey, 'Mark lossy-tracking entry upgraded')) {
-                        Set-TaggerLossyTrackingUpgraded -StableKey $release.stableKey -DataHome $DataHome | Out-Null
+                        Set-ReshelfLossyTrackingUpgraded -StableKey $release.stableKey -DataHome $DataHome | Out-Null
                     }
                 }
 
                 if ($PSCmdlet.ShouldProcess($release.stableKey, 'Record apply-log entry')) {
-                    Add-TaggerApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'applied' `
+                    Add-ReshelfApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'applied' `
                         -TargetPath $stagingResult.TargetPath -SourceFileSetHash $sourceHash -ErrorMessage $null `
                         -Truncated $stagingResult.Truncated -DataHome $DataHome | Out-Null
                 }
@@ -899,7 +899,7 @@ function Invoke-TaggerImplementation {
             }
             else {
                 if ($PSCmdlet.ShouldProcess($release.stableKey, 'Record apply-log entry')) {
-                    Add-TaggerApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'failed' `
+                    Add-ReshelfApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'failed' `
                         -TargetPath $stagingResult.TargetPath -SourceFileSetHash $sourceHash -ErrorMessage $stagingResult.ErrorMessage `
                         -Truncated $stagingResult.Truncated -DataHome $DataHome | Out-Null
                 }
@@ -907,9 +907,9 @@ function Invoke-TaggerImplementation {
             }
         }
         catch {
-            # Belt-and-braces: Invoke-TaggerReleaseStaging already catches its own internal
+            # Belt-and-braces: Invoke-ReshelfReleaseStaging already catches its own internal
             # failures, but this covers anything thrown outside it (the commit move itself, or
-            # Set-TaggerLossyTrackingUpgraded) - one release's failure must never stop the batch.
+            # Set-ReshelfLossyTrackingUpgraded) - one release's failure must never stop the batch.
             # $sourceHash was already resolved (real hash or the sentinel) before this try block.
             # Prefer $stagingResult's (possibly-truncated) TargetPath/Truncated - it reflects what
             # was actually staged/committed. $finalTargetPath (raw, untruncated names) is only a
@@ -917,7 +917,7 @@ function Invoke-TaggerImplementation {
             $failureTargetPath = if ($stagingResult) { $stagingResult.TargetPath } else { $finalTargetPath }
             $failureTruncated = if ($stagingResult) { $stagingResult.Truncated } else { $false }
             if ($PSCmdlet.ShouldProcess($release.stableKey, 'Record apply-log entry')) {
-                Add-TaggerApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'failed' `
+                Add-ReshelfApplyLogEntry -StableKey $release.stableKey -AppliedAtUtc (Get-Date) -Status 'failed' `
                     -TargetPath $failureTargetPath -SourceFileSetHash $sourceHash -ErrorMessage $_.Exception.Message `
                     -Truncated $failureTruncated -DataHome $DataHome | Out-Null
             }
@@ -927,7 +927,7 @@ function Invoke-TaggerImplementation {
 
     # Every successfully-applied release already moved itself out of staging (step 8, plan/08); a
     # failed release's staging folder is deliberately left behind for inspection (plan/08 "Edge
-    # cases"). So this only ever removes the empty .tagger-staging wrapper itself, never a release
+    # cases"). So this only ever removes the empty .reshelf-staging wrapper itself, never a release
     # that is still sitting there because it failed.
     if ((Test-Path -LiteralPath $stagingRoot) -and -not (Get-ChildItem -LiteralPath $stagingRoot -Force -ErrorAction SilentlyContinue)) {
         if ($PSCmdlet.ShouldProcess($stagingRoot, 'Remove empty staging folder')) {
@@ -937,13 +937,13 @@ function Invoke-TaggerImplementation {
 
     $finalStage = if ($failedCount -eq 0) { 'applied' } else { 'partially-applied' }
     if ($PSCmdlet.ShouldProcess($SessionId, 'Update session stage')) {
-        Set-TaggerSessionStage -SessionId $SessionId -Stage $finalStage -DataHome $DataHome | Out-Null
+        Set-ReshelfSessionStage -SessionId $SessionId -Stage $finalStage -DataHome $DataHome | Out-Null
     }
 
     return [pscustomobject]@{ Applied = $appliedCount; Skipped = $skippedCount; Failed = $failedCount; Rejected = $rejectedCount }
 }
 
-Export-ModuleMember -Function Get-TaggerApplyLogPath, Get-TaggerApplyLog, Get-TaggerApplyLogEntry, Add-TaggerApplyLogEntry, `
-    Test-TaggerAppliedEntryValid, Test-TaggerReleaseNeedsApply, ConvertTo-TaggerFfmpegSeconds, ConvertFrom-TaggerCueTrackRanges, Invoke-TaggerFfmpegSplit, `
-    Invoke-TaggerFfmpegResize, Invoke-TaggerCoverDownload, Set-TaggerAudioTags, Resolve-TaggerCompanionTargetPath, `
-    Resolve-TaggerTruncatedReleaseNames, Invoke-TaggerReleaseStaging, Move-TaggerStagedReleaseToTarget, Invoke-TaggerImplementation
+Export-ModuleMember -Function Get-ReshelfApplyLogPath, Get-ReshelfApplyLog, Get-ReshelfApplyLogEntry, Add-ReshelfApplyLogEntry, `
+    Test-ReshelfAppliedEntryValid, Test-ReshelfReleaseNeedsApply, ConvertTo-ReshelfFfmpegSeconds, ConvertFrom-ReshelfCueTrackRanges, Invoke-ReshelfFfmpegSplit, `
+    Invoke-ReshelfFfmpegResize, Invoke-ReshelfCoverDownload, Set-ReshelfAudioTags, Resolve-ReshelfCompanionTargetPath, `
+    Resolve-ReshelfTruncatedReleaseNames, Invoke-ReshelfReleaseStaging, Move-ReshelfStagedReleaseToTarget, Invoke-ReshelfImplementation

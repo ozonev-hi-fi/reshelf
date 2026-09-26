@@ -1,7 +1,7 @@
 #Requires -Version 7.4
 <#
 .SYNOPSIS
-    Seeds one fresh Tagger session (with a real proposal.json) for the Playwright UI suite.
+    Seeds one fresh Reshelf session (with a real proposal.json) for the Playwright UI suite.
 .DESCRIPTION
     Creates real audio files (via ffmpeg) and real companion/cover images (from tests/ui/fixtures)
     under a fresh subfolder of -SourceRoot, then writes a schema-valid proposal.json for two
@@ -37,8 +37,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot '..' '..' 'scripts' 'common' 'Tagger.Settings.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot '..' '..' 'scripts' 'common' 'Tagger.Json.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..' '..' 'scripts' 'common' 'Reshelf.Settings.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..' '..' 'scripts' 'common' 'Reshelf.Json.psm1') -Force
 
 $fixturesDir = Join-Path $PSScriptRoot 'fixtures'
 $suffix = [guid]::NewGuid().ToString('N').Substring(0, 8)
@@ -262,12 +262,12 @@ $proposalDoc = [pscustomobject]@{
     unrecognized   = @()
 }
 
-$session = New-TaggerSession -SourceRoot $releaseSourceRoot -DataHome $DataHome
+$session = New-ReshelfSession -SourceRoot $releaseSourceRoot -DataHome $DataHome
 $proposalDoc.sessionId = $session.sessionId
 
 $proposalPath = Join-Path $DataHome 'sessions' $session.sessionId 'proposal.json'
-Set-TaggerJsonFile -Path $proposalPath -InputObject $proposalDoc -SchemaName proposal -Depth 20 | Out-Null
-Set-TaggerSessionStage -SessionId $session.sessionId -Stage 'reviewed' -ProposalPath $proposalPath -DataHome $DataHome | Out-Null
+Set-ReshelfJsonFile -Path $proposalPath -InputObject $proposalDoc -SchemaName proposal -Depth 20 | Out-Null
+Set-ReshelfSessionStage -SessionId $session.sessionId -Stage 'reviewed' -ProposalPath $proposalPath -DataHome $DataHome | Out-Null
 
 [pscustomobject]@{
     sessionId        = $session.sessionId

@@ -1,4 +1,4 @@
-# Tagger — Implementation Plan Overview
+# Reshelf — Implementation Plan Overview
 
 This is the master index for the implementation plan. `MANIFESTO.md` (repo root) is
 the source of truth for *what* the tool must do and *why*. This plan folder defines
@@ -56,9 +56,9 @@ source folder(s)
 - **Tagging/cover art reading and writing**: TagLibSharp (.NET library, loaded in-process via `Add-Type`) — used for both reading (step 05) and writing (step 08); mp3tag was the original plan for writing but was superseded (see [08](08-implementation-module.md)) since TagLibSharp already covered reading and needed no external process or manual Action-Group setup.
 - **Cover resize + single-file/cue splitting** (both lossless and lossy): ffmpeg (`-c copy`, no re-encoding). cuetools/shntool/mp3splt were considered but dropped — no reliable winget/Windows install path, and ffmpeg alone covers both cases.
 - **Metadata source of truth**: Discogs API.
-- **Editing UI**: plain HTML/JS static site, no framework, no build step, served by `Tagger.ps1 ui start` (`Start-TaggerUiServer.ps1`) — a small localhost server exposing a read/write API for `proposal.json`. Originally planned around the browser's File System Access API (Chromium-only, needs a folder picker); superseded by the server-backed design so the UI works in any modern browser with no picker at all (see [07](07-editing-ui-module.md)).
+- **Editing UI**: plain HTML/JS static site, no framework, no build step, served by `Reshelf.ps1 ui start` (`Start-ReshelfUiServer.ps1`) — a small localhost server exposing a read/write API for `proposal.json`. Originally planned around the browser's File System Access API (Chromium-only, needs a folder picker); superseded by the server-backed design so the UI works in any modern browser with no picker at all (see [07](07-editing-ui-module.md)).
 - **Data documents**: JSON, validated with PowerShell's `Test-Json` against schemas in `schemas/`.
-- **Data location**: all generated/user data lives in a git-ignored `.data/` folder inside the repo by default (override via `TAGGER_HOME`).
+- **Data location**: all generated/user data lives in a git-ignored `.data/` folder inside the repo by default (override via `RESHELF_HOME`).
 
 ## Glossary
 
