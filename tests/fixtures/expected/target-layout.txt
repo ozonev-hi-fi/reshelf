@@ -1,6 +1,10 @@
 Cranberries/
 Cranberries/1993 Everybody Else Is Doing It/
 Cranberries/1993 Everybody Else Is Doing It/01 I Still Do.flac
+Dance With Ghosts/
+Dance With Ghosts/1900 Requiem/
+Dance With Ghosts/1900 Requiem/01 Track One.flac
+Dance With Ghosts/1900 Requiem/02 Track Two.flac
 David Byrne/
 David Byrne/1994 David Byrne/
 David Byrne/1994 David Byrne/01 Angels.flac

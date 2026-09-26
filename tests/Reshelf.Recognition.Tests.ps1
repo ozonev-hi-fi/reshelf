@@ -149,6 +149,48 @@ Describe 'ConvertFrom-ReshelfTrackFileName (private)' {
     }
 }
 
+Describe 'Remove-ReshelfArtistNamePrefixFromTitle (private)' {
+    It 'strips the artist name and a dash separator regardless of letter case' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'DANCE WITH THE DEAD - Blackout' -ArtistName 'Dance with the dead'
+            $result.Title | Should -Be 'Blackout'
+            $result.WasStripped | Should -Be $true
+        }
+    }
+
+    It 'strips a colon separator' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Some Band: Live Album' -ArtistName 'Some Band'
+            $result.Title | Should -Be 'Live Album'
+            $result.WasStripped | Should -Be $true
+        }
+    }
+
+    It 'leaves the title untouched when it does not start with the artist name' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Live - The Tour' -ArtistName 'Live Wire'
+            $result.Title | Should -Be 'Live - The Tour'
+            $result.WasStripped | Should -Be $false
+        }
+    }
+
+    It 'leaves the title untouched when the artist name is a prefix but not followed by a separator' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Dance With The Devil' -ArtistName 'Dance'
+            $result.Title | Should -Be 'Dance With The Devil'
+            $result.WasStripped | Should -Be $false
+        }
+    }
+
+    It 'leaves the title untouched when stripping would leave nothing' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Some Band -' -ArtistName 'Some Band'
+            $result.Title | Should -Be 'Some Band -'
+            $result.WasStripped | Should -Be $false
+        }
+    }
+}
+
 Describe 'Get-ReshelfTrackOrder (private)' {
     It 'orders fully-numbered files by their parsed number' {
         InModuleScope Reshelf.Recognition {
@@ -622,6 +664,20 @@ Describe 'Invoke-ReshelfRecognition' {
         $release.recognizedTitle | Should -Be 'Live - The Tour'
         $release.needsReview | Should -Be $false
         $release.reviewReasons | Should -Not -Contain 'artist-name-split-from-folder-name'
+    }
+
+    It 'strips a release folder name that repeats its own artist name (real-world case), without needsReview' {
+        # Confirmed against the real Discogs API (2026-09-26, plan/12 milestone 3): a release_title
+        # search that still contains the artist name returns zero results even when the release
+        # genuinely exists - this is a deterministic cleanup, not an ambiguous guess.
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-23' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Dance With Ghosts' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedTitle | Should -Be 'Requiem'
+        $release.recognitionFlags | Should -Contain 'artist-name-prefix-stripped'
+        $release.needsReview | Should -Be $false
     }
 
     It 'flags an empty artist folder (no audio anywhere) as unrecognized' {

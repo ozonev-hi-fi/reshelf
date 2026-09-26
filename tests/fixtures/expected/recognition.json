@@ -47,6 +47,68 @@
       ]
     },
     {
+      "recognizedName": "Dance With Ghosts",
+      "sourcePaths": [
+        "<SOURCE_ROOT>\\Dance With Ghosts"
+      ],
+      "releases": [
+        {
+          "stableKey": "9e3c55844a9070a9",
+          "recognizedTitle": "Requiem",
+          "recognizedYear": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Dance With Ghosts\\DANCE WITH GHOSTS - Requiem",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Dance With Ghosts\\DANCE WITH GHOSTS - Requiem\\01 - Track One.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Track One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Dance With Ghosts\\DANCE WITH GHOSTS - Requiem\\02 - Track Two.flac",
+              "discFolder": null,
+              "originalFileName": "02 - Track Two.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 0.8,
+          "recognitionFlags": [
+            "artist-name-prefix-stripped"
+          ],
+          "needsReview": false,
+          "reviewReasons": []
+        }
+      ]
+    },
+    {
       "recognizedName": "Isidor",
       "sourcePaths": [
         "<SOURCE_ROOT>"

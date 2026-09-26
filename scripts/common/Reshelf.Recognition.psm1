@@ -655,6 +655,35 @@ function Merge-ReshelfArtistBucket {
     $bucket.releases.Add($Release)
 }
 
+function Remove-ReshelfArtistNamePrefixFromTitle {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Title,
+
+        [Parameter(Mandatory)]
+        [string]$ArtistName
+    )
+
+    # Real-world case: a release folder repeats its own artist folder's name verbatim (often in a
+    # different letter case), e.g. artist folder "Dance with the dead" containing release folder
+    # "DANCE WITH THE DEAD - Blackout". Confirmed against the real Discogs API (2026-09-26): searching
+    # with release_title still containing the artist name returns zero results, while the same search
+    # with just "Blackout" returns real matches - so this is a deterministic, non-ambiguous cleanup,
+    # not a guess that belongs in reviewReasons/needsReview like New-ReshelfReleaseRecord's other
+    # splitting heuristics.
+    $pattern = '^\s*' + [regex]::Escape($ArtistName) + '\s*[-:–—]\s*'
+    $match = [regex]::Match($Title, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+    if ($match.Success -and $match.Length -lt $Title.Length) {
+        return [pscustomobject]@{ Title = $Title.Substring($match.Length); WasStripped = $true }
+    }
+
+    return [pscustomobject]@{ Title = $Title; WasStripped = $false }
+}
+
 function New-ReshelfReleaseRecord {
     [CmdletBinding()]
     param(
@@ -689,6 +718,12 @@ function New-ReshelfReleaseRecord {
     $recognitionFlags = [System.Collections.Generic.List[string]]::new()
     $reviewReasons = [System.Collections.Generic.List[string]]::new()
     $needsReview = $false
+
+    $prefixStrip = Remove-ReshelfArtistNamePrefixFromTitle -Title $title -ArtistName $ArtistName
+    if ($prefixStrip.WasStripped) {
+        $title = $prefixStrip.Title
+        $recognitionFlags.Add('artist-name-prefix-stripped')
+    }
 
     if ((ConvertTo-ReshelfLongPath -Path $Path) -ne $Path) {
         $recognitionFlags.Add('path-near-length-limit')
