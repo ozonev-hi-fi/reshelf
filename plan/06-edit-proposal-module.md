@@ -22,13 +22,34 @@ metadata, and cover art per manifesto §4/§5. Matches manifesto §7 module 3.
 ### Discogs lookup
 
 For each recognized release:
-1. Build a search query from `recognizedName` (artist) + `recognizedTitle`
-   (+ `recognizedYear` if known).
-2. Check the Discogs cache first ([02](02-discogs-account-and-api-access.md)).
+1. Build up to two search-title variants from `recognizedTitle`
+   (`Get-ReshelfDiscogsSearchTitleVariants`): the raw title, and a "cleaned"
+   one with parenthetical groups removed, a trailing `" - ..."` segment
+   dropped, and a trailing edition word (Special/Deluxe/Limited/Expanded/
+   Anniversary/Remastered) stripped — plus a year hint pulled from a removed
+   group, used when `recognizedYear` is unresolved. Added after
+   re-verification against the real Discogs API (plan/12 milestone 3) showed
+   a `release_title` still carrying this noise returns **zero results** even
+   for a release that demonstrably exists (e.g. "Violator (1990) (ALFA
+   ALCB-35) (1st Japan 1990)" finds nothing; "Violator" does).
+2. `Resolve-ReshelfDiscogsMatch` tries each variant, with its year then
+   without it, stopping at the first search that returns anything — at most 4
+   cached searches ([02](02-discogs-account-and-api-access.md)), not one
+   fixed query. Every candidate is scored against **all** variants and the
+   best score kept, regardless of which variant's search actually surfaced
+   it.
 3. Score candidates; auto-select above threshold, else attach top 5 as
    `ambiguous` (see [02](02-discogs-account-and-api-access.md) for the exact
-   mechanism).
-4. Fetch full detail (`/releases/{id}`) for the selected/auto candidate to get
+   scoring mechanism).
+4. When more than one candidate clears the threshold (real case: Pivot "O
+   Soundtrack My Heart" had 5 same-scoring editions — a 7" single, a promo
+   CDr, and 3 different albums), `Select-ReshelfBestDiscogsCandidate` fetches
+   up to 5 of their real tracklists and picks the first whose track count
+   matches the source; if none match, it prefers an Album-format edition over
+   EP/Single/Promo. Only when there's exactly one eligible candidate does it
+   skip straight to fetching that one's detail (the original, pre-milestone-3
+   behavior).
+5. Fetch full detail (`/releases/{id}`) for the selected/auto candidate to get
    canonical tracklist, year, and cover images.
 
 ### Computing proposed names and tags
@@ -39,6 +60,22 @@ Applies manifesto §5 rules mechanically, using Discogs data as ground truth:
   `recognizedName` if no Discogs match yet — release stays `needsReview`).
 - `proposed.releaseFolderName` = `"{year} {album}"` from the naming template,
   using Discogs's year and title.
+- **Casing**: Discogs is the encyclopedia and has priority over every
+  fallback — its artist/album/track text is used exactly as returned (only
+  invisible formatting characters are stripped, see below), so a genuinely
+  lowercase name (e.g. "edbl") is kept lowercase when Discogs itself agrees.
+  Only the *fallback* path (no Discogs match, or a track title with no
+  existing tag) applies `ConvertTo-ReshelfTitleCase` — capitalizes the first
+  letter of each whitespace-separated word, leaves existing internal casing
+  alone (so "DJ Shadow" stays "DJ Shadow") — added after re-verification
+  against real data left names like "aoki takamasa" (the source folder's own
+  casing) untouched with no Discogs match to correct it. (Bandcamp will get
+  the same priority as Discogs once [13](13-bandcamp-fallback.md) exists.)
+- Discogs text can carry invisible formatting characters (a real one: zero-
+  width spaces around a dash, `"B​-​Sides"`) that would otherwise
+  end up verbatim in file/folder names and tags — `Remove-ReshelfInvisibleCharacters`
+  strips them (Unicode category `Cf`) wherever Discogs artist/album/track
+  text is read.
 - Per track, in disc + in-disc-track order:
   - `proposedDiscNumber` = 1-based disc index (always set, even for
     single-disc).
@@ -107,6 +144,26 @@ independent of the Discogs match:
     the apply-log check above instead.
   - Present but different in a way that isn't a lossy→lossless upgrade →
     `targetAction = "conflict"`, `humanReview.required = true`.
+  - **Nothing at all found by `stableKey`** (the `create-new` case above) and
+    the source is lossless: `Find-ReshelfPreviousLossyEntry` also checks the
+    lossy-tracking ledger by *name* — a normalized artist+year match, with
+    the album compared via `Test-ReshelfSameLossyRelease` (the same
+    noise-stripping `Get-ReshelfDiscogsSearchTitleVariants` uses for search)
+    — against every still-`pending-upgrade` row. Added because `stableKey` is
+    derived from *this run's* recognized/proposed names: a source folder
+    renamed between imports (real case, plan/12 milestone 3: an old mp3
+    import recognized as "Forwards Special Edition", a later flac import
+    matching Discogs's own "Forwards") gets a different `stableKey` and would
+    otherwise silently miss its own ledger row entirely, creating a second,
+    unrelated one instead. When found: `lossyLossless.action` becomes
+    `"previously-lossy-different-location"` (the old target folder still has
+    lossy files in it) or `"previously-lossy-target-missing"` (it's gone —
+    deleted, or `targetRoot` isn't the real collection). Either way
+    `targetAction` is **not** changed and the old ledger row's `status` stays
+    `pending-upgrade` — "keep both, only warn": apply never touches or
+    deletes anything outside this run's own proposed target path, so
+    reconciling the two copies is left to the user (e.g. via
+    [07](07-editing-ui-module.md)'s lossy tracker tab).
 
 ## Decisions & rationale
 
@@ -133,7 +190,15 @@ independent of the Discogs match:
 - Discogs tracklist track count doesn't match the number of source audio
   files (e.g. a bonus track on Discogs's listing that isn't in the source, or
   vice versa) → `humanReview.required = true` with a note; never silently
-  drop or fabricate a track.
+  drop or fabricate a track. Before falling all the way back to source
+  titles, `Resolve-ReshelfDiscogsTrackAlignment` tries matching every source
+  track to its own Discogs track by title similarity (>= 0.8, one-to-one) —
+  real case: a Discogs tracklist with one extra track the source never
+  ripped, where every track the source *does* have still has a clean 1:1
+  title match. On success, the aligned Discogs titles are used and the note
+  names which Discogs track(s) the source is missing; any track without a
+  good match falls the whole release back to source titles, unchanged from
+  before this existed.
 - Release matched on Discogs but missing usable cover images → `coverArt.candidates`
   falls back to any existing embedded/loose cover found in `recognition.json`,
   flagged `needsReview` if none exist at all.

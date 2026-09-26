@@ -70,6 +70,33 @@ ambiguous enough to need a human decision:
   entries faster (e.g. by looking at a folder tree and suggesting entries) —
   not to change Recognition's code or bypass the human-review gate.
 
+### Deterministic cleanups added against real data (plan/12 milestone 3)
+
+Two more folder-name patterns turned out to be resolvable without a human
+guess, once seen against the user's real collection — added alongside the
+genuinely-ambiguous cases above, not instead of them:
+
+- **A release folder that repeats its own artist folder's name**
+  (`Remove-ReshelfArtistNamePrefixFromTitle`), e.g. artist folder "Dance with
+  the dead" containing a release folder "DANCE WITH THE DEAD - Blackout".
+  Confirmed directly against the real Discogs API: a search whose
+  `release_title` still contains the artist name returns zero results even
+  for a release that demonstrably exists. The prefix (case-insensitive,
+  requiring a `-`/`:`/en-dash/em-dash separator after it) is stripped and
+  `recognitionFlags` gets `artist-name-prefix-stripped` — not a review flag,
+  since it's a deterministic string match against an artist name Recognition
+  already resolved, not a guess.
+- **A `release-without-artist-suspected` folder whose tracks agree on their
+  own tags** (`Resolve-ReshelfArtistAlbumFromTags`), e.g. "edbl" — tracks
+  sitting directly in a folder with no artist wrapper and no `" - "` in the
+  folder's own name. Previously always unrecognized, even though the tracks
+  themselves already carry the answer. Promoted into a normal release
+  (`reviewReasons: ["artist-and-album-from-tags"]`, still `needsReview` —
+  unlike the prefix-strip above, this one *is* still flagged, since the
+  folder's own name gave no confirmation) only when every track's
+  artist/album tags agree; a folder with missing or disagreeing tags still
+  goes to `unrecognized[]` as before.
+
 ### Track/disc parsing
 
 - Track number + name: ordered regex fallbacks, most specific first:

@@ -49,9 +49,23 @@ HTML with minimal JS" philosophy (§8).
     control. Fixes what was otherwise a standing gap: a local companion-file
     cover candidate is an absolute Windows path, which `<img src>` can never
     load directly from a browser.
+  - `GET /api/naming-templates` — `settings.json`'s `namingTemplates`/
+    `trackNumberPadWidth`, fetched once at page load so an Artist/Album/Year
+    edit can preview the same folder name `propose` would compute (see "Live
+    folder-name preview" below).
+  - `GET /api/lossy`, `PUT`/`DELETE /api/lossy/{stableKey}` — the lossy
+    tracker tab below reads/edits/removes ledger rows through these; see
+    [09](09-lossy-lossless-tracking.md).
 - A small **"Past sessions"** dropdown (shown only when 2+ sessions exist)
   lists the rest, labeled by source root + date + stage — never by the raw
   session id — for the "rewind to an older run" case.
+- A separate, small `#session-id-label` in the header shows the raw session
+  id (e.g. "Session 2026-09-26-0002") next to the main status text — added
+  after real usage showed a person needs to *name* the exact session they
+  reviewed (e.g. to tell someone else, or to hand off which one to apply).
+  The main status text itself still never includes it (real users read
+  source root + date, not an opaque id) — this is a second, purely
+  informational label, not a reversal of that choice.
 - This is a real change from the original "no backend" framing (see Decisions
   below): the server now has a few application-specific routes, not just
   static file serving. It stays localhost-only, single-user, with no auth —
@@ -96,6 +110,48 @@ HTML with minimal JS" philosophy (§8).
     user pick the correct edition/pressing.
   - Free-text `humanReview.notes` field and an "Approve" checkbox
     (`humanReview.resolved = true`).
+  - Artist / Album / Year fields, and the Artist Folder Name / Release
+    Folder Name fields they feed (see "Live folder-name preview" below).
+
+### Live folder-name preview
+
+Editing Artist, Album, or Year recomputes Artist Folder Name and Release
+Folder Name from `namingTemplates` (fetched once via `GET
+/api/naming-templates`) with the same invalid-character substitution
+`ConvertTo-SafeFileName` applies, and re-renders the before/after table's
+folder row — so what the person types is what they see the target path
+becoming, without waiting for a re-run of `propose`. Editing a folder-name
+field directly also re-renders that row. A later Artist/Album/Year edit
+always overwrites a hand-typed folder name (same as re-running `propose`
+would recompute it from scratch) — there's no separate "don't touch what I
+typed" mode. The preview doesn't reproduce `ConvertTo-SafeFileName`'s
+reserved-device-name suffixing; `propose`/Save still apply that for real.
+
+### Unrecognized folders
+
+`proposal.json`'s own `unrecognized[]` (already written by
+[05](05-recognition-module.md), previously never shown anywhere in this UI —
+a real folder with real music in it was otherwise invisible) gets its own
+sidebar section and badge. Selecting one shows its path, reason, and file
+list, plus a generated `overrides.json` entry (kind guessed from the reason —
+`artist` for `release-without-artist-suspected`, `grouping` for
+`grouping-folder-suspected`) that can be edited and copied to the clipboard,
+and the exact `recognize` command to re-run afterward. This UI never writes
+`overrides.json` itself — only [05](05-recognition-module.md)'s own
+`Get-ReshelfOverrides`/`overrides.schema.json` path does, so a copied entry
+still needs a human to actually paste it in and re-run.
+
+### Lossy tracker tab
+
+A second top-level view (`GET /api/lossy`) alongside the release list,
+switched to with a header button — the library-wide ledger
+([09](09-lossy-lossless-tracking.md)) previously had no UI at all, only the
+`Reshelf.ps1 lossy` CLI. Lists every entry with an inline status dropdown and
+notes field (`PUT /api/lossy/{stableKey}`, saved immediately on change, no
+separate Save step) and a Delete button (`DELETE /api/lossy/{stableKey}`,
+confirmed first). A status filter narrows the table; Export CSV/Export JSON
+build the file from the currently-filtered rows entirely client-side (no
+extra request) and trigger a normal browser download.
 
 ### Approval gate
 

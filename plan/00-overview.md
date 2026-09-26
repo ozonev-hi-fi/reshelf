@@ -24,6 +24,7 @@ Cases, Manual Setup (if any), Definition of Done.
 | 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 | done |
 | 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | done |
 | 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 | in progress |
+| 13 | [13-bandcamp-fallback.md](13-bandcamp-fallback.md) | Bandcamp as a fallback metadata source when Discogs has no match | 6 | research needed |
 
 ## Pipeline
 
