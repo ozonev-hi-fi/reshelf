@@ -34,9 +34,11 @@ task plus a small reusable request wrapper.
 `Tagger.Discogs.psm1` exposes `Get-DiscogsToken`, checked by
 `Invoke-DiscogsRequest` before every call:
 
-1. Check `$env:DISCOGS_ACCESS_TOKEN` (a real environment variable) first.
+1. Check the environment variable named by `settings.json`'s
+   `discogsTokenEnvVar` (a real environment variable; defaults to
+   `DISCOGS_ACCESS_TOKEN` if unset or no `settings.json` exists yet) first.
 2. If not set, look for a `.env` file at the repo root, read it line by line,
-   and pull the value of a `DISCOGS_ACCESS_TOKEN=...` line (simple
+   and pull the value of a line assigning that same variable name (simple
    `KEY=VALUE` parsing — no need for a full dotenv library for one variable).
 3. If neither source has it, throw a clear error naming both places checked,
    rather than silently proceeding with no auth and getting a confusing 401
@@ -77,12 +79,26 @@ themselves.
 
 ### Caching
 
+This is a **re-run cache**, not a permanent archive — a release is only ever
+proposed once in the tool's normal use (once organized, its folder/tags are
+already correct and there's no reason to look it up again). What it actually
+buys: a `propose` run that fails partway through, or is re-run repeatedly
+while tuning `overrides.json` (see [10](10-error-handling-and-edge-cases.md),
+[12](12-build-order-and-milestones.md) milestone 3), doesn't re-query and
+re-throttle on releases it already resolved in the current working session.
+
 - On-disk cache: `$TAGGER_HOME\cache\discogs\<hash-of-normalized-query-or-release-id>.json`
-- TTL: 30 days by default (release metadata rarely changes) — configurable in
-  `settings.json`.
+- TTL: 30 days by default (long enough to cover a multi-day working session,
+  short enough that the cache doesn't quietly become a stale archive) —
+  configurable in `settings.json`.
 - Every lookup in [06](06-edit-proposal-module.md) checks the cache first. This
   both avoids unnecessary calls and makes re-running Edit Proposal on the same
   source fast and rate-limit-friendly (see [10](10-error-handling-and-edge-cases.md)).
+- An entry older than the TTL, or one that fails to parse as JSON, is
+  **physically deleted**, not just ignored — `Remove-DiscogsExpiredCache`
+  (`Tagger.Discogs.psm1`) runs once per process on the first Discogs request,
+  so a release resolved once and never revisited doesn't leave its cache
+  entry on disk forever.
 
 ### Matching confidence
 
@@ -102,7 +118,9 @@ themselves.
   here.
 - **Cache before rate-limit logic matters**: caching turns "re-run against the
   same 500 releases" from 500 API calls into near-zero, which matters more for
-  a personal collection than clever backoff tuning.
+  a personal collection than clever backoff tuning. It is a re-run cache
+  scoped to the current working session, not a permanent local mirror of
+  Discogs — see "Caching" above.
 - **Never auto-select below threshold**: a wrong Discogs match silently
   corrupts every tag/filename downstream (§5's whole point is Discogs as
   ground truth) — worth a manual click to avoid.

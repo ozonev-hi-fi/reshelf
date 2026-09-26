@@ -71,11 +71,11 @@ Describe 'Initialize-TaggerSettings' {
         Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $false }
         Mock -ModuleName Tagger.Settings Read-Host { throw 'Read-Host should not be called.' }
 
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'move' -DataHome $dataHome
+        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DefaultSourceRoot 'D:\source' -CopyMode 'copy' -DataHome $dataHome
 
         $result.targetRoot | Should -Be $targetRoot
         $result.defaultSourceRoot | Should -Be 'D:\source'
-        $result.copyMode | Should -Be 'move'
+        $result.copyMode | Should -Be 'copy'
         $result.discogsTokenEncrypted | Should -Be ''
         (Join-Path $dataHome 'settings.json') | Should -Exist
     }
@@ -83,15 +83,16 @@ Describe 'Initialize-TaggerSettings' {
     It 'prompts only for fields left unsupplied, in an interactive host' {
         Mock -ModuleName Tagger.Settings Test-TaggerHostIsInteractive { $true }
         Mock -ModuleName Tagger.Settings Read-Host { 'D:\prompted-source' } -ParameterFilter { $Prompt -like 'Default source root*' }
-        Mock -ModuleName Tagger.Settings Read-Host { 'copy' } -ParameterFilter { $Prompt -like 'Copy mode*' }
         Mock -ModuleName Tagger.Settings Read-Host { New-EmptySecureString } -ParameterFilter { $Prompt -like 'Discogs Personal Access Token*' }
 
         $result = Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome
 
         $result.defaultSourceRoot | Should -Be 'D:\prompted-source'
+        # copyMode has no real choice any more ('move' was removed for source-file safety), so it's
+        # no longer prompted for - always 'copy' unless the caller explicitly passes -CopyMode.
         $result.copyMode | Should -Be 'copy'
         $result.discogsTokenEncrypted | Should -Be ''
-        Should -Invoke -ModuleName Tagger.Settings Read-Host -Times 3
+        Should -Invoke -ModuleName Tagger.Settings Read-Host -Times 2
     }
 
     It 'encrypts and stores a Discogs token entered at the prompt, round-trippable back to the original value' {
@@ -153,9 +154,13 @@ Describe 'Initialize-TaggerSettings' {
     }
 
     It 'accepts a mixed-case -CopyMode value and normalizes it to lowercase' {
-        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -CopyMode 'Move' -DataHome $dataHome
+        $result = Initialize-TaggerSettings -TargetRoot $targetRoot -CopyMode 'Copy' -DataHome $dataHome
 
-        $result.copyMode | Should -Be 'move'
+        $result.copyMode | Should -Be 'copy'
+    }
+
+    It 'rejects -CopyMode move - it was removed for source-file safety' {
+        { Initialize-TaggerSettings -TargetRoot $targetRoot -CopyMode 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
     }
 
     It 'throws when TargetRoot is not writable' {
@@ -229,6 +234,18 @@ Describe 'Get-TaggerSettings' {
 
         { Get-TaggerSettings -DataHome $dataHome } | Should -Throw '*does not match*'
     }
+
+    It 'overrides a stale on-disk dataHome with the resolved data home the file was actually read from' {
+        Initialize-TaggerSettings -TargetRoot $targetRoot -DataHome $dataHome | Out-Null
+        $settingsPath = Join-Path $dataHome 'settings.json'
+        $onDisk = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+        $onDisk.dataHome = 'C:\stale\path'
+        $onDisk | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $settingsPath -Encoding utf8
+
+        $result = Get-TaggerSettings -DataHome $dataHome
+
+        $result.dataHome | Should -Be $dataHome
+    }
 }
 
 Describe 'Set-TaggerSettings' {
@@ -261,9 +278,13 @@ Describe 'Set-TaggerSettings' {
     }
 
     It 'accepts a mixed-case copyMode value and normalizes it to lowercase' {
-        $result = Set-TaggerSettings -Key 'copyMode' -Value 'Move' -DataHome $dataHome
+        $result = Set-TaggerSettings -Key 'copyMode' -Value 'Copy' -DataHome $dataHome
 
-        $result.copyMode | Should -Be 'move'
+        $result.copyMode | Should -Be 'copy'
+    }
+
+    It 'rejects copyMode move - it was removed for source-file safety' {
+        { Set-TaggerSettings -Key 'copyMode' -Value 'move' -DataHome $dataHome } | Should -Throw '*no longer supported*'
     }
 
     It 're-validates writability when changing targetRoot' {
@@ -365,7 +386,8 @@ Describe 'Resume-TaggerSession' {
     It 'reports the next step for stage proposed' {
         Set-SessionStage -DataHome $dataHome -SessionId $session.sessionId -Stage 'proposed'
         $result = Resume-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
-        $result.NextCommand | Should -BeLike '*editing UI*'
+        $result.NextCommand | Should -BeLike '*ui start*'
+        $result.NextCommand | Should -BeLike "*mark-reviewed*$($session.sessionId)*"
     }
 
     It 'reports the next command for stage reviewed' {
@@ -388,18 +410,6 @@ Describe 'Resume-TaggerSession' {
 
     It 'throws for an unknown session id' {
         { Resume-TaggerSession -SessionId '2000-01-01-0001' -DataHome $dataHome } | Should -Throw '*not found*'
-    }
-}
-
-Describe 'Complete-TaggerSession' {
-    It 'sets stage to applied and persists it' {
-        $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-        $session = New-TaggerSession -SourceRoot 'D:\source' -DataHome $dataHome
-
-        $result = Complete-TaggerSession -SessionId $session.sessionId -DataHome $dataHome
-
-        $result.stage | Should -Be 'applied'
-        (Get-TaggerSession -SessionId $session.sessionId -DataHome $dataHome).stage | Should -Be 'applied'
     }
 }
 

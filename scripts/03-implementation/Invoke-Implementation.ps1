@@ -11,10 +11,13 @@ param(
     [string]$TargetRoot,
 
     [Parameter(Mandatory)]
-    [ValidateSet('copy', 'move')]
+    [ValidateSet('copy')]
     [string]$CopyMode,
 
-    [Parameter(Mandatory)]
+    # Not Mandatory: settings.default.json's documented default is "" (plan/01), meaning "resolve
+    # via PATH" - Invoke-TaggerImplementation (Tagger.Implementation.psm1) already falls back to
+    # plain 'ffmpeg' for an empty value, so this must accept one instead of failing parameter
+    # binding on the documented default.
     [string]$FfmpegPath,
 
     [string]$TagLibSharpPath,

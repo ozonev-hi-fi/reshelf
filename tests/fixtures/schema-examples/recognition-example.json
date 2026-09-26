@@ -22,6 +22,7 @@
               "detectedTrackNumberInDisc": 1,
               "inferredTrackOrder": false,
               "existingTags": { "artist": null, "album": null, "title": null },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 231,

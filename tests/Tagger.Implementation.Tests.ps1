@@ -8,6 +8,7 @@ BeforeAll {
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Settings.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
 
     # Tagger.Implementation.psm1 re-imports Common/Json/Settings/LossyTracking internally as part of
     # loading, which turns them into nested modules of Tagger.Implementation - PowerShell then hides
@@ -24,26 +25,6 @@ BeforeAll {
             param($sr, $dh)
             New-TaggerSession -SourceRoot $sr -DataHome $dh
         }
-    }
-
-    # plan/11 "-WhatIf ... compare directory listing before/after": one sorted line per file (path,
-    # size, last write time) under every root, plus a marker for whether each root exists, so any
-    # created, deleted or rewritten file anywhere - not just in the target - shows up as a diff.
-    # Files only, not folders: an intermediate folder's own LastWriteTimeUtc can tick forward on
-    # Windows for reasons that have nothing to do with this tool (background indexing, AV scans),
-    # so comparing it would make this assertion flaky without catching any write this tool didn't
-    # already make through one of its files. Same helper as in Tagger.Pipeline.Tests.ps1 (no shared
-    # test-helper module exists yet).
-    function Get-TreeSnapshot {
-        param([Parameter(Mandatory)] [string[]]$Path)
-        $lines = foreach ($root in $Path) {
-            if (-not (Test-Path -LiteralPath $root)) { "[$root] missing"; continue }
-            "[$root] exists"
-            Get-ChildItem -LiteralPath $root -Recurse -Force -File | ForEach-Object {
-                "[$root]$($_.FullName.Substring($root.Length))|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)"
-            }
-        }
-        return @($lines | Sort-Object)
     }
 
     function New-TestProposalFile {
@@ -108,7 +89,8 @@ BeforeAll {
             [bool]$IsCueVirtualTrack = $false,
             [string]$Artist = 'Some Band',
             [string]$Album = 'Some Album',
-            [int]$Year = 2010
+            [int]$Year = 2010,
+            [AllowNull()] $ExistingCoverArtPath = $null
         )
 
         [pscustomobject]@{
@@ -118,6 +100,7 @@ BeforeAll {
             detectedTrackNumberInDisc = $ProposedTrackNumber
             inferredTrackOrder        = $false
             existingTags              = [pscustomobject]@{ artist = $null; album = $null; title = $null }
+            existingCoverArtPath      = $ExistingCoverArtPath
             format                    = $Format
             isLossless                = $IsLossless
             durationSeconds           = 200.0
@@ -153,10 +136,22 @@ BeforeAll {
             [string]$DiscogsStatus = 'matched',
             [bool]$HumanReviewResolved = $true,
             [bool]$HumanReviewRequired = $false,
+            [bool]$HumanReviewRejected = $false,
             [string]$LossyAction = 'none',
             [bool]$IsLossy = $false,
             [string]$TargetAction = 'create-new',
-            [AllowNull()] $CoverCandidateUrl = $null
+            [AllowNull()] $CoverCandidateUrl = $null,
+            [string]$CoverSourceEdition = 'discogs'
+        )
+
+        # @(...) wraps the whole if/else, not just the true branch: an else branch that itself
+        # "returns" @() would otherwise collapse to $null once captured from the expression (writing
+        # zero objects to the output stream is indistinguishable from writing nothing) - fine for a
+        # PowerShell caller, but proposal.schema.json requires coverArt.candidates to be an array.
+        $coverCandidates = @(
+            if ($CoverCandidateUrl) {
+                [pscustomobject]@{ url = $CoverCandidateUrl; sourceEdition = $CoverSourceEdition; width = 600; height = 600 }
+            }
         )
 
         [pscustomobject]@{
@@ -175,10 +170,10 @@ BeforeAll {
             reviewReasons         = @()
             discogsMatch          = [pscustomobject]@{ status = $DiscogsStatus; selectedReleaseId = $null; candidates = @() }
             proposed              = [pscustomobject]@{ artistFolderName = $ArtistFolderName; releaseFolderName = $ReleaseFolderName; year = $Year; album = $Album }
-            coverArt              = [pscustomobject]@{ candidates = @(); chosenCandidateUrl = $CoverCandidateUrl; targetMaxDimension = 600 }
+            coverArt              = [pscustomobject]@{ candidates = $coverCandidates; chosenCandidateUrl = $CoverCandidateUrl; targetMaxDimension = 600 }
             lossyLossless         = [pscustomobject]@{ isLossy = $IsLossy; action = $LossyAction }
             targetAction          = $TargetAction
-            humanReview           = [pscustomobject]@{ required = $HumanReviewRequired; resolved = $HumanReviewResolved; notes = '' }
+            humanReview           = [pscustomobject]@{ required = $HumanReviewRequired; resolved = $HumanReviewResolved; rejected = $HumanReviewRejected; notes = '' }
         }
     }
 
@@ -242,6 +237,53 @@ Describe 'Invoke-TaggerFfmpegSplit / Invoke-TaggerFfmpegResize argument quoting'
         $script:capturedArgs | Should -Contain "`"$outputPath`""
         $script:capturedArgs | Should -Not -Contain $sourcePath
         $script:capturedArgs | Should -Not -Contain $outputPath
+    }
+}
+
+Describe 'Invoke-TaggerFfmpegSplit codec selection' {
+    It 'uses -c copy (stream copy) for a source that is neither .ape nor .flac' {
+        $script:capturedArgs = $null
+        Mock -ModuleName Tagger.Implementation Start-Process {
+            $script:capturedArgs = $ArgumentList
+            [pscustomobject]@{ ExitCode = 0 }
+        }
+
+        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.wav') -StartTimestamp '0.000' `
+            -OutputPath (Join-Path $TestDrive 'out.wav') -FfmpegPath 'ffmpeg.exe'
+
+        $script:capturedArgs | Should -Contain '-c'
+        $script:capturedArgs | Should -Contain 'copy'
+        $script:capturedArgs | Should -Not -Contain '-c:a'
+    }
+
+    It 'uses -c:a flac (re-encode) for an .ape source, since ffmpeg cannot write .ape' {
+        $script:capturedArgs = $null
+        Mock -ModuleName Tagger.Implementation Start-Process {
+            $script:capturedArgs = $ArgumentList
+            [pscustomobject]@{ ExitCode = 0 }
+        }
+
+        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.ape') -StartTimestamp '0.000' `
+            -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe'
+
+        $script:capturedArgs | Should -Contain '-c:a'
+        $script:capturedArgs | Should -Contain 'flac'
+        $script:capturedArgs | Should -Not -Contain 'copy'
+    }
+
+    It 'uses -c:a flac (re-encode) for a .flac source, since stream-copy does not recompute STREAMINFO duration after trimming' {
+        $script:capturedArgs = $null
+        Mock -ModuleName Tagger.Implementation Start-Process {
+            $script:capturedArgs = $ArgumentList
+            [pscustomobject]@{ ExitCode = 0 }
+        }
+
+        Invoke-TaggerFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '0.000' `
+            -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe'
+
+        $script:capturedArgs | Should -Contain '-c:a'
+        $script:capturedArgs | Should -Contain 'flac'
+        $script:capturedArgs | Should -Not -Contain 'copy'
     }
 }
 
@@ -344,6 +386,363 @@ Describe 'Resolve-TaggerTruncatedReleaseNames' {
     }
 }
 
+Describe 'Get-TaggerApplyLogPath / Get-TaggerApplyLog / Add-TaggerApplyLogEntry' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
+    }
+
+    It 'returns apply-log.json under the given data home' {
+        Get-TaggerApplyLogPath -DataHome $script:dataHome | Should -Be (Join-Path $script:dataHome 'apply-log.json')
+    }
+
+    It 'returns an empty array, not an error, when apply-log.json does not exist yet' {
+        @(Get-TaggerApplyLog -DataHome $script:dataHome).Count | Should -Be 0
+    }
+
+    It 'appends a new entry and writes a file that validates against the apply-log schema' {
+        $log = Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome
+
+        $log.Count | Should -Be 1
+        $logPath = Get-TaggerApplyLogPath -DataHome $script:dataHome
+        Test-Path -LiteralPath $logPath | Should -Be $true
+        # Test-TaggerJson comes from Tagger.Json.psm1, which Tagger.Implementation.psm1 re-imports
+        # internally as a nested module - that hides this file's own top-level copy of it (same
+        # shadowing gotcha the BeforeAll comment above documents for Set-TaggerJsonFile).
+        InModuleScope Tagger.Implementation -Parameters @{ p = $logPath } {
+            param($p)
+            Test-TaggerJson -SchemaName apply-log -Path $p
+        } | Should -Be $true
+
+        (Get-TaggerApplyLog -DataHome $script:dataHome).Count | Should -Be 1
+    }
+
+    It 'upserts (replaces, not appends) an existing entry for the same stableKey' {
+        Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
+            -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage 'boom' -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        $log = Add-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath 'C:\target\Some Band\2010 Album' -SourceFileSetHash 'deadbeef' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome
+
+        $log.Count | Should -Be 1
+        $log[0].status | Should -Be 'applied'
+        $log[0].errorMessage | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Test-TaggerReleaseNeedsApply' {
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:dataHome -Force | Out-Null
+        $script:targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:targetRoot -Force | Out-Null
+    }
+
+    It 'reports NeedsApply true with no prior apply-log entry' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-1' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'aaaaaaaaaaaaaaaa' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result.NeedsApply | Should -Be $true
+        $result.Hash | Should -Not -BeNullOrEmpty
+    }
+
+    It 'reports NeedsApply false when a matching applied entry with the same source-file-set hash already exists under the current TargetRoot' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-2' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'bbbbbbbbbbbbbbbb' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
+        New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
+
+        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-TaggerApplyLogEntry -StableKey 'bbbbbbbbbbbbbbbb' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $false
+    }
+
+    It 'reports NeedsApply true when the logged entry is applied but the source file set hash has changed' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-3' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'cccccccccccccccc' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
+        New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
+
+        Add-TaggerApplyLogEntry -StableKey 'cccccccccccccccc' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash 'stale-hash-that-cannot-match' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+    }
+
+    It 'reports NeedsApply true when the logged entry exists but its status is failed, even with a matching hash' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-4' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'dddddddddddddddd' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
+        New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
+
+        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-TaggerApplyLogEntry -StableKey 'dddddddddddddddd' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'failed' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage 'boom' -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+    }
+
+    It 'falls back to a null Hash and treats a missing/already-applied entry as not needing re-apply, when every source file is already gone' {
+        # Tagger never deletes source files, but they can still go missing for reasons outside its
+        # control (moved/deleted externally, drive offline, ...) - that's not an error on a re-run.
+        $missingSourcePath = Join-Path $TestDrive 'needs-apply-5' 'gone.flac'
+        $track = New-TestTrack -SourceFilePath $missingSourcePath -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'eeeeeeeeeeeeeeee' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $missingSourcePath) -Tracks @($track)
+
+        $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
+        New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
+
+        Add-TaggerApplyLogEntry -StableKey 'eeeeeeeeeeeeeeee' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash 'irrelevant' -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result.NeedsApply | Should -Be $false
+        $result.Hash | Should -BeNullOrEmpty
+    }
+
+    It 'reports NeedsApply true (source files gone) when there is no prior applied entry at all' {
+        $missingSourcePath = Join-Path $TestDrive 'needs-apply-6' 'gone.flac'
+        $track = New-TestTrack -SourceFilePath $missingSourcePath -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'ffffffffffffffff' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $missingSourcePath) -Tracks @($track)
+
+        $result = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $result.NeedsApply | Should -Be $true
+        $result.Hash | Should -BeNullOrEmpty
+    }
+
+    It 'reports NeedsApply true when the logged entry is applied with a matching hash but its targetPath is outside the current TargetRoot' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-7' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1a1a1a1a1a1a1a1' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        # A different, unrelated root - simulates targetRoot having changed (e.g. to a new drive)
+        # since this release was last applied. The folder exists, just not under $script:targetRoot.
+        $oldTargetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $appliedTargetPath = Join-Path $oldTargetRoot 'Some Band\2010 Some Album'
+        New-Item -ItemType Directory -Path $appliedTargetPath -Force | Out-Null
+
+        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-TaggerApplyLogEntry -StableKey 'a1a1a1a1a1a1a1a1' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+    }
+
+    It 'reports NeedsApply true when the logged entry is applied with a matching hash and TargetRoot, but the target folder was deleted' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'needs-apply-8' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'b2b2b2b2b2b2b2b2' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        # Never created on disk - simulates the applied release folder having been deleted/renamed
+        # outside Tagger since the log entry was written.
+        $appliedTargetPath = Join-Path $script:targetRoot 'Some Band\2010 Some Album'
+
+        $hash = (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).Hash
+        Add-TaggerApplyLogEntry -StableKey 'b2b2b2b2b2b2b2b2' -AppliedAtUtc (Get-Date).ToUniversalTime() -Status 'applied' `
+            -TargetPath $appliedTargetPath -SourceFileSetHash $hash -ErrorMessage $null -Truncated $false -DataHome $script:dataHome | Out-Null
+
+        (Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $script:targetRoot -DataHome $script:dataHome).NeedsApply | Should -Be $true
+    }
+}
+
+Describe 'ConvertFrom-TaggerCueTrackRanges' {
+    It 'sorts by proposedTrackNumber and pairs each track''s own cueTimestamp as Start with the next track''s as End' {
+        $t1 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '02 Second.flac' -ProposedTrackNumber 2 -CueTimestamp '00:03:00' -IsCueVirtualTrack $true
+        $t2 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '01 First.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true
+        $t3 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '03 Third.flac' -ProposedTrackNumber 3 -CueTimestamp '00:07:30' -IsCueVirtualTrack $true
+
+        # Deliberately out of order - the function must sort by proposedTrackNumber itself.
+        $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks @($t1, $t2, $t3)
+
+        $ranges.Count | Should -Be 3
+        $ranges[0].Track.proposedTrackNumber | Should -Be 1
+        $ranges[0].StartTimestamp | Should -Be '0.000'
+        $ranges[0].EndTimestamp | Should -Be '3.000'
+        $ranges[1].Track.proposedTrackNumber | Should -Be 2
+        $ranges[1].StartTimestamp | Should -Be '3.000'
+        $ranges[1].EndTimestamp | Should -Be '7.400'
+        $ranges[2].Track.proposedTrackNumber | Should -Be 3
+        $ranges[2].StartTimestamp | Should -Be '7.400'
+        $ranges[2].EndTimestamp | Should -BeNullOrEmpty
+    }
+
+    It 'returns a single range with a null EndTimestamp for a single-track cue release' {
+        $t1 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '01 Only.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true
+
+        $ranges = ConvertFrom-TaggerCueTrackRanges -Tracks @($t1)
+
+        $ranges.Count | Should -Be 1
+        $ranges[0].StartTimestamp | Should -Be '0.000'
+        $ranges[0].EndTimestamp | Should -BeNullOrEmpty
+    }
+
+    It 'returns an empty array, not an error, for an empty track list' {
+        @(ConvertFrom-TaggerCueTrackRanges -Tracks @()).Count | Should -Be 0
+    }
+}
+
+Describe 'ConvertTo-TaggerFfmpegSeconds' {
+    It 'converts MM:SS:FF cue frames (00-74) into fractional seconds, not HH:MM:SS' {
+        # The exact case from the reported bug: frames=73 is invalid as an HH:MM:SS seconds field
+        # (ffmpeg errored with "Invalid duration for option to: 09:26:73") but is a perfectly valid
+        # cue frame count and must convert cleanly.
+        ConvertTo-TaggerFfmpegSeconds '09:26:73' | Should -Be '566.973'
+        ConvertTo-TaggerFfmpegSeconds '00:00:00' | Should -Be '0.000'
+        # frames=45 is < 60, so the old buggy code silently accepted it as HH:MM:SS (3h12m45s)
+        # instead of erroring - this is the real-fixture case (Pink Floyd cue) that never surfaced
+        # as a visible failure but produced a wrongly-timed split.
+        ConvertTo-TaggerFfmpegSeconds '03:12:45' | Should -Be '192.600'
+    }
+}
+
+Describe 'Resolve-TaggerCompanionTargetPath' {
+    It 'keeps a nested companion''s relative subfolder path and sanitized file name unchanged' {
+        $releaseSource = Join-Path $TestDrive 'nested-companion' 'Some Band' '2010 Album'
+        $companionSource = Join-Path $releaseSource 'Scans' 'back cover.jpg'
+        $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'photo'; placement = 'nested' }
+
+        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+
+        $result | Should -Be (Join-Path 'C:\target\Some Band\2010 Album' 'Scans' 'back cover.jpg')
+    }
+
+    It 'uses the loose companion''s proposedFileName when present' {
+        $releaseSource = Join-Path $TestDrive 'loose-companion' 'Some Band' '2010 Album'
+        $companionSource = Join-Path $releaseSource '01 back.jpg'
+        $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'cover'; placement = 'loose'; proposedFileName = 'Booklet 01 back.jpg' }
+
+        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+
+        $result | Should -Be (Join-Path 'C:\target\Some Band\2010 Album' 'Booklet 01 back.jpg')
+    }
+
+    It 'falls back to computing a letter-first name from kind when proposedFileName is missing (older proposal.json)' {
+        $releaseSource = Join-Path $TestDrive 'loose-fallback' 'Some Band' '2010 Album'
+        $companionSource = Join-Path $releaseSource '01 back.jpg'
+        $companion = [pscustomobject]@{ sourcePath = $companionSource; kind = 'cover'; placement = 'loose' }
+
+        $result = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $releaseSource -ReleaseFolderPath 'C:\target\Some Band\2010 Album'
+
+        (Split-Path -Leaf $result) | Should -Not -BeLike '0*'
+        (Split-Path -Leaf $result) | Should -Match '^[A-Za-z]'
+    }
+}
+
+Describe 'Invoke-TaggerReleaseStaging' {
+    BeforeEach {
+        $script:stagingRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'staging'
+        $script:targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'target'
+
+        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegSplit { }
+        Mock -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
+        Mock -ModuleName Tagger.Implementation Invoke-TaggerCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
+        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+    }
+
+    It 'stages tracks and a nested companion, returning Success with the untruncated final target path' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-ok' 'Some Band' '2010 Some Album' '01 Track.flac')
+        $nestedCompanion = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-ok' 'Some Band' '2010 Some Album' 'Scans' 'front.jpg')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $companion = [pscustomobject]@{ sourcePath = $nestedCompanion; kind = 'cover'; placement = 'nested' }
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
+
+        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+
+        $result.Success | Should -Be $true
+        $result.Truncated | Should -Be $false
+        $result.ErrorMessage | Should -BeNullOrEmpty
+        $result.TargetPath | Should -Be (Join-Path $script:targetRoot 'Some Band' '2010 Some Album')
+
+        $stagedRelease = Join-Path $script:stagingRoot 'a1b2c3d4e5f60708'
+        Test-Path -LiteralPath (Join-Path $stagedRelease '01 Track.flac') | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $stagedRelease 'Scans' 'front.jpg') | Should -Be $true
+    }
+
+    It 'fails cleanly, without staging any file, when an included loose companion''s target name does not start with a letter' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-bad-name' 'Some Band' '2010 Some Album' '01 Track.flac')
+        $badCompanion = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-bad-name' 'Some Band' '2010 Some Album' '1 test.jpg')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $companion = [pscustomobject]@{ sourcePath = $badCompanion; kind = 'other'; placement = 'loose'; proposedFileName = '1 test.jpg' }
+        $release = New-TestReleaseDoc -StableKey 'b1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
+
+        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+
+        $result.Success | Should -Be $false
+        $result.ErrorMessage | Should -BeLike '*must start with a letter*'
+        Test-Path -LiteralPath (Join-Path $script:stagingRoot 'b1b2c3d4e5f60708') | Should -Be $false
+    }
+
+    It 'fails cleanly when a loose companion''s target name collides with a track''s target file name' {
+        # A real proposed track file name always starts with a digit (manifesto SS5 numbering),
+        # which would already trip the "must start with a letter" check above before ever reaching
+        # this one - so this uses a deliberately unusual letter-first track file name, purely to
+        # exercise this specific guard clause in isolation.
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-collide-track' 'Some Band' '2010 Some Album' 'source.flac')
+        $collidingCompanion = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-collide-track' 'Some Band' '2010 Some Album' 'dup.jpg')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName 'Track One.flac' -ProposedTitle 'Track'
+        $companion = [pscustomobject]@{ sourcePath = $collidingCompanion; kind = 'other'; placement = 'loose'; proposedFileName = 'Track One.flac' }
+        $release = New-TestReleaseDoc -StableKey 'c1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
+
+        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+
+        $result.Success | Should -Be $false
+        $result.ErrorMessage | Should -BeLike '*same as a track file name*'
+    }
+
+    It 'fails cleanly when two included companions would both be copied to the same target path' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-collide-companion' 'Some Band' '2010 Some Album' '01 Track.flac')
+        $companionA = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-collide-companion' 'Some Band' '2010 Some Album' 'a.jpg')
+        $companionB = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-collide-companion' 'Some Band' '2010 Some Album' 'b.jpg')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $c1 = [pscustomobject]@{ sourcePath = $companionA; kind = 'other'; placement = 'loose'; proposedFileName = 'Extra Same Name.jpg' }
+        $c2 = [pscustomobject]@{ sourcePath = $companionB; kind = 'other'; placement = 'loose'; proposedFileName = 'Extra Same Name.jpg' }
+        $release = New-TestReleaseDoc -StableKey 'd1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($c1, $c2)
+
+        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+
+        $result.Success | Should -Be $false
+        $result.ErrorMessage | Should -BeLike '*would both be copied*'
+    }
+
+    It 'skips a companion with include=false entirely - not copied, not counted toward a naming collision' {
+        $t1 = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-excluded' 'Some Band' '2010 Some Album' '01 Track.flac')
+        $excludedCompanion = New-TestAudioFile -Path (Join-Path $TestDrive 'stage-excluded' 'Some Band' '2010 Some Album' '1 bad name.jpg')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        # Invalid loose name, but excluded - must not fail the release nor be copied.
+        $companion = [pscustomobject]@{ sourcePath = $excludedCompanion; kind = 'other'; placement = 'loose'; proposedFileName = '1 bad name.jpg'; include = $false }
+        $release = New-TestReleaseDoc -StableKey 'e1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles @($companion)
+
+        $result = Invoke-TaggerReleaseStaging -Release $release -StagingRoot $script:stagingRoot -TargetRoot $script:targetRoot -FfmpegPath 'ffmpeg.exe'
+
+        $result.Success | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $script:stagingRoot 'e1b2c3d4e5f60708' '1 bad name.jpg') | Should -Be $false
+    }
+}
+
 Describe 'Invoke-TaggerImplementation' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -380,6 +779,24 @@ Describe 'Invoke-TaggerImplementation' {
         Test-Path -LiteralPath $script:targetRoot | Should -Be $false
         Test-Path -LiteralPath (Join-Path $script:dataHome 'apply-log.json') | Should -Be $false
         Should -Invoke -ModuleName Tagger.Implementation Set-TaggerAudioTags -Times 0
+    }
+
+    It 'falls back to plain "ffmpeg" (PATH resolution) when -FfmpegPath is omitted or empty, instead of failing on the empty settings.json default' {
+        # settings.default.json's ffmpegPath is "" by design (plan/01's Definition of Done: ffmpeg
+        # resolves via PATH or a documented full path) - scripts/Tagger.ps1's apply command passes
+        # that straight through, so this must not throw a parameter-binding error for an empty string.
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath '' -DataHome $script:dataHome
+        $result.Applied | Should -Be 1
     }
 
     It 'produces the correct final layout, calls Set-TaggerAudioTags per track with the expected tags/cover, cleans up working files, and writes a correct apply-log entry' {
@@ -435,6 +852,68 @@ Describe 'Invoke-TaggerImplementation' {
         $entry.errorMessage | Should -BeNullOrEmpty
         $entry.truncated | Should -Be $false
         $entry.sourceFileSetHash | Should -Not -BeNullOrEmpty
+    }
+
+    It 'leaves a track''s picture tag untouched when the chosen cover is "existing (embedded)" and that track already has one' {
+        $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+            $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; CoverImagePath = $CoverImagePath })
+        }
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $embeddedCoverPath = Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg'
+        New-Item -ItemType Directory -Path (Split-Path $embeddedCoverPath) -Force | Out-Null
+        Set-Content -LiteralPath $embeddedCoverPath -Value 'existing-cover-bytes' -NoNewline
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track' -ExistingCoverArtPath $embeddedCoverPath
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) `
+            -CoverCandidateUrl $embeddedCoverPath -CoverSourceEdition 'existing (embedded)'
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        # The resize step still runs (a gap-fill copy might be needed by another track in the
+        # release), but this specific track already had its own cover, so it gets $null - Set-
+        # TaggerAudioTags then leaves that file's Tag.Pictures completely untouched.
+        Should -Invoke -ModuleName Tagger.Implementation Invoke-TaggerFfmpegResize -Times 1
+        $script:audioTagsCalls.Count | Should -Be 1
+        $script:audioTagsCalls[0].CoverImagePath | Should -BeNullOrEmpty
+    }
+
+    It 'gap-fills the found cover into a track that has no embedded cover of its own' {
+        $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags {
+            $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; CoverImagePath = $CoverImagePath })
+        }
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $embeddedCoverPath = Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg'
+        New-Item -ItemType Directory -Path (Split-Path $embeddedCoverPath) -Force | Out-Null
+        Set-Content -LiteralPath $embeddedCoverPath -Value 'existing-cover-bytes' -NoNewline
+
+        # This track has no ExistingCoverArtPath of its own - unlike the previous test.
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) `
+            -CoverCandidateUrl $embeddedCoverPath -CoverSourceEdition 'existing (embedded)'
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        $script:audioTagsCalls.Count | Should -Be 1
+        $expectedCoverPath = Join-Path $script:targetRoot '.tagger-staging' 'a1b2c3d4e5f60708' '.tagger-cover-resized.jpg'
+        $script:audioTagsCalls[0].CoverImagePath | Should -Be $expectedCoverPath
     }
 
     It 'keeps a loose companion literally named cover.jpg (manifesto section 4.5) alongside a downloaded Discogs cover' {
@@ -626,6 +1105,86 @@ Describe 'Invoke-TaggerImplementation' {
         $okEntry.status | Should -Be 'applied'
     }
 
+    It 'fails with an error naming the real missing source file, not a confusing later-step message, when a source file was deleted after proposing' {
+        # Found against a real collection: the user deleted a source folder after 'propose' had
+        # already recorded it. Copy-Item's default (non-terminating) error let execution continue
+        # as if the copy succeeded, so the release used to fail two steps later at tag-writing with
+        # a message blaming the missing *staged* file - accurate, but not the real cause.
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        Remove-Item -LiteralPath (Split-Path $t1) -Recurse -Force
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+        $result.Applied | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album') | Should -Be $false
+
+        $entry = Get-TaggerApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
+        $entry.status | Should -Be 'failed'
+        $entry.errorMessage | Should -BeLike "*$([System.Management.Automation.WildcardPattern]::Escape($t1))*"
+        $entry.errorMessage | Should -Not -BeLike '*.tagger-staging*'
+    }
+
+    It 'sets the session stage to applied when everything succeeds, partially-applied when something fails, and applied (not partially-applied) when releases are only skipped' {
+        # All-succeed case.
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Band One' '2010 Album One' '01 Track.flac')
+        $releaseOk = New-TestReleaseDoc -StableKey 'aaaaaaaaaaaaaaaa' -ArtistFolderName 'Band One' -ReleaseFolderName '2010 Album One' `
+            -Year 2010 -Album 'Album One' -SourceFolderPath (Split-Path $t1) -Tracks @((New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'))
+
+        $okSession = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $okProposalPath = Join-Path $script:dataHome 'sessions' $okSession.sessionId 'proposal.json'
+        New-TestProposalFile -Path $okProposalPath -Document (New-TestProposalDocument -SessionId $okSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseOk))
+
+        Invoke-TaggerImplementation -SessionId $okSession.sessionId -ProposalPath $okProposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome | Out-Null
+
+        (Get-TaggerSession -SessionId $okSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
+
+        # One failure among others.
+        $t2 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Band Two' '2011 Album Two' '01 Track.flac')
+        $failingKey = 'bbbbbbbbbbbbbbbb'
+        $releaseFail = New-TestReleaseDoc -StableKey $failingKey -ArtistFolderName 'Band Two' -ReleaseFolderName '2011 Album Two' `
+            -Year 2011 -Album 'Album Two' -SourceFolderPath (Split-Path $t2) -Tracks @((New-TestTrack -SourceFilePath $t2 -ProposedFileName '01 Track.flac'))
+        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { throw 'tag write boom' }
+
+        $failSession = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $failProposalPath = Join-Path $script:dataHome 'sessions' $failSession.sessionId 'proposal.json'
+        New-TestProposalFile -Path $failProposalPath -Document (New-TestProposalDocument -SessionId $failSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseFail))
+
+        Invoke-TaggerImplementation -SessionId $failSession.sessionId -ProposalPath $failProposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome | Out-Null
+
+        (Get-TaggerSession -SessionId $failSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'partially-applied'
+
+        # Skipped-only (an unresolved release, not included) must stay 'applied', not 'partially-applied' -
+        # a skip is "nothing to do yet", not a failure (plan/10).
+        Mock -ModuleName Tagger.Implementation Set-TaggerAudioTags { }
+        $t3 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Band Three' '2012 Album Three' '01 Track.flac')
+        $releaseUnresolved = New-TestReleaseDoc -StableKey 'cccccccccccccccc' -ArtistFolderName 'Band Three' -ReleaseFolderName '2012 Album Three' `
+            -Year 2012 -Album 'Album Three' -SourceFolderPath (Split-Path $t3) -Tracks @((New-TestTrack -SourceFilePath $t3 -ProposedFileName '01 Track.flac')) `
+            -DiscogsStatus 'ambiguous' -HumanReviewResolved $false -HumanReviewRequired $true
+
+        $skipSession = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $skipProposalPath = Join-Path $script:dataHome 'sessions' $skipSession.sessionId 'proposal.json'
+        New-TestProposalFile -Path $skipProposalPath -Document (New-TestProposalDocument -SessionId $skipSession.sessionId -SourceRoot $script:sourceRoot -Releases @($releaseUnresolved))
+
+        $skipResult = Invoke-TaggerImplementation -SessionId $skipSession.sessionId -ProposalPath $skipProposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+        $skipResult.Skipped | Should -Be 1
+        $skipResult.Failed | Should -Be 0
+
+        (Get-TaggerSession -SessionId $skipSession.sessionId -DataHome $script:dataHome).stage | Should -Be 'applied'
+    }
+
     It 'marks the lossy-tracking entry upgraded on a replace-existing release' {
         $existingLossyFile = New-TestAudioFile -Path (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.mp3') -Content 'old-lossy'
         Add-TestLossyEntry -StableKey 'a1b2c3d4e5f60708' -Artist 'Some Band' -Album 'Some Album' -Year 2010 `
@@ -706,7 +1265,29 @@ Describe 'Invoke-TaggerImplementation' {
         (Get-Content -LiteralPath $existingTargetFile -Raw) | Should -Be 'new-source-content'
     }
 
-    It 'also deletes companion source files (not just tracks) in move mode' {
+    It 'never applies a rejected release, even with -IncludeUnresolved' {
+        # A rejection is a deliberate, permanent "never apply this" decision (e.g. one of two
+        # different physical pressings of the same album) - unlike a merely unresolved release,
+        # -IncludeUnresolved must not override it.
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) `
+            -HumanReviewResolved $true -HumanReviewRejected $true
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
+        $result.Rejected | Should -Be 1
+        $result.Applied | Should -Be 0
+        $result.Skipped | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album') | Should -Be $false
+    }
+
+    It 'never deletes source tracks or companion files - source is always read-only' {
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $nestedCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'Scans' 'front.jpg')
 
@@ -720,7 +1301,7 @@ Describe 'Invoke-TaggerImplementation' {
         New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
 
         $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
-            -CopyMode move -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
 
         $result.Applied | Should -Be 1
 
@@ -728,8 +1309,10 @@ Describe 'Invoke-TaggerImplementation' {
         Test-Path -LiteralPath (Join-Path $finalReleasePath '01 Track.flac') | Should -Be $true
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'Scans' 'front.jpg') | Should -Be $true
 
-        Test-Path -LiteralPath $t1 | Should -Be $false
-        Test-Path -LiteralPath $nestedCompanion | Should -Be $false
+        # A former "move mode" used to delete these after a successful commit - removed entirely
+        # after an incident destroyed source releases with no other backup. Source must survive.
+        Test-Path -LiteralPath $t1 | Should -Be $true
+        Test-Path -LiteralPath $nestedCompanion | Should -Be $true
     }
 
     Context 'cue-sheet release' {
@@ -765,7 +1348,7 @@ Describe 'Invoke-TaggerImplementation' {
             }
         }
 
-        It 'splits once per cue track and deletes the cue/audio source only after a successful run' {
+        It 'splits once per cue track and never deletes the cue/audio source - source is always read-only' {
             $release = New-TestCueRelease
             $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
             $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
@@ -776,13 +1359,15 @@ Describe 'Invoke-TaggerImplementation' {
 
             $result.Applied | Should -Be 1
             $script:splitCalls.Count | Should -Be 2
-            $script:splitCalls[0].Start | Should -Be '00:00:00'
-            $script:splitCalls[0].End | Should -Be '03:12:45'
-            $script:splitCalls[1].Start | Should -Be '03:12:45'
+            $script:splitCalls[0].Start | Should -Be '0.000'
+            $script:splitCalls[0].End | Should -Be '192.600'
+            $script:splitCalls[1].Start | Should -Be '192.600'
             $script:splitCalls[1].End | Should -BeNullOrEmpty
 
-            Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.cue') | Should -Be $false
-            Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.flac') | Should -Be $false
+            # A former design deleted the single-file+cue source as "superseded by the split" -
+            # removed entirely after an incident destroyed source releases with no other backup.
+            Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.cue') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.flac') | Should -Be $true
 
             $finalReleasePath = Join-Path $script:targetRoot 'Pink Floyd' '1994 Live In Concert'
             Test-Path -LiteralPath (Join-Path $finalReleasePath '01 Speak To Me.flac') | Should -Be $true
@@ -806,7 +1391,7 @@ Describe 'Invoke-TaggerImplementation' {
         }
     }
 
-    It 'places a loose companion with a digit-prefixed name and preserves a nested companion subfolder' {
+    It 'falls back to a kind-word-prefixed name for a loose companion from a pre-existing proposal with no proposedFileName, and preserves a nested companion subfolder' {
         $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
         $looseCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01-photo.jpg')
         $nestedCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'Scans' 'front.jpg')
@@ -829,7 +1414,106 @@ Describe 'Invoke-TaggerImplementation' {
         $result.Applied | Should -Be 1
 
         $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
-        Test-Path -LiteralPath (Join-Path $finalReleasePath '_01-photo.jpg') | Should -Be $true
+        # No proposedFileName was supplied (simulating a proposal.json written before that field
+        # existed), so Resolve-TaggerCompanionTargetPath falls back to computing a letter-first name
+        # from the companion's kind ('photo' -> 'Photo ...') - never the old '_' digit prefix, which
+        # would sort *before* tracks in Explorer and so broke manifesto SS4.5.
+        Test-Path -LiteralPath (Join-Path $finalReleasePath 'Photo 01-photo.jpg') | Should -Be $true
         Test-Path -LiteralPath (Join-Path $finalReleasePath 'Scans' 'front.jpg') | Should -Be $true
+    }
+
+    It 'uses proposedFileName for a loose companion when the proposal supplies one' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $looseCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01-photo.jpg')
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $companions = @(
+            [pscustomobject]@{ sourcePath = $looseCompanion; kind = 'photo'; placement = 'loose'; include = $true; proposedFileName = 'Backstage Photo.jpg' }
+        )
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles $companions
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+        Test-Path -LiteralPath (Join-Path $finalReleasePath 'Backstage Photo.jpg') | Should -Be $true
+    }
+
+    It 'excludes a companion with include = $false from copying, and always leaves its source in place' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $excludedCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'Booklet skip.jpg')
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $companions = @(
+            [pscustomobject]@{ sourcePath = $excludedCompanion; kind = 'booklet'; placement = 'loose'; include = $false; proposedFileName = 'Booklet skip.jpg' }
+        )
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles $companions
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+        Test-Path -LiteralPath (Join-Path $finalReleasePath 'Booklet skip.jpg') | Should -Be $false
+        # An excluded companion is never copied - and, like every source file, its own source is
+        # never deleted either.
+        Test-Path -LiteralPath $excludedCompanion | Should -Be $true
+    }
+
+    It 'fails the release with a clear message when an included loose companion name does not start with a letter' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $badCompanion = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'photo.jpg')
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $companions = @(
+            [pscustomobject]@{ sourcePath = $badCompanion; kind = 'photo'; placement = 'loose'; include = $true; proposedFileName = '01 photo.jpg' }
+        )
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles $companions
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+        $result.Applied | Should -Be 0
+    }
+
+    It 'fails the release when two included companions would resolve to the same target path' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+        $companionA = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'a.jpg')
+        $companionB = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' 'b.jpg')
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $companions = @(
+            [pscustomobject]@{ sourcePath = $companionA; kind = 'other'; placement = 'loose'; include = $true; proposedFileName = 'Extra Same.jpg' }
+            [pscustomobject]@{ sourcePath = $companionB; kind = 'other'; placement = 'loose'; include = $true; proposedFileName = 'Extra Same.jpg' }
+        )
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) -CompanionFiles $companions
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-TaggerImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+        $result.Applied | Should -Be 0
     }
 }

@@ -109,6 +109,36 @@ function Add-TaggerApplyLogEntry {
     return $log
 }
 
+function Test-TaggerAppliedEntryValid {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        [object]$Entry,
+
+        [Parameter(Mandatory)]
+        [string]$TargetRoot
+    )
+
+    # An 'applied' log entry only means "already done" if it still points at somewhere under
+    # *this* run's TargetRoot and that folder is actually still there - otherwise (TargetRoot was
+    # changed since, e.g. moved to a new drive/folder, or the folder was deleted/renamed outside
+    # Tagger) the log is stale and the release still needs a real apply, even though its recorded
+    # status/hash look fine. OrdinalIgnoreCase because Windows paths are case-insensitive.
+    # Shared between Test-TaggerReleaseNeedsApply (this module, plan/08) and
+    # Resolve-TaggerTargetComparison (Tagger.EditProposal.psm1, plan/06/10) - both need the exact
+    # same "is this apply-log entry still trustworthy" answer, just for different callers.
+    if (-not $Entry) { return $false }
+    if ($Entry.status -ne 'applied') { return $false }
+
+    $normalizedRoot = $TargetRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $Entry.targetPath.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+
+    return [bool](Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $Entry.targetPath))
+}
+
 function Test-TaggerReleaseNeedsApply {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -116,32 +146,57 @@ function Test-TaggerReleaseNeedsApply {
         [Parameter(Mandatory)]
         [object]$Release,
 
+        [Parameter(Mandatory)]
+        [string]$TargetRoot,
+
         [string]$DataHome
     )
 
     $entry = Get-TaggerApplyLogEntry -StableKey $Release.stableKey -DataHome $DataHome
+    $appliedEntryStillValid = Test-TaggerAppliedEntryValid -Entry $entry -TargetRoot $TargetRoot
 
     try {
         $sourcePaths = @($Release.tracks.sourceFilePath | Select-Object -Unique)
         $currentHash = Get-TaggerFileSetHash -FilePaths $sourcePaths
     }
     catch {
-        # Source files can legitimately be gone by the time of a later re-run: a cue release's
-        # single source file is always deleted after a successful split (manifesto SS4.4), and a
-        # 'move'-mode release's sources are deleted after a successful commit. Their absence,
-        # paired with a recorded 'applied' entry, is exactly what an already-completed release
-        # looks like on rerun - not a reason to recompute a hash that has nothing left to hash.
+        # Tagger never deletes or modifies source files (they are always read-only to it) - but a
+        # source file can still legitimately go missing by the time of a later re-run for reasons
+        # outside Tagger's control (the user moved/deleted it, an external drive went offline,
+        # ...). Its absence, paired with a still-valid 'applied' entry, is exactly what an
+        # already-completed release looks like on rerun - not a reason to recompute a hash that
+        # has nothing left to hash.
         # No Hash is returned here (there's nothing left to hash) - the caller falls back to its
         # own sentinel for the rare case this release still needs to be (re-)applied anyway.
-        $needsApply = -not ($entry -and $entry.status -eq 'applied')
+        $needsApply = -not $appliedEntryStillValid
         return [pscustomobject]@{ NeedsApply = $needsApply; Hash = $null }
     }
 
-    $needsApply = (-not $entry) -or ($entry.status -ne 'applied') -or ($entry.sourceFileSetHash -ne $currentHash)
+    $needsApply = (-not $appliedEntryStillValid) -or ($entry.sourceFileSetHash -ne $currentHash)
     return [pscustomobject]@{ NeedsApply = $needsApply; Hash = $currentHash }
 }
 
 # --- Cue splitting -------------------------------------------------------------------
+
+function ConvertTo-TaggerFfmpegSeconds {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$CueTimestamp
+    )
+
+    # Feeding the raw MM:SS:FF cue timestamp straight to ffmpeg's -ss/-to (as this code used to)
+    # makes ffmpeg read it as HH:MM:SS instead - minutes become hours, seconds become minutes,
+    # frames become seconds. That's silently wrong whenever frames < 60 (ffmpeg just accepts the
+    # bogus value), and loudly wrong (an invalid duration) whenever frames >= 60. Converting to
+    # plain seconds here sidesteps the field-meaning mismatch entirely.
+    $totalSeconds = ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $CueTimestamp
+
+    # ffmpeg requires a dot decimal separator regardless of the machine's regional settings -
+    # InvariantCulture avoids a comma showing up here on e.g. a Ukrainian-locale Windows box.
+    return $totalSeconds.ToString('F3', [System.Globalization.CultureInfo]::InvariantCulture)
+}
 
 function ConvertFrom-TaggerCueTrackRanges {
     [CmdletBinding()]
@@ -155,10 +210,10 @@ function ConvertFrom-TaggerCueTrackRanges {
     $sorted = @($Tracks | Sort-Object -Property proposedTrackNumber)
 
     $result = for ($i = 0; $i -lt $sorted.Count; $i++) {
-        $endTimestamp = if ($i -lt ($sorted.Count - 1)) { $sorted[$i + 1].cueTimestamp } else { $null }
+        $endTimestamp = if ($i -lt ($sorted.Count - 1)) { ConvertTo-TaggerFfmpegSeconds $sorted[$i + 1].cueTimestamp } else { $null }
         [pscustomobject]@{
             Track          = $sorted[$i]
-            StartTimestamp = $sorted[$i].cueTimestamp
+            StartTimestamp = ConvertTo-TaggerFfmpegSeconds $sorted[$i].cueTimestamp
             EndTimestamp   = $endTimestamp
         }
     }
@@ -192,7 +247,28 @@ function Invoke-TaggerFfmpegSplit {
     $ffmpegArgs = [System.Collections.Generic.List[string]]::new()
     $ffmpegArgs.AddRange([string[]]@('-hide_banner', '-loglevel', 'error', '-y', '-i', "`"$SourceAudioPath`"", '-ss', $StartTimestamp))
     if ($EndTimestamp) { $ffmpegArgs.AddRange([string[]]@('-to', $EndTimestamp)) }
-    $ffmpegArgs.AddRange([string[]]@('-c', 'copy', "`"$OutputPath`""))
+
+    # ffmpeg ships an ape *decoder* but no ape encoder/muxer (Monkey's Audio's own licensing terms
+    # historically blocked third-party encoders) - stream-copying (-c copy) into a .ape output
+    # always fails. An .ape source must be re-encoded instead; Tagger.Recognition.psm1 already
+    # points these tracks' proposedFileName at .flac for the same reason, so the codec below must
+    # match that container.
+    #
+    # A .flac source must ALSO re-encode, for a different reason: a -c copy remux only copies the
+    # packets that fall inside -ss/-to, but it does not recompute the FLAC STREAMINFO block's
+    # total_samples field, which still reflects the original, untrimmed file. Every split track
+    # then reports the whole album's duration instead of its own - correct audio content, wrong
+    # duration metadata. Re-encoding forces ffmpeg to recompute total_samples from the samples it
+    # actually writes. Every other source format (e.g. .wav, .mp3) keeps the lossless,
+    # zero-recompression copy - their own container headers are rewritten correctly on remux.
+    $sourceExtension = [System.IO.Path]::GetExtension($SourceAudioPath).ToLowerInvariant()
+    if ($sourceExtension -in @('.ape', '.flac')) {
+        $ffmpegArgs.AddRange([string[]]@('-c:a', 'flac'))
+    }
+    else {
+        $ffmpegArgs.AddRange([string[]]@('-c', 'copy'))
+    }
+    $ffmpegArgs.Add("`"$OutputPath`"")
 
     $process = Start-Process -FilePath $FfmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
@@ -314,9 +390,8 @@ function Resolve-TaggerCompanionTargetPath {
         [string]$ReleaseFolderPath
     )
 
-    $fileNameSan = (ConvertTo-SafeFileName -Name (Split-Path -Leaf $CompanionFile.sourcePath)).SafeName
-
     if ($CompanionFile.placement -eq 'nested') {
+        $fileNameSan = (ConvertTo-SafeFileName -Name (Split-Path -Leaf $CompanionFile.sourcePath)).SafeName
         $relative = Get-TaggerRelativePath -SourceRoot $ReleaseSourceFolderPath -Path $CompanionFile.sourcePath
         $relativeDir = Split-Path -Parent $relative
         if ($relativeDir) {
@@ -325,10 +400,17 @@ function Resolve-TaggerCompanionTargetPath {
         return Join-Path $ReleaseFolderPath $fileNameSan
     }
 
-    # Loose: manifesto SS4.5 - companions must sort after numbered tracks, so a sanitized name
-    # that would otherwise start with a digit gets a fixed '_' prefix.
-    if ($fileNameSan -match '^\d') {
-        $fileNameSan = "_$fileNameSan"
+    # Loose: manifesto SS4.5 - a loose companion must start with a letter, so alphabetical sorting
+    # in a file explorer always puts numbered tracks first. The Edit Proposal step
+    # (New-TaggerCompanionProposal) already computed the letter-first proposedFileName - a '_'
+    # prefix (the old behavior here) sorts *before* digits in Explorer, which is the opposite of
+    # what SS4.5 wants, so it's never used. A $null/missing proposedFileName only happens for a
+    # proposal.json written before this field existed - fall back to computing it fresh here.
+    $fileNameSan = if ($CompanionFile.proposedFileName) {
+        (ConvertTo-SafeFileName -Name $CompanionFile.proposedFileName).SafeName
+    }
+    else {
+        (Get-TaggerLooseCompanionFileName -FileName (Split-Path -Leaf $CompanionFile.sourcePath) -Kind $CompanionFile.kind).FileName
     }
     return Join-Path $ReleaseFolderPath $fileNameSan
 }
@@ -530,6 +612,34 @@ function Invoke-TaggerReleaseStaging {
     $truncated = $truncatedLayout.Truncated
 
     try {
+        # Validate companion targets before touching any file - a naming problem here (an
+        # included loose companion that doesn't start with a letter, per manifesto SS4.5, or two
+        # files that would land on the same target path) must fail this release cleanly rather
+        # than leave a half-written staging folder or silently overwrite one file with another.
+        $includedCompanions = @($Release.companionFiles | Where-Object { $_.include -ne $false })
+        $trackFileNameSet = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]@($truncatedLayout.TrackFileNames.Values), [System.StringComparer]::OrdinalIgnoreCase)
+        $companionTargetPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+        foreach ($companion in $includedCompanions) {
+            $companionTargetPath = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
+                -ReleaseFolderPath $stagingReleasePath
+
+            if ($companion.placement -eq 'loose') {
+                $targetFileName = Split-Path -Leaf $companionTargetPath
+                if (-not (Test-TaggerLooseCompanionFileName -FileName $targetFileName)) {
+                    throw "Companion file '$($companion.sourcePath)' has an invalid target name '$targetFileName' - a loose companion must start with a letter (manifesto SS4.5). Rename it in the Editing UI."
+                }
+                if ($trackFileNameSet.Contains($targetFileName)) {
+                    throw "Companion file '$($companion.sourcePath)' would be named '$targetFileName', the same as a track file name. Rename it in the Editing UI."
+                }
+            }
+
+            if (-not $companionTargetPaths.Add($companionTargetPath)) {
+                throw "Two companion files would both be copied to '$companionTargetPath'. Rename one of them in the Editing UI."
+            }
+        }
+
         if ($PSCmdlet.ShouldProcess($stagingReleasePath, 'Create staging folder')) {
             New-Item -ItemType Directory -Path (ConvertTo-TaggerLongPath -Path $stagingReleasePath) -Force | Out-Null
         }
@@ -544,7 +654,7 @@ function Invoke-TaggerReleaseStaging {
                     Invoke-TaggerFfmpegSplit -SourceAudioPath $Release.cueSheet.audioFilePath -StartTimestamp $range.StartTimestamp `
                         -EndTimestamp $range.EndTimestamp -OutputPath $outputPath -FfmpegPath $FfmpegPath
                 }
-                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $range.Track.tags })
+                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $range.Track.tags; HasExistingCover = [bool]$range.Track.existingCoverArtPath })
             }
 
             # Defensive: the ffmpeg wrapper already throws on a non-zero exit code, so this only
@@ -561,9 +671,13 @@ function Invoke-TaggerReleaseStaging {
             foreach ($track in $Release.tracks) {
                 $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$track.proposedFileName]
                 if ($PSCmdlet.ShouldProcess($outputPath, 'Copy track')) {
-                    Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-TaggerLongPath -Path $outputPath) -Force
+                    # -ErrorAction Stop: Copy-Item's default is a non-terminating error, which would
+                    # otherwise let execution continue as if the copy succeeded - the release would
+                    # then fail two steps later at tag-writing, with a message blaming the missing
+                    # staged file instead of the real cause (the source file is gone).
+                    Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-TaggerLongPath -Path $outputPath) -Force -ErrorAction Stop
                 }
-                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $track.tags })
+                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $track.tags; HasExistingCover = [bool]$track.existingCoverArtPath })
             }
         }
 
@@ -589,13 +703,21 @@ function Invoke-TaggerReleaseStaging {
             }
         }
 
+        # 'existing (embedded)' means "keep whatever's already embedded" - a track that already had
+        # its own cover (HasExistingCover) is left untouched instead of having $coverOutputPath
+        # re-embedded into it; a track with no cover still gets $coverOutputPath so the release
+        # doesn't end up with some tracks illustrated and others blank.
+        $chosenCoverCandidate = $Release.coverArt.candidates | Where-Object { $_.url -eq $Release.coverArt.chosenCandidateUrl } | Select-Object -First 1
+        $isKeepExistingCover = [bool]($chosenCoverCandidate -and $chosenCoverCandidate.sourceEdition -eq 'existing (embedded)')
+
         foreach ($info in $stagedTrackInfos) {
+            $coverPathForTrack = if ($isKeepExistingCover -and $info.HasExistingCover) { $null } else { $coverOutputPath }
             if ($PSCmdlet.ShouldProcess($info.FilePath, 'Write tags via TagLibSharp')) {
-                Set-TaggerAudioTags -Path $info.FilePath -Tags $info.Tags -CoverImagePath $coverOutputPath -TagLibSharpPath $TagLibSharpPath
+                Set-TaggerAudioTags -Path $info.FilePath -Tags $info.Tags -CoverImagePath $coverPathForTrack -TagLibSharpPath $TagLibSharpPath
             }
         }
 
-        foreach ($companion in @($Release.companionFiles)) {
+        foreach ($companion in $includedCompanions) {
             $companionTargetPath = Resolve-TaggerCompanionTargetPath -CompanionFile $companion -ReleaseSourceFolderPath $Release.sourceFolderPath `
                 -ReleaseFolderPath $stagingReleasePath
             if ($PSCmdlet.ShouldProcess($companionTargetPath, 'Copy companion file')) {
@@ -603,7 +725,7 @@ function Invoke-TaggerReleaseStaging {
                 if ($companionParentDir -and -not (Test-Path -LiteralPath (ConvertTo-TaggerLongPath -Path $companionParentDir))) {
                     New-Item -ItemType Directory -Path (ConvertTo-TaggerLongPath -Path $companionParentDir) -Force | Out-Null
                 }
-                Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $companion.sourcePath) -Destination (ConvertTo-TaggerLongPath -Path $companionTargetPath) -Force
+                Copy-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $companion.sourcePath) -Destination (ConvertTo-TaggerLongPath -Path $companionTargetPath) -Force -ErrorAction Stop
             }
         }
 
@@ -670,10 +792,9 @@ function Invoke-TaggerImplementation {
         [string]$TargetRoot,
 
         [Parameter(Mandatory)]
-        [ValidateSet('copy', 'move')]
+        [ValidateSet('copy')]
         [string]$CopyMode,
 
-        [Parameter(Mandatory)]
         [string]$FfmpegPath,
 
         [string]$TagLibSharpPath,
@@ -684,6 +805,11 @@ function Invoke-TaggerImplementation {
     )
 
     if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+
+    # Mirrors Import-TaggerTagLibSharp's own fallback just above this module in the import chain:
+    # an empty settings.ffmpegPath (the documented default, plan/01) means "resolve via PATH", not
+    # "no ffmpeg" - 'ffmpeg' here lets Start-Process find it on PATH, same as any other CLI call to it.
+    if (-not $FfmpegPath) { $FfmpegPath = 'ffmpeg' }
 
     if (-not (Test-TaggerJson -SchemaName proposal -Path $ProposalPath)) {
         throw "Proposal document at '$ProposalPath' does not match the proposal schema."
@@ -696,8 +822,19 @@ function Invoke-TaggerImplementation {
     $appliedCount = 0
     $skippedCount = 0
     $failedCount = 0
+    $rejectedCount = 0
 
     foreach ($release in $releases) {
+        # A rejected release is a human's deliberate, permanent "never apply this" decision (e.g.
+        # one of two different physical pressings of the same album that only turned out to
+        # collide this late) - unlike a merely unresolved release, -IncludeUnresolved must never
+        # override it: that flag means "apply what hasn't been looked at yet", not "override an
+        # explicit no". Checked, and counted, separately from the ordinary skip path below.
+        if ($release.humanReview.rejected) {
+            $rejectedCount++
+            continue
+        }
+
         # humanReview.required/.resolved is the one general "does a human need to look at this
         # before apply touches it" gate (set by Tagger.EditProposal.psm1's New-TaggerProposedRelease
         # for every reason it flags a release, not just an ambiguous Discogs match) - gating on it
@@ -709,7 +846,7 @@ function Invoke-TaggerImplementation {
             continue
         }
 
-        $needsApplyResult = Test-TaggerReleaseNeedsApply -Release $release -DataHome $DataHome
+        $needsApplyResult = Test-TaggerReleaseNeedsApply -Release $release -TargetRoot $TargetRoot -DataHome $DataHome
         if (-not $needsApplyResult.NeedsApply) {
             $skippedCount++
             continue
@@ -718,10 +855,10 @@ function Invoke-TaggerImplementation {
         $stagingReleasePath = Join-Path $stagingRoot $release.stableKey
         $finalTargetPath = Join-Path $TargetRoot $release.proposed.artistFolderName $release.proposed.releaseFolderName
         # Test-TaggerReleaseNeedsApply already computed this hash once for the skip decision - reuse
-        # it instead of hashing every source file again. It can be $null when the source files were
-        # legitimately gone (cue/move-mode cleanup from a prior run) but the release still needs
-        # (re-)applying anyway (e.g. a previously-failed attempt) - fall back to the same
-        # "can't compute one" sentinel used elsewhere in this function for that case.
+        # it instead of hashing every source file again. It can be $null when the source files went
+        # missing for reasons outside Tagger's control (Tagger itself never deletes them) but the
+        # release still needs (re-)applying anyway (e.g. a previously-failed attempt) - fall back to
+        # the same "can't compute one" sentinel used elsewhere in this function for that case.
         $sourceHash = if ($needsApplyResult.Hash) { $needsApplyResult.Hash } else { 'unavailable-source-missing' }
 
         # Reset before every iteration - the outer catch below falls back to this when a failure
@@ -738,28 +875,13 @@ function Invoke-TaggerImplementation {
                     Move-TaggerStagedReleaseToTarget -StagingPath $stagingReleasePath -FinalPath $stagingResult.TargetPath | Out-Null
                 }
 
-                if ($release.cueSheet) {
-                    # Manifesto SS4.4: the single-file+cue source is fully superseded by the split,
-                    # in both copy and move mode - unlike ordinary per-track sources, which 'copy'
-                    # mode otherwise leaves untouched.
-                    if ($PSCmdlet.ShouldProcess($release.cueSheet.cueFilePath, 'Delete cue-sheet source files')) {
-                        Remove-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $release.cueSheet.cueFilePath) -Force -ErrorAction SilentlyContinue
-                        Remove-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $release.cueSheet.audioFilePath) -Force -ErrorAction SilentlyContinue
-                    }
-                }
-                elseif ($CopyMode -eq 'move') {
-                    if ($PSCmdlet.ShouldProcess($release.stableKey, 'Delete moved source track and companion files')) {
-                        foreach ($sourcePath in @($release.tracks.sourceFilePath | Select-Object -Unique)) {
-                            Remove-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $sourcePath) -Force -ErrorAction SilentlyContinue
-                        }
-                        # Companions (covers, booklets, photos) are staged/copied alongside the
-                        # tracks - without also deleting these, a "move" leaves them behind even
-                        # though every track was removed, which isn't actually a move.
-                        foreach ($companionPath in @($release.companionFiles.sourcePath | Select-Object -Unique)) {
-                            Remove-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $companionPath) -Force -ErrorAction SilentlyContinue
-                        }
-                    }
-                }
+                # Source files are always read-only to Tagger: nothing here ever deletes or modifies
+                # a source path, cue-sheet or otherwise, no matter what CopyMode says. A prior
+                # design deleted the cue-sheet source after a successful split, and deleted moved
+                # per-track/companion sources in a "move" copy mode - both were removed after an
+                # incident destroyed source releases that had no other backup. CopyMode now only
+                # ever accepts 'copy' (enforced in Tagger.Settings.psm1); the parameter and its
+                # ValidateSet stay for backward-compatible callers, but nothing branches on it here.
 
                 if ($release.lossyLossless.action -eq 'replace-existing') {
                     if ($PSCmdlet.ShouldProcess($release.stableKey, 'Mark lossy-tracking entry upgraded')) {
@@ -818,10 +940,10 @@ function Invoke-TaggerImplementation {
         Set-TaggerSessionStage -SessionId $SessionId -Stage $finalStage -DataHome $DataHome | Out-Null
     }
 
-    return [pscustomobject]@{ Applied = $appliedCount; Skipped = $skippedCount; Failed = $failedCount }
+    return [pscustomobject]@{ Applied = $appliedCount; Skipped = $skippedCount; Failed = $failedCount; Rejected = $rejectedCount }
 }
 
 Export-ModuleMember -Function Get-TaggerApplyLogPath, Get-TaggerApplyLog, Get-TaggerApplyLogEntry, Add-TaggerApplyLogEntry, `
-    Test-TaggerReleaseNeedsApply, ConvertFrom-TaggerCueTrackRanges, Invoke-TaggerFfmpegSplit, Invoke-TaggerFfmpegResize, `
-    Invoke-TaggerCoverDownload, Set-TaggerAudioTags, Resolve-TaggerCompanionTargetPath, Resolve-TaggerTruncatedReleaseNames, `
-    Invoke-TaggerReleaseStaging, Move-TaggerStagedReleaseToTarget, Invoke-TaggerImplementation
+    Test-TaggerAppliedEntryValid, Test-TaggerReleaseNeedsApply, ConvertTo-TaggerFfmpegSeconds, ConvertFrom-TaggerCueTrackRanges, Invoke-TaggerFfmpegSplit, `
+    Invoke-TaggerFfmpegResize, Invoke-TaggerCoverDownload, Set-TaggerAudioTags, Resolve-TaggerCompanionTargetPath, `
+    Resolve-TaggerTruncatedReleaseNames, Invoke-TaggerReleaseStaging, Move-TaggerStagedReleaseToTarget, Invoke-TaggerImplementation

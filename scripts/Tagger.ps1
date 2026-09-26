@@ -110,7 +110,8 @@ switch ($Command) {
         try {
             $result = Invoke-TaggerEditProposal -SessionId $SessionId -RecognitionPath $session.recognitionPath `
                 -TargetRoot $settings.targetRoot -ReleaseFolderTemplate $settings.namingTemplates.releaseFolder `
-                -TrackFileTemplate $settings.namingTemplates.trackFile -CoverMaxDimension $settings.coverMaxDimension `
+                -TrackFileTemplate $settings.namingTemplates.trackFile -TrackNumberPadWidth $settings.trackNumberPadWidth `
+                -CoverMaxDimension $settings.coverMaxDimension `
                 -CacheTtlDays $settings.cacheTtlDays -RateLimitPerMinute $settings.rateLimitPerMinute -DataHome $dataHome
         }
         catch {
@@ -146,6 +147,7 @@ switch ($Command) {
             SessionId = $SessionId
             Applied   = $result.Applied
             Skipped   = $result.Skipped
+            Rejected  = $result.Rejected
             Failed    = $result.Failed
         } | Format-List
     }
@@ -178,8 +180,6 @@ switch ($Command) {
             default { throw "Unknown 'lossy' subcommand '$SubCommand'. Use list, ignore, or mark-upgraded." }
         }
     }
-    default {
-        Write-Warning "'$Command' is not implemented yet - see plan/05, 06, 08, or 09."
-        exit 1
-    }
+    # No 'default' branch here: $Command's own [ValidateSet] above already rejects any value not
+    # listed in this switch before the script body ever runs, so one could never be reached.
 }

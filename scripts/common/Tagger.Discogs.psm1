@@ -4,6 +4,10 @@ Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
 
 $script:DiscogsRequestTimestamps = [System.Collections.Generic.List[datetime]]::new()
 $script:DiscogsLowRemainingSignal = $false
+# Tracks which data homes have already been pruned this process (a HashSet, not a single bool, so
+# a test suite that exercises several sandboxed data homes in one process still prunes each of
+# them once - a real run only ever has one, so this collapses to "once per run" in practice).
+$script:DiscogsCachePrunedDataHomes = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
 function Get-DiscogsToken {
     [CmdletBinding()]
@@ -13,15 +17,29 @@ function Get-DiscogsToken {
         [string]$DataHome
     )
 
-    if ($env:DISCOGS_ACCESS_TOKEN) {
-        return $env:DISCOGS_ACCESS_TOKEN
+    # Read settings.json once, up front: it names the env var to check (discogsTokenEnvVar,
+    # defaulting to DISCOGS_ACCESS_TOKEN when unset or the file doesn't exist yet) and, further
+    # below, may itself hold the DPAPI-encrypted token - both come from the same file.
+    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    $settingsPath = Join-Path $DataHome 'settings.json'
+    $settings = $null
+    $tokenEnvVarName = 'DISCOGS_ACCESS_TOKEN'
+    if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+        $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+        if ($settings.discogsTokenEnvVar) { $tokenEnvVarName = $settings.discogsTokenEnvVar }
+    }
+
+    $envValue = [Environment]::GetEnvironmentVariable($tokenEnvVarName)
+    if ($envValue) {
+        return $envValue
     }
 
     if (Test-Path -LiteralPath $EnvFilePath -PathType Leaf) {
+        $envVarPattern = "^(?:export\s+)?$([regex]::Escape($tokenEnvVarName))\s*=\s*(.+)$"
         foreach ($line in Get-Content -LiteralPath $EnvFilePath) {
             $trimmed = $line.Trim()
             if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
-            if ($trimmed -match '^(?:export\s+)?DISCOGS_ACCESS_TOKEN\s*=\s*(.+)$') {
+            if ($trimmed -match $envVarPattern) {
                 $rawValue = $Matches[1].Trim()
 
                 if ($rawValue.Length -ge 2 -and ($rawValue[0] -eq '"' -or $rawValue[0] -eq "'")) {
@@ -45,16 +63,11 @@ function Get-DiscogsToken {
     # Third, friendlier fallback: a token entered via 'settings init' or 'settings set-token' and
     # stored DPAPI-encrypted in settings.json. Checked last so nothing already working today (the
     # env var or .env file) changes priority.
-    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
-    $settingsPath = Join-Path $DataHome 'settings.json'
-    if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
-        $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
-        if ($settings.discogsTokenEncrypted) {
-            return Unprotect-TaggerSecret -EncryptedText $settings.discogsTokenEncrypted
-        }
+    if ($settings -and $settings.discogsTokenEncrypted) {
+        return Unprotect-TaggerSecret -EncryptedText $settings.discogsTokenEncrypted
     }
 
-    throw "Discogs access token not found. Checked environment variable 'DISCOGS_ACCESS_TOKEN', .env file at '$EnvFilePath', and settings.json's discogsTokenEncrypted at '$settingsPath'. Set one of these, or run 'Tagger.ps1 settings set-token'."
+    throw "Discogs access token not found. Checked environment variable '$tokenEnvVarName', .env file at '$EnvFilePath', and settings.json's discogsTokenEncrypted at '$settingsPath'. Set one of these, or run 'Tagger.ps1 settings set-token'."
 }
 
 function Get-DiscogsQueryPair {
@@ -91,6 +104,59 @@ function Get-DiscogsCacheKey {
     $hashBytes = [System.Security.Cryptography.SHA256]::HashData($bytes)
 
     return [System.Convert]::ToHexString($hashBytes).ToLowerInvariant()
+}
+
+function Remove-DiscogsExpiredCache {
+    # The cache in Invoke-DiscogsRequest below is a RE-RUN cache, not an archive: it exists to
+    # avoid re-querying and re-throttling on a retry after a failed 'propose', or across repeated
+    # 'propose' runs while tuning overrides.json (plan/12 milestone 3) - not to look up the same
+    # release again months later. A stale entry that's never re-queried was previously left on
+    # disk forever (only overwritten if the exact same request happened again); this deletes it
+    # for real instead, so the cache folder doesn't grow without bound across the tool's life.
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$DataHome,
+
+        [int]$CacheTtlDays = 30
+    )
+
+    $cacheDir = Join-Path $DataHome 'cache' 'discogs'
+    if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
+        return 0
+    }
+
+    $deletedCount = 0
+    foreach ($file in Get-ChildItem -LiteralPath $cacheDir -Filter '*.json' -File -ErrorAction SilentlyContinue) {
+        $isExpired = ((Get-Date) - $file.LastWriteTime).TotalDays -ge $CacheTtlDays
+        $isCorrupt = $false
+        if (-not $isExpired) {
+            # A corrupt entry (truncated by a crash mid-write, etc.) is worse than a missing one -
+            # Invoke-DiscogsRequest's own cache-read would ConvertFrom-Json it right back into a
+            # throwing state on the next read, so it's removed here too, not just skipped.
+            try {
+                Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json | Out-Null
+            }
+            catch {
+                $isCorrupt = $true
+            }
+        }
+
+        if ($isExpired -or $isCorrupt) {
+            try {
+                Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
+                $deletedCount++
+            }
+            catch {
+                # A file locked by another process, etc. - cache cleanup must never fail a real
+                # propose run over a stale entry it couldn't delete this time.
+                Write-Warning "Could not delete stale Discogs cache entry '$($file.FullName)': $($_.Exception.Message)"
+            }
+        }
+    }
+
+    return $deletedCount
 }
 
 function Wait-DiscogsRateLimit {
@@ -151,6 +217,10 @@ function Invoke-DiscogsRequest {
 
     if (-not $DataHome) {
         $DataHome = Resolve-TaggerDataHome
+    }
+
+    if ($script:DiscogsCachePrunedDataHomes.Add($DataHome)) {
+        Remove-DiscogsExpiredCache -DataHome $DataHome -CacheTtlDays $CacheTtlDays | Out-Null
     }
 
     $cacheKey = Get-DiscogsCacheKey -Path $Path -Query $Query
@@ -234,4 +304,4 @@ function Invoke-DiscogsRequest {
     return $result.Body
 }
 
-Export-ModuleMember -Function Get-DiscogsToken, Invoke-DiscogsRequest
+Export-ModuleMember -Function Get-DiscogsToken, Invoke-DiscogsRequest, Remove-DiscogsExpiredCache

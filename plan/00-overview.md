@@ -22,8 +22,8 @@ Cases, Manual Setup (if any), Definition of Done.
 | 8 | [08-implementation-module.md](08-implementation-module.md) | Apply approved changes to real files | 3, 7, 9 | done |
 | 9 | [09-lossy-lossless-tracking.md](09-lossy-lossless-tracking.md) | Lossy-release ledger, used by steps 6 and 8 | 3 | done |
 | 10 | [10-error-handling-and-edge-cases.md](10-error-handling-and-edge-cases.md) | Re-runs, duplicates, path limits, invalid characters, ambiguous folders | 3, 5, 8 | done |
-| 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | in progress |
-| 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 | not started |
+| 11 | [11-testing-and-verification-strategy.md](11-testing-and-verification-strategy.md) | Test fixtures, unit tests, verification approach per module | 1–10 | done |
+| 12 | [12-build-order-and-milestones.md](12-build-order-and-milestones.md) | Suggested order to actually build and test this incrementally | 1–11 | in progress |
 
 ## Pipeline
 
@@ -42,7 +42,7 @@ source folder(s)
       |                                (before/after names+tags,
       |                                 cover candidates, lossy flags)
       v
-[07 editing UI] (human review, File System Access API)
+[07 editing UI] (human review, served by a local server, see [07](07-editing-ui-module.md))
       |                                approved proposal.json
       v
 [08 implementation] -------------------> target folders
@@ -53,10 +53,10 @@ source folder(s)
 ## Tech stack
 
 - **Scripting**: PowerShell 7 (`pwsh`), one module per concern under `scripts/`.
-- **Tagging/cover art reading and writing**: TagLibSharp (.NET library, loaded in-process via `Add-Type`) — see [05](05-recognition-module.md) for why it was originally chosen for reading over mp3tag, and [08](08-implementation-module.md) for why writing moved to it too (zero manual setup, already a dependency, no external process).
+- **Tagging/cover art reading and writing**: TagLibSharp (.NET library, loaded in-process via `Add-Type`) — used for both reading (step 05) and writing (step 08); mp3tag was the original plan for writing but was superseded (see [08](08-implementation-module.md)) since TagLibSharp already covered reading and needed no external process or manual Action-Group setup.
 - **Cover resize + single-file/cue splitting** (both lossless and lossy): ffmpeg (`-c copy`, no re-encoding). cuetools/shntool/mp3splt were considered but dropped — no reliable winget/Windows install path, and ffmpeg alone covers both cases.
 - **Metadata source of truth**: Discogs API.
-- **Editing UI**: plain HTML/JS static site, File System Access API, no framework, no build step, served by a tiny local static file server (needed only because the API requires a secure context — not an application backend).
+- **Editing UI**: plain HTML/JS static site, no framework, no build step, served by `Tagger.ps1 ui start` (`Start-TaggerUiServer.ps1`) — a small localhost server exposing a read/write API for `proposal.json`. Originally planned around the browser's File System Access API (Chromium-only, needs a folder picker); superseded by the server-backed design so the UI works in any modern browser with no picker at all (see [07](07-editing-ui-module.md)).
 - **Data documents**: JSON, validated with PowerShell's `Test-Json` against schemas in `schemas/`.
 - **Data location**: all generated/user data lives in a git-ignored `.data/` folder inside the repo by default (override via `TAGGER_HOME`).
 

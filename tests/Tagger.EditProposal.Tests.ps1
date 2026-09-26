@@ -8,6 +8,11 @@ BeforeAll {
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.LossyTracking.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.EditProposal.psm1" -Force
+    # Imported directly, after Tagger.EditProposal.psm1 (which nests it internally to reach
+    # Get-TaggerApplyLogEntry) - same "import it again, last" fix already relied on above for
+    # Common/Json/LossyTracking, restoring Add-TaggerApplyLogEntry to this script's top-level scope
+    # so the apply-log fixture helper below can call it directly.
+    Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
 
     $script:SearchFixture = Get-Content -LiteralPath "$PSScriptRoot/fixtures/discogs-responses/search-response.json" -Raw | ConvertFrom-Json
     $script:ReleaseFixture = Get-Content -LiteralPath "$PSScriptRoot/fixtures/discogs-responses/release-response.json" -Raw | ConvertFrom-Json
@@ -124,6 +129,33 @@ BeforeAll {
         return $Path
     }
 
+    # Writes a fake apply-log.json entry directly, standing in for a real 'Tagger.ps1 apply' run -
+    # used to test Resolve-TaggerTargetComparison's re-run skip check (Tagger.EditProposal.psm1)
+    # without actually running Invoke-TaggerImplementation.
+    function Add-TestApplyLogEntry {
+        param(
+            [Parameter(Mandatory)] [string]$StableKey,
+            [Parameter(Mandatory)] [string]$TargetPath,
+            [Parameter(Mandatory)] [string]$SourceFileSetHash,
+            [string]$Status = 'applied',
+            [string]$DataHome = $script:dataHome
+        )
+
+        Add-TaggerApplyLogEntry -StableKey $StableKey -AppliedAtUtc (Get-Date) -Status $Status -TargetPath $TargetPath `
+            -SourceFileSetHash $SourceFileSetHash -ErrorMessage $null -Truncated $false -DataHome $DataHome | Out-Null
+    }
+
+    # Same name|size hash Get-TaggerFileSetHash (Tagger.Common.psm1) computes - kept private to that
+    # module, so re-derived here via InModuleScope rather than exported just for this test file.
+    function Get-TestFileSetHash {
+        param([Parameter(Mandatory)] [string[]]$FilePaths)
+
+        return InModuleScope Tagger.EditProposal -Parameters @{ paths = $FilePaths } {
+            param($paths)
+            Get-TaggerFileSetHash -FilePaths $paths
+        }
+    }
+
     function New-TestTrack {
         param(
             [Parameter(Mandatory)]
@@ -136,7 +168,8 @@ BeforeAll {
             [int]$DetectedTrackNumberInDisc = 1,
             [string]$ExistingTitle,
             [string]$Format = 'flac',
-            [bool]$IsLossless = $true
+            [bool]$IsLossless = $true,
+            [AllowNull()] $ExistingCoverArtPath = $null
         )
 
         [pscustomobject]@{
@@ -146,6 +179,7 @@ BeforeAll {
             detectedTrackNumberInDisc = $DetectedTrackNumberInDisc
             inferredTrackOrder        = $false
             existingTags              = @{ artist = $null; album = $null; title = $ExistingTitle }
+            existingCoverArtPath      = $ExistingCoverArtPath
             format                    = $Format
             isLossless                = $IsLossless
             durationSeconds           = 200.0
@@ -238,6 +272,15 @@ Describe 'Get-TaggerProposalPadWidth (private)' {
             Get-TaggerProposalPadWidth -TotalTrackCount 100 | Should -Be 3
             Get-TaggerProposalPadWidth -TotalTrackCount 999 | Should -Be 3
             Get-TaggerProposalPadWidth -TotalTrackCount 1000 | Should -Be 4
+        }
+    }
+
+    It 'uses -MinWidth as a floor, not a fixed value, when settings.trackNumberPadWidth is raised' {
+        InModuleScope Tagger.EditProposal {
+            Get-TaggerProposalPadWidth -TotalTrackCount 1 -MinWidth 3 | Should -Be 3
+            Get-TaggerProposalPadWidth -TotalTrackCount 9 -MinWidth 3 | Should -Be 3
+            # A track count that already needs more digits than MinWidth still wins.
+            Get-TaggerProposalPadWidth -TotalTrackCount 1000 -MinWidth 3 | Should -Be 4
         }
     }
 }
@@ -398,6 +441,54 @@ Describe 'Build-TaggerTargetIndex and Test-TaggerTargetReleaseExists' {
     }
 }
 
+Describe 'New-TaggerCompanionProposal (private)' {
+    It 'adds include = $true and leaves proposedFileName $null for a nested companion' {
+        InModuleScope Tagger.EditProposal {
+            $companions = @(
+                [pscustomobject]@{ sourcePath = 'C:\src\Scans\front.jpg'; kind = 'cover'; placement = 'nested' }
+            )
+            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result.Companions.Count | Should -Be 1
+            $result.Companions[0].include | Should -Be $true
+            $result.Companions[0].proposedFileName | Should -BeNullOrEmpty
+            $result.RequiresReview | Should -Be $false
+        }
+    }
+
+    It 'proposes the same name unchanged for a loose companion that already starts with a letter' {
+        InModuleScope Tagger.EditProposal {
+            $companions = @(
+                [pscustomobject]@{ sourcePath = 'C:\src\folder.jpg'; kind = 'cover'; placement = 'loose' }
+            )
+            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result.Companions[0].proposedFileName | Should -Be 'folder.jpg'
+            $result.RequiresReview | Should -Be $false
+            $result.Notes | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'renames a digit-starting loose companion with its kind word prefix, flags review, and adds a note' {
+        InModuleScope Tagger.EditProposal {
+            $companions = @(
+                [pscustomobject]@{ sourcePath = 'C:\src\01 back.jpg'; kind = 'booklet'; placement = 'loose' }
+            )
+            $result = New-TaggerCompanionProposal -CompanionFiles $companions
+            $result.Companions[0].proposedFileName | Should -Be 'Booklet 01 back.jpg'
+            $result.RequiresReview | Should -Be $true
+            $result.Notes.Count | Should -Be 1
+            $result.Notes[0] | Should -BeLike "*01 back.jpg*renamed*Booklet 01 back.jpg*"
+        }
+    }
+
+    It 'handles an empty companion list' {
+        InModuleScope Tagger.EditProposal {
+            $result = New-TaggerCompanionProposal -CompanionFiles @()
+            $result.Companions.Count | Should -Be 0
+            $result.RequiresReview | Should -Be $false
+        }
+    }
+}
+
 Describe 'Invoke-TaggerEditProposal' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -539,6 +630,40 @@ Describe 'Invoke-TaggerEditProposal' {
             $releaseResult.tracks[1].proposedTitle | Should -BeLike '*feat*'
         }
 
+        It 'keeps invalid filesystem characters in tags while sanitizing folder and file names' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'AC-DC' '1980 Back In Black' '01 - Track.flac')
+
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track.flac' -DetectedTrackNumberInDisc 1 -ExistingTitle 'Rock/Roll: Live')
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'AC/DC' -Album 'Back In Black / Live Edition' -Year 1980) `
+                -RecognizedTitle 'Back In Black / Live Edition' -RecognizedYear 1980 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'AC/DC'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+                [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            # Folder/file names must be filesystem-safe.
+            $releaseResult.proposed.artistFolderName | Should -Be 'AC_DC'
+            $releaseResult.proposed.releaseFolderName | Should -Be '1980 Back In Black _ Live Edition'
+            $releaseResult.tracks[0].proposedFileName | Should -Be '01 Rock_Roll_ Live.flac'
+
+            # Tags (and proposedTitle) must keep the original, unsanitized text.
+            $releaseResult.proposed.album | Should -Be 'Back In Black / Live Edition'
+            $releaseResult.tracks[0].tags.artist | Should -Be 'AC/DC'
+            $releaseResult.tracks[0].tags.albumArtist | Should -Be 'AC/DC'
+            $releaseResult.tracks[0].tags.album | Should -Be 'Back In Black / Live Edition'
+            $releaseResult.tracks[0].tags.title | Should -Be 'Rock/Roll: Live'
+            $releaseResult.tracks[0].proposedTitle | Should -Be 'Rock/Roll: Live'
+        }
+
         It 'forces review and falls back to source titles on a Discogs tracklist count mismatch' {
             $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
             $t2 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '02 - Paranoid Android.flac')
@@ -590,6 +715,57 @@ Describe 'Invoke-TaggerEditProposal' {
             $releaseResult.proposed.album | Should -Be 'Unrelated Album'
             $releaseResult.humanReview.required | Should -Be $true
         }
+
+        It 'pads track file numbers to -TrackNumberPadWidth even when the track count itself would only need 2 digits' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Track One.flac')
+            $t2 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '02 - Track Two.flac')
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track One.flac' -DetectedTrackNumberInDisc 1)
+                (New-TestTrack -SourceFilePath $t2 -OriginalFileName '02 - Track Two.flac' -DetectedTrackNumberInDisc 2)
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010) `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+                [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot `
+                -DataHome $script:dataHome -TrackNumberPadWidth 3
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.tracks[0].proposedFileName | Should -Be '001 Track One.flac'
+            $releaseResult.tracks[1].proposedFileName | Should -Be '002 Track Two.flac'
+        }
+
+        It 'sanitizes a reserved-device-name artist and a trailing-dot album title, and records both substitutions in humanReview.notes' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'CON' '2010 Some Album.' '01 - Only Track.flac')
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Only Track.flac' -DetectedTrackNumberInDisc 1))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'CON' -Album 'Some Album.' -Year 2010) `
+                -RecognizedTitle 'Some Album.' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'CON'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+                [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.proposed.artistFolderName | Should -Be 'CON_'
+            $releaseResult.proposed.releaseFolderName | Should -Be '2010 Some Album'
+            $releaseResult.humanReview.notes | Should -BeLike "*reserved device name 'CON' suffixed with '_'*"
+            $releaseResult.humanReview.notes | Should -BeLike '*trailing dot/space removed*'
+
+            Test-ProposalDocumentJson -Path (Join-Path $script:dataHome 'sessions' 'test-session' 'proposal.json') | Should -Be $true
+        }
     }
 
     Context 'cover art' {
@@ -615,6 +791,65 @@ Describe 'Invoke-TaggerEditProposal' {
             $releaseResult.coverArt.candidates.Count | Should -Be 1
             $releaseResult.coverArt.candidates[0].sourceEdition | Should -Be 'existing (local)'
             $releaseResult.coverArt.chosenCandidateUrl | Should -Be $coverPath
+
+            # New-TaggerCompanionProposal must be wired into the release doc: the loose 'cover.jpg'
+            # already starts with a letter, so it's included as-is with no companion-triggered note.
+            # (humanReview.required is already true here for an unrelated reason - no Discogs match.)
+            $releaseResult.companionFiles.Count | Should -Be 1
+            $releaseResult.companionFiles[0].include | Should -Be $true
+            $releaseResult.companionFiles[0].proposedFileName | Should -Be 'cover.jpg'
+        }
+
+        It 'defaults to an already-embedded cover even when Discogs also has images' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
+            $embeddedCoverPath = New-TestAudioFile -Path (Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg') -Content 'not-a-real-image'
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Airbag.flac' -DetectedTrackNumberInDisc 1 -ExistingCoverArtPath $embeddedCoverPath))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Radiohead' -Album 'OK Computer' -Year 1997) `
+                -RecognizedTitle 'OK Computer' -RecognizedYear 1997 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+                if ($Path -eq '/database/search') { return $script:SearchFixture }
+                return $script:ReleaseFixture
+            }
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            # Discogs matched and has an image (release-response.json fixture), but the track already
+            # carries its own embedded cover - that wins by default so a good existing cover isn't
+            # silently replaced. The Discogs image still shows up as a candidate the user can switch to.
+            $releaseResult.discogsMatch.status | Should -Be 'matched'
+            $releaseResult.coverArt.candidates.sourceEdition | Should -Contain 'existing (embedded)'
+            $releaseResult.coverArt.candidates.Count | Should -Be 2
+            $releaseResult.coverArt.chosenCandidateUrl | Should -Be $embeddedCoverPath
+        }
+
+        It 'renames a digit-starting loose companion and forces review, end to end through Invoke-TaggerEditProposal' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Only Track.flac')
+            $photoPath = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 back.jpg')
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Only Track.flac' -DetectedTrackNumberInDisc 1))
+            $companions = @([pscustomobject]@{ sourcePath = $photoPath; kind = 'photo'; placement = 'loose' })
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010) `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks -CompanionFiles $companions
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Tagger.EditProposal Invoke-DiscogsRequest {
+                [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.companionFiles[0].proposedFileName | Should -Be 'Photo 01 back.jpg'
+            $releaseResult.humanReview.required | Should -Be $true
+            $releaseResult.humanReview.notes | Should -BeLike '*renamed*Photo 01 back.jpg*'
         }
 
         It 'has empty candidates and forces review when no cover art is available anywhere' {
@@ -675,6 +910,75 @@ Describe 'Invoke-TaggerEditProposal' {
 
             $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
             $result.artists[0].releases[0].targetAction | Should -Be 'skip-existing-identical'
+        }
+
+        It 'proposes skip-existing-identical via a valid apply-log entry, even though the target file was renamed and re-tagged' {
+            # Regression test: Implementation (plan/08) renames every target file and rewrites its
+            # tags on apply, so its name|size hash can never equal the source's again - without the
+            # apply-log fallback below, this would incorrectly fall through to 'conflict'.
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Track.flac') -Content 'source-content'
+            $targetReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+            New-TestAudioFile -Path (Join-Path $targetReleasePath '01 Track.flac') -Content 'source-content-plus-written-tags' | Out-Null
+
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track.flac' -DetectedTrackNumberInDisc 1))
+            $stableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010
+            $release = New-TestRelease -StableKey $stableKey `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $sourceHash = Get-TestFileSetHash -FilePaths @($t1)
+            Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash $sourceHash
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result.artists[0].releases[0].targetAction | Should -Be 'skip-existing-identical'
+        }
+
+        It 'proposes conflict, not skip-existing-identical, when the apply-log entry no longer matches the current source' {
+            # The source changed after the recorded apply (a different file content/hash) - the
+            # stale apply-log entry must not force a skip; the ordinary target-hash comparison
+            # below correctly reports conflict instead.
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Track.flac') -Content 'changed-source-content'
+            $targetReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+            New-TestAudioFile -Path (Join-Path $targetReleasePath '01 Track.flac') -Content 'stale-target-content' | Out-Null
+
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track.flac' -DetectedTrackNumberInDisc 1))
+            $stableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010
+            $release = New-TestRelease -StableKey $stableKey `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            # Recorded hash deliberately doesn't match $t1's current content.
+            Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash 'stale-hash-from-a-prior-apply'
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result.artists[0].releases[0].targetAction | Should -Be 'conflict'
+        }
+
+        It 'proposes conflict, not skip-existing-identical, when the apply-log entry is a failed attempt' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 - Track.flac') -Content 'source-content'
+            $targetReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+            New-TestAudioFile -Path (Join-Path $targetReleasePath '01 Track.flac') -Content 'partially-written-content' | Out-Null
+
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track.flac' -DetectedTrackNumberInDisc 1))
+            $stableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010
+            $release = New-TestRelease -StableKey $stableKey `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $sourceHash = Get-TestFileSetHash -FilePaths @($t1)
+            Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash $sourceHash -Status 'failed'
+
+            $result = Invoke-TaggerEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $result.artists[0].releases[0].targetAction | Should -Be 'conflict'
         }
 
         It 'proposes update-existing/replace-existing when a lossless source would upgrade a lossy target' {

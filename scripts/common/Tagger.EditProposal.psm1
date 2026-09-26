@@ -4,6 +4,13 @@ Import-Module (Join-Path $PSScriptRoot 'Tagger.Common.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Tagger.Json.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Tagger.Discogs.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Tagger.LossyTracking.psm1') -Force
+# Only for Get-TaggerApplyLogEntry/Test-TaggerAppliedEntryValid (Resolve-TaggerTargetComparison's
+# re-run skip check below) - Tagger.Implementation.psm1 never imports this module back, so there's
+# no cycle. Every caller that imports both (Tagger.ps1, Tagger.Pipeline.Tests.ps1) already imports
+# Tagger.Implementation.psm1 directly *after* this module, which - same fix already relied on for
+# Tagger.LossyTracking.psm1 above - restores its exports to that caller's own top-level scope
+# instead of leaving them hidden as this module's nested copy.
+Import-Module (Join-Path $PSScriptRoot 'Tagger.Implementation.psm1') -Force
 
 # Starting point per plan/02 - not exposed in settings.schema.json (additionalProperties: false,
 # no such field), so this stays a module constant rather than a configurable setting.
@@ -260,10 +267,15 @@ function Get-TaggerProposalPadWidth {
     [OutputType([int])]
     param(
         [Parameter(Mandatory)]
-        [int]$TotalTrackCount
+        [int]$TotalTrackCount,
+
+        # settings.json's trackNumberPadWidth (plan/04): a configurable floor, not a fixed value -
+        # 2 reproduces the original hardcoded behavior, but a release with more tracks than this
+        # still gets a wider, correctly-sortable number regardless of the setting.
+        [int]$MinWidth = 2
     )
 
-    return [Math]::Max(2, $TotalTrackCount.ToString().Length)
+    return [Math]::Max($MinWidth, $TotalTrackCount.ToString().Length)
 }
 
 function New-TaggerProposedReleaseNames {
@@ -300,8 +312,8 @@ function New-TaggerProposedReleaseNames {
         $usedSentinelYear = $true
     }
 
-    $artistSan = ConvertTo-SafeFileName -Name $artistRaw
-    $titleSan = ConvertTo-SafeFileName -Name $titleRaw
+    $artistSan = ConvertTo-SafeFileName -Name $artistRaw -Context 'artist folder name'
+    $titleSan = ConvertTo-SafeFileName -Name $titleRaw -Context 'release folder name'
 
     $folderName = (Expand-TaggerNamingTemplate -Template $ReleaseFolderTemplate -Values @{ year = [int]$yearRaw; album = $titleSan.SafeName }).Trim()
 
@@ -309,7 +321,8 @@ function New-TaggerProposedReleaseNames {
         ArtistFolderName  = $artistSan.SafeName
         ReleaseFolderName = $folderName
         Year              = [int]$yearRaw
-        Album             = $titleSan.SafeName
+        Artist            = $artistRaw
+        Album             = $titleRaw
         UsedSentinelYear  = $usedSentinelYear
         Substitutions     = @($artistSan.Substitutions + $titleSan.Substitutions)
     }
@@ -333,7 +346,9 @@ function New-TaggerProposedTrackSet {
         [object]$Names,
 
         [Parameter(Mandatory)]
-        [string]$TrackFileTemplate
+        [string]$TrackFileTemplate,
+
+        [int]$TrackNumberPadWidth = 2
     )
 
     $substitutions = [System.Collections.Generic.List[string]]::new()
@@ -351,7 +366,7 @@ function New-TaggerProposedTrackSet {
         $discGroups[$key].Add($track)
     }
 
-    $padWidth = Get-TaggerProposalPadWidth -TotalTrackCount $Tracks.Count
+    $padWidth = Get-TaggerProposalPadWidth -TotalTrackCount $Tracks.Count -MinWidth $TrackNumberPadWidth
     $useDiscogsTitles = ($DiscogsTracks.Count -gt 0)
 
     $continuous = 0
@@ -375,7 +390,7 @@ function New-TaggerProposedTrackSet {
                 $rawTitle = (ConvertFrom-TaggerTrackFileName -FileName $track.originalFileName).Title
             }
 
-            $titleSan = ConvertTo-SafeFileName -Name $rawTitle
+            $titleSan = ConvertTo-SafeFileName -Name $rawTitle -Context 'track file name'
             if ($titleSan.Substitutions.Count -gt 0) { $substitutions.AddRange([string[]]$titleSan.Substitutions) }
 
             # {trackNumber} here is the continuous, zero-padded, cross-disc filename number - never
@@ -386,20 +401,20 @@ function New-TaggerProposedTrackSet {
             $proposedFileName = "$fileNameCore.$($track.format)"
 
             $tags = [pscustomobject]@{
-                artist      = $Names.ArtistFolderName
-                albumArtist = $Names.ArtistFolderName
+                artist      = $Names.Artist
+                albumArtist = $Names.Artist
                 album       = $Names.Album
                 year        = $Names.Year
                 discNumber  = $discIndex
                 track       = $trackIndexInDisc
-                title       = $titleSan.SafeName
+                title       = $rawTitle
             }
 
             $extended = $track | Select-Object *
             $extended | Add-Member -NotePropertyName proposedFileName -NotePropertyValue $proposedFileName -Force
             $extended | Add-Member -NotePropertyName proposedDiscNumber -NotePropertyValue $discIndex -Force
             $extended | Add-Member -NotePropertyName proposedTrackNumber -NotePropertyValue $trackIndexInDisc -Force
-            $extended | Add-Member -NotePropertyName proposedTitle -NotePropertyValue $titleSan.SafeName -Force
+            $extended | Add-Member -NotePropertyName proposedTitle -NotePropertyValue $rawTitle -Force
             $extended | Add-Member -NotePropertyName tags -NotePropertyValue $tags -Force
 
             $result.Add($extended)
@@ -452,6 +467,22 @@ function New-TaggerCoverArtProposal {
 
     $candidates = [System.Collections.Generic.List[object]]::new()
 
+    # An embedded cover is offered - and defaulted to - regardless of a Discogs match, so a track
+    # that already carries a good cover isn't silently overwritten by a Discogs image the user never
+    # asked to swap in. 'existing (embedded)' is read back as a literal string by
+    # Tagger.Implementation.psm1 to decide whether to leave a track's picture tag untouched, the same
+    # way this function already reads '(alternate)' below - not just a display label.
+    $embeddedTrack = @($Release.tracks | Where-Object { $_.existingCoverArtPath }) | Select-Object -First 1
+    if ($embeddedTrack) {
+        $dims = Get-TaggerImageDimensions -Path $embeddedTrack.existingCoverArtPath
+        $candidates.Add([pscustomobject]@{
+                url           = $embeddedTrack.existingCoverArtPath
+                sourceEdition = 'existing (embedded)'
+                width         = $dims.Width
+                height        = $dims.Height
+            })
+    }
+
     if ($Match.Status -eq 'matched' -and $Match.Detail.images -and @($Match.Detail.images).Count -gt 0) {
         $formatLabel = "$($Match.Detail.country) $($Match.Detail.formats[0].name)".Trim()
         if (-not $formatLabel) { $formatLabel = 'unknown edition' }
@@ -478,12 +509,18 @@ function New-TaggerCoverArtProposal {
     }
 
     $chosen = $null
-    $nonAlternate = @($candidates | Where-Object { $_.sourceEdition -notmatch '\(alternate\)$' })
-    if ($nonAlternate.Count -gt 0) {
-        $chosen = $nonAlternate[0].url
+    $embeddedCandidate = $candidates | Where-Object { $_.sourceEdition -eq 'existing (embedded)' } | Select-Object -First 1
+    if ($embeddedCandidate) {
+        $chosen = $embeddedCandidate.url
     }
-    elseif ($candidates.Count -gt 0) {
-        $chosen = $candidates[0].url
+    else {
+        $nonAlternate = @($candidates | Where-Object { $_.sourceEdition -notmatch '\(alternate\)$' })
+        if ($nonAlternate.Count -gt 0) {
+            $chosen = $nonAlternate[0].url
+        }
+        elseif ($candidates.Count -gt 0) {
+            $chosen = $candidates[0].url
+        }
     }
 
     return [pscustomobject]@{
@@ -564,6 +601,9 @@ function Resolve-TaggerTargetComparison {
         [string]$ProposedTargetPath,
 
         [Parameter(Mandatory)]
+        [string]$TargetRoot,
+
+        [Parameter(Mandatory)]
         [System.Collections.Generic.Dictionary[string, object]]$TargetIndex,
 
         [Parameter(Mandatory)]
@@ -594,10 +634,30 @@ function Resolve-TaggerTargetComparison {
     # Check same-session duplicates first (plan/10's "same release, two sources, one session" case)
     # before touching disk - this also means a target folder is never hashed twice in one run.
     $baseline = $null
+    $appliedEntryMatchesSource = $false
     if ($SessionSeen.ContainsKey($StableKey)) {
         $baseline = $SessionSeen[$StableKey]
     }
     else {
+        # Prefer apply-log.json's own record of what was actually applied over re-hashing the
+        # target folder's current file names/sizes: Implementation (plan/08) renames every file and
+        # rewrites its tags on apply, so a target file set can never hash equal to its own source's
+        # name|size hash again afterwards - comparing them here would always land on 'conflict' and
+        # break re-run idempotency (plan/12 milestone 7). Test-TaggerAppliedEntryValid is the exact
+        # "is this log entry still trustworthy" check Test-TaggerReleaseNeedsApply
+        # (Tagger.Implementation.psm1) already uses for its own, equivalent skip decision.
+        #
+        # Looked up by $StableKey directly (the apply-log's own key), not through $TargetIndex -
+        # Build-TaggerTargetIndex recomputes a folder's stableKey from its *current* on-disk name,
+        # which for an unresolved-year release (script:UnresolvedYearSentinel, 1900) never equals
+        # this release's real stableKey (computed with Year = $null) - that recomputed index can't
+        # be used to find this release's own applied entry.
+        $applyLogEntry = Get-TaggerApplyLogEntry -StableKey $StableKey -DataHome $DataHome
+        if ((Test-TaggerAppliedEntryValid -Entry $applyLogEntry -TargetRoot $TargetRoot) -and `
+                ($applyLogEntry.sourceFileSetHash -eq $sourceHash)) {
+            $appliedEntryMatchesSource = $true
+        }
+
         $entry = Test-TaggerTargetReleaseExists -TargetIndex $TargetIndex -StableKey $StableKey
         if ($entry) {
             $targetFiles = @(Get-TaggerAudioFilesInFolder -Path $entry.Path -Recurse)
@@ -613,7 +673,10 @@ function Resolve-TaggerTargetComparison {
         }
     }
 
-    if ($null -eq $baseline) {
+    if ($appliedEntryMatchesSource) {
+        $targetAction = 'skip-existing-identical'
+    }
+    elseif ($null -eq $baseline) {
         $targetAction = 'create-new'
     }
     elseif ($baseline.Hash -eq $sourceHash) {
@@ -656,6 +719,49 @@ function Resolve-TaggerTargetComparison {
 
 # --- Orchestration -----------------------------------------------------------------
 
+# --- Companion files ------------------------------------------------------------------
+
+function New-TaggerCompanionProposal {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$CompanionFiles
+    )
+
+    $notes = [System.Collections.Generic.List[string]]::new()
+    $requiresReview = $false
+
+    $companions = foreach ($companion in $CompanionFiles) {
+        $proposedFileName = $null
+
+        if ($companion.placement -eq 'loose') {
+            $originalName = Split-Path -Leaf $companion.sourcePath
+            $renamed = Get-TaggerLooseCompanionFileName -FileName $originalName -Kind $companion.kind
+            $proposedFileName = $renamed.FileName
+            if ($renamed.WasPrefixed) {
+                $requiresReview = $true
+                $notes.Add("Companion '$originalName' renamed to '$proposedFileName' (must start with a letter).")
+            }
+        }
+
+        [pscustomobject]@{
+            sourcePath       = $companion.sourcePath
+            kind             = $companion.kind
+            placement        = $companion.placement
+            include          = $true
+            proposedFileName = $proposedFileName
+        }
+    }
+
+    return [pscustomobject]@{
+        Companions     = @($companions)
+        Notes          = @($notes)
+        RequiresReview = $requiresReview
+    }
+}
+
 function New-TaggerProposedRelease {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -674,6 +780,8 @@ function New-TaggerProposedRelease {
 
         [Parameter(Mandatory)]
         [string]$TrackFileTemplate,
+
+        [int]$TrackNumberPadWidth = 2,
 
         [Parameter(Mandatory)]
         [int]$CoverMaxDimension,
@@ -735,7 +843,8 @@ function New-TaggerProposedRelease {
         }
     }
 
-    $trackSet = New-TaggerProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -Names $names -TrackFileTemplate $TrackFileTemplate
+    $trackSet = New-TaggerProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -Names $names -TrackFileTemplate $TrackFileTemplate `
+        -TrackNumberPadWidth $TrackNumberPadWidth
     if ($trackSet.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$trackSet.Substitutions) }
 
     $coverArt = New-TaggerCoverArtProposal -Match $match -Release $Release -CoverMaxDimension $CoverMaxDimension
@@ -744,9 +853,13 @@ function New-TaggerProposedRelease {
         $notes.Add('No cover art candidates found from Discogs or local companion files.')
     }
 
+    $companionProposal = New-TaggerCompanionProposal -CompanionFiles $Release.companionFiles
+    if ($companionProposal.Notes.Count -gt 0) { $notes.AddRange([string[]]$companionProposal.Notes) }
+    if ($companionProposal.RequiresReview) { $requiresReview = $true }
+
     $proposedTargetPath = Join-Path $TargetRoot $names.ArtistFolderName $names.ReleaseFolderName
     $comparison = Resolve-TaggerTargetComparison -Release $Release -StableKey $Release.stableKey -ProposedTargetPath $proposedTargetPath `
-        -TargetIndex $TargetIndex -SessionSeen $SessionSeen -Names $names -DataHome $DataHome
+        -TargetRoot $TargetRoot -TargetIndex $TargetIndex -SessionSeen $SessionSeen -Names $names -DataHome $DataHome
     if ($comparison.ForcedReviewNote) {
         $requiresReview = $true
         $notes.Add($comparison.ForcedReviewNote)
@@ -768,6 +881,7 @@ function New-TaggerProposedRelease {
     $humanReview = [pscustomobject]@{
         required = $requiresReview
         resolved = -not $requiresReview
+        rejected = $false
         notes    = ($notes -join '; ')
     }
 
@@ -778,7 +892,7 @@ function New-TaggerProposedRelease {
         sourceFolderPath      = $Release.sourceFolderPath
         discFolderCount       = $Release.discFolderCount
         tracks                = $trackSet.Tracks
-        companionFiles        = $Release.companionFiles
+        companionFiles        = $companionProposal.Companions
         ignoredFiles          = $Release.ignoredFiles
         cueSheet              = $Release.cueSheet
         recognitionConfidence = $Release.recognitionConfidence
@@ -813,6 +927,8 @@ function Invoke-TaggerEditProposal {
 
         [string]$TrackFileTemplate = '{trackNumber} {title}',
 
+        [int]$TrackNumberPadWidth = 2,
+
         [int]$CoverMaxDimension = 600,
 
         [int]$CacheTtlDays = 30,
@@ -836,7 +952,7 @@ function Invoke-TaggerEditProposal {
     $artists = @(foreach ($artist in @($recognition.artists)) {
             $releases = @(foreach ($release in @($artist.releases)) {
                     New-TaggerProposedRelease -ArtistName $artist.recognizedName -Release $release -TargetRoot $TargetRoot `
-                        -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate `
+                        -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth `
                         -CoverMaxDimension $CoverMaxDimension -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute `
                         -TargetIndex $targetIndex -SessionSeen $sessionSeen -DataHome $DataHome
                 })

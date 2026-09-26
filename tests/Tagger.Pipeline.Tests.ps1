@@ -10,24 +10,10 @@ BeforeAll {
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Discogs.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.EditProposal.psm1" -Force
     Import-Module "$PSScriptRoot/../scripts/common/Tagger.Implementation.psm1" -Force
+    Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
 
     $script:FixturesDir = (Resolve-Path "$PSScriptRoot/fixtures/sample-source-tree").Path
     $script:ExpectedDir = Join-Path $PSScriptRoot 'fixtures' 'expected'
-
-    # Same helper as in Tagger.Implementation.Tests.ps1 (no shared test-helper module exists yet):
-    # one sorted line per file (path, size, last write time) under every root, plus a marker for
-    # whether each root exists. Files only - see that file's comment for why folders are excluded.
-    function Get-TreeSnapshot {
-        param([Parameter(Mandatory)] [string[]]$Path)
-        $lines = foreach ($root in $Path) {
-            if (-not (Test-Path -LiteralPath $root)) { "[$root] missing"; continue }
-            "[$root] exists"
-            Get-ChildItem -LiteralPath $root -Recurse -Force -File | ForEach-Object {
-                "[$root]$($_.FullName.Substring($root.Length))|$($_.Length)|$($_.LastWriteTimeUtc.Ticks)"
-            }
-        }
-        return @($lines | Sort-Object)
-    }
 
     # Makes a generated JSON document comparable across runs: every run-specific value (the three
     # per-test $TestDrive roots, the date-based session id, the generation timestamp) is replaced by
@@ -101,12 +87,13 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
             param($Path, $TagLibSharpPath, $DataHome)
             $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
             return @{
-                Artist          = $null
-                Album           = $null
-                Title           = $null
-                Format          = $ext
-                IsLossless      = ($ext -in @('flac', 'wav'))
-                DurationSeconds = 200
+                Artist            = $null
+                Album             = $null
+                Title             = $null
+                Format            = $ext
+                IsLossless        = ($ext -in @('flac', 'wav'))
+                DurationSeconds   = 200
+                EmbeddedCoverPath = $null
             }
         }
 
@@ -234,13 +221,13 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $dbPath = Join-Path $script:targetRoot $dbRelease.proposed.artistFolderName $dbRelease.proposed.releaseFolderName
         Test-Path -LiteralPath $dbPath | Should -Be $true
 
-        # Cue + single-file release: split into per-track files, cue/source deleted from the (copied)
-        # source root only - never the checked-in fixture.
+        # Cue + single-file release: split into per-track files; the cue/source is read-only to
+        # Tagger and must survive in the (copied) source root, same as the checked-in fixture.
         $pinkFloyd = $script:proposalResult.artists | Where-Object { $_.recognizedName -eq 'Pink Floyd' }
         $liveInConcert = $pinkFloyd.releases[0]
         $licPath = Join-Path $script:targetRoot $liveInConcert.proposed.artistFolderName $liveInConcert.proposed.releaseFolderName
         (Get-ChildItem -LiteralPath $licPath -Filter '*.flac').Count | Should -Be 2
-        Test-Path -LiteralPath (Join-Path $script:sourceRoot 'Pink Floyd' '1994 Live In Concert (Bootleg)' 'Live In Concert.cue') | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $script:sourceRoot 'Pink Floyd' '1994 Live In Concert (Bootleg)' 'Live In Concert.cue') | Should -Be $true
         Test-Path -LiteralPath (Join-Path $FixturesDir 'Pink Floyd' '1994 Live In Concert (Bootleg)' 'Live In Concert.cue') | Should -Be $true
 
         # Re-running the whole chain unchanged resolves every applied release to a no-op.
@@ -250,6 +237,40 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         $rerun.Applied | Should -Be 0
         $rerun.Skipped | Should -Be $result.Applied
         $rerun.Failed | Should -Be 0
+    }
+
+    It 're-running propose after a real apply resolves every applied release to skip-existing-identical, not conflict' {
+        # Regression test for a bug where Get-TaggerFileSetHash (name|size) never matches again
+        # after Implementation has renamed every file and rewritten its tags - Resolve-TaggerTargetComparison
+        # (Tagger.EditProposal.psm1) must instead trust a valid apply-log.json entry, exactly like
+        # Test-TaggerReleaseNeedsApply (Tagger.Implementation.psm1) already does for apply itself.
+        $applyResult = Invoke-TaggerImplementation -SessionId $script:sessionId -ProposalPath $script:proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
+        $applyResult.Failed | Should -Be 0
+        $applyResult.Applied | Should -BeGreaterThan 0
+
+        # A real second session (not just a synthetic session id), matching what a real re-run of
+        # 'Tagger.ps1 recognize' would produce - Invoke-TaggerImplementation's own Set-TaggerSessionStage
+        # call needs a real session.json to update. Recognition itself isn't re-run: the source is
+        # unchanged, and this test is specifically about propose's target comparison, not recognition.
+        $rerunSession = New-TaggerSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $rerunSessionId = $rerunSession.sessionId
+        $rerunProposal = Invoke-TaggerEditProposal -SessionId $rerunSessionId -RecognitionPath $script:recognitionPath `
+            -TargetRoot $script:targetRoot -DataHome $script:dataHome
+        $rerunReleases = @($rerunProposal.artists.releases)
+
+        $appliedStableKeys = @(Get-TaggerApplyLog -DataHome $script:dataHome | Where-Object { $_.status -eq 'applied' } | Select-Object -ExpandProperty stableKey)
+        $appliedStableKeys.Count | Should -Be $applyResult.Applied
+
+        foreach ($stableKey in $appliedStableKeys) {
+            $release = $rerunReleases | Where-Object { $_.stableKey -eq $stableKey }
+            $release.targetAction | Should -Be 'skip-existing-identical' -Because "release '$stableKey' was already applied unchanged and must not be re-proposed as a conflict"
+        }
+
+        $rerunApply = Invoke-TaggerImplementation -SessionId $rerunSessionId -ProposalPath (Join-Path $script:dataHome 'sessions' $rerunSessionId 'proposal.json') `
+            -TargetRoot $script:targetRoot -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome -IncludeUnresolved
+        $rerunApply.Applied | Should -Be 0
+        $rerunApply.Failed | Should -Be 0
     }
 
     # plan/11 Definition of Done: the exact expected recognition.json / proposal.json / target

@@ -136,6 +136,20 @@ Describe 'ConvertTo-TaggerLongPath' {
     }
 }
 
+Describe 'ConvertTo-TaggerCueTimestampSeconds' {
+    It 'converts MM:SS:FF (CD-audio frames, 75/sec) to total seconds' {
+        ConvertTo-TaggerCueTimestampSeconds -CueTimestamp '09:26:73' | Should -Be 566.973
+    }
+
+    It 'converts a zero timestamp to zero seconds' {
+        ConvertTo-TaggerCueTimestampSeconds -CueTimestamp '00:00:00' | Should -Be 0
+    }
+
+    It 'does not misread MM:SS:FF as HH:MM:SS' {
+        ConvertTo-TaggerCueTimestampSeconds -CueTimestamp '03:12:45' | Should -Be 192.6
+    }
+}
+
 Describe 'ConvertTo-SafeFileName' {
     It 'leaves an already-safe name unchanged' {
         $result = ConvertTo-SafeFileName -Name 'Poke Chop Sandwich'
@@ -197,6 +211,74 @@ Describe 'ConvertTo-SafeFileName' {
 
     It 'handles an empty string without throwing' {
         { ConvertTo-SafeFileName -Name '' } | Should -Not -Throw
+    }
+
+    It 'prefixes substitution messages with the given context' {
+        $result = ConvertTo-SafeFileName -Name 'A/B' -Context 'track file name'
+        $result.Substitutions | Should -Be @("track file name: invalid character '/' replaced with '_'")
+    }
+}
+
+Describe 'Test-TaggerLooseCompanionFileName' {
+    It 'returns true for a name starting with an ASCII letter' {
+        Test-TaggerLooseCompanionFileName -FileName 'Cover.jpg' | Should -Be $true
+    }
+
+    It 'returns true for a name starting with a non-ASCII (Cyrillic) letter' {
+        Test-TaggerLooseCompanionFileName -FileName 'Обложка.jpg' | Should -Be $true
+    }
+
+    It 'returns false for a name starting with a digit' {
+        Test-TaggerLooseCompanionFileName -FileName '01 back.jpg' | Should -Be $false
+    }
+
+    It 'returns false for a name starting with a symbol' {
+        Test-TaggerLooseCompanionFileName -FileName '(scan).png' | Should -Be $false
+    }
+
+    It 'returns false for an empty string' {
+        Test-TaggerLooseCompanionFileName -FileName '' | Should -Be $false
+    }
+}
+
+Describe 'Get-TaggerLooseCompanionFileName' {
+    It 'leaves a name that already starts with a letter unchanged' {
+        $result = Get-TaggerLooseCompanionFileName -FileName 'folder.jpg' -Kind 'cover'
+        $result.FileName | Should -Be 'folder.jpg'
+        $result.WasPrefixed | Should -Be $false
+    }
+
+    It 'prefixes a digit-starting name with the kind word for each known kind' {
+        $cases = @(
+            @{ Kind = 'cover'; Expected = 'Cover' }
+            @{ Kind = 'booklet'; Expected = 'Booklet' }
+            @{ Kind = 'photo'; Expected = 'Photo' }
+            @{ Kind = 'lyrics'; Expected = 'Lyrics' }
+            @{ Kind = 'other'; Expected = 'Extra' }
+        )
+        foreach ($case in $cases) {
+            $result = Get-TaggerLooseCompanionFileName -FileName '01 back.jpg' -Kind $case.Kind
+            $result.FileName | Should -Be "$($case.Expected) 01 back.jpg"
+            $result.WasPrefixed | Should -Be $true
+        }
+    }
+
+    It 'prefixes a symbol-starting name' {
+        $result = Get-TaggerLooseCompanionFileName -FileName '(scan).png' -Kind 'cover'
+        $result.FileName | Should -Be 'Cover (scan).png'
+        $result.WasPrefixed | Should -Be $true
+    }
+
+    It 'does not prefix a name starting with a non-ASCII letter' {
+        $result = Get-TaggerLooseCompanionFileName -FileName 'Обложка.jpg' -Kind 'cover'
+        $result.FileName | Should -Be 'Обложка.jpg'
+        $result.WasPrefixed | Should -Be $false
+    }
+
+    It 'sanitizes invalid filename characters before checking the letter rule' {
+        $result = Get-TaggerLooseCompanionFileName -FileName 'photo?.jpg' -Kind 'photo'
+        $result.FileName | Should -Be 'photo_.jpg'
+        $result.WasPrefixed | Should -Be $false
     }
 }
 
@@ -346,5 +428,100 @@ Describe 'Import-TaggerTagLibSharp' {
 
             { Import-TaggerTagLibSharp } | Should -Throw '*TagLibSharp.dll not found*'
         }
+    }
+}
+
+Describe 'Test-TaggerIsAudioExtension' {
+    It 'returns true for a known audio extension regardless of case' {
+        Test-TaggerIsAudioExtension -Extension '.FLAC' | Should -Be $true
+    }
+
+    It 'returns false for a non-audio extension' {
+        Test-TaggerIsAudioExtension -Extension '.txt' | Should -Be $false
+    }
+
+    It 'returns false, not a binding error, for an empty extension (a file with no extension)' {
+        { Test-TaggerIsAudioExtension -Extension '' } | Should -Not -Throw
+        Test-TaggerIsAudioExtension -Extension '' | Should -Be $false
+    }
+}
+
+Describe 'Test-TaggerIsLosslessFormat' {
+    It 'returns true for .flac' {
+        Test-TaggerIsLosslessFormat -Extension '.flac' | Should -Be $true
+    }
+
+    It 'returns false, not a binding error, for an empty extension' {
+        { Test-TaggerIsLosslessFormat -Extension '' } | Should -Not -Throw
+        Test-TaggerIsLosslessFormat -Extension '' | Should -Be $false
+    }
+}
+
+Describe 'Get-TaggerAudioFilesInFolder' {
+    It 'returns only audio files, ignoring extensions like .txt/.m3u/.cue, without recursing by default' {
+        $root = Join-Path $TestDrive 'flat'
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root '01 Track.flac') -Value 'x' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root '02 Track.mp3') -Value 'x' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root 'readme.txt') -Value 'x' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root 'playlist.m3u') -Value 'x' -NoNewline
+        New-Item -ItemType Directory -Path (Join-Path $root 'CD 1') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'CD 1' '01 Nested.flac') -Value 'x' -NoNewline
+
+        $result = @(Get-TaggerAudioFilesInFolder -Path $root)
+
+        $result.Count | Should -Be 2
+        ($result.Name | Sort-Object) | Should -Be @('01 Track.flac', '02 Track.mp3')
+    }
+
+    It 'recurses into subfolders when -Recurse is passed' {
+        $root = Join-Path $TestDrive 'nested'
+        New-Item -ItemType Directory -Path (Join-Path $root 'CD 1') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $root 'CD 2') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'CD 1' '01 Track.flac') -Value 'x' -NoNewline
+        Set-Content -LiteralPath (Join-Path $root 'CD 2' '01 Track.flac') -Value 'x' -NoNewline
+
+        $result = @(Get-TaggerAudioFilesInFolder -Path $root -Recurse)
+
+        $result.Count | Should -Be 2
+    }
+
+    It 'returns an empty array, not an error, for a folder with no audio files' {
+        $root = Join-Path $TestDrive 'empty'
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'notes.txt') -Value 'x' -NoNewline
+
+        $result = @(Get-TaggerAudioFilesInFolder -Path $root)
+
+        $result.Count | Should -Be 0
+    }
+}
+
+Describe 'Get-TaggerRelativePath' {
+    It 'returns the path under the source root with forward slashes, regardless of backslash depth' {
+        $root = 'C:\Music\Source'
+        $path = 'C:\Music\Source\Some Band\2010 Album\Scans\front.jpg'
+
+        Get-TaggerRelativePath -SourceRoot $root -Path $path | Should -Be 'Some Band/2010 Album/Scans/front.jpg'
+    }
+
+    It 'matches the root case-insensitively' {
+        $root = 'c:\music\source'
+        $path = 'C:\Music\Source\Some Band\front.jpg'
+
+        Get-TaggerRelativePath -SourceRoot $root -Path $path | Should -Be 'Some Band/front.jpg'
+    }
+
+    It 'tolerates a trailing separator on the root' {
+        Get-TaggerRelativePath -SourceRoot 'C:\Music\Source\' -Path 'C:\Music\Source\Album\file.jpg' | Should -Be 'Album/file.jpg'
+    }
+
+    It 'returns the path unchanged when it does not start with the given root' {
+        $path = 'D:\Elsewhere\file.jpg'
+        Get-TaggerRelativePath -SourceRoot 'C:\Music\Source' -Path $path | Should -Be $path
+    }
+
+    It 'returns an empty string for a path identical to the root' {
+        Get-TaggerRelativePath -SourceRoot 'C:\Music\Source' -Path 'C:\Music\Source' | Should -Be ''
     }
 }

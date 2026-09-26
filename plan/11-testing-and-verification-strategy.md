@@ -124,19 +124,64 @@ Windows for the same background-indexing reason noted above.
 
 ### UI verification
 
-No automated browser test suite for v1 — Playwright/similar is explicitly
-optional/stretch, not required. Instead, a manual checklist run in Chrome,
-tracked in [tests/manual/ui-checklist.md](../tests/manual/ui-checklist.md):
+Automated via Playwright, under `tests/ui/`. This supersedes an earlier
+manual-only design (see Decisions below): the UI's own review surface grew
+from the 8 items above to roughly 30 as step 07 grew cover-size display,
+manual cover uploads, and companion-file review — a checklist that size is
+tedious for a person to run every time something changes, and easy to run
+carelessly or skip. The Playwright suite is the actual, current source of
+truth for what the UI must do; treat the list below as a summary, not a
+substitute for reading the specs.
 
-1. Open a session folder via the picker.
-2. Edit a proposed release/track name.
-3. Change the selected cover-art candidate.
-4. Resolve an ambiguous Discogs match by picking a candidate.
-5. Approve a release.
-6. Save, reload the page, confirm all edits persisted in `proposal.json`.
-7. Confirm `proposal.backup.json` holds the pre-save version.
-8. Revoke folder permission mid-session (via browser UI) and confirm the app
-   shows a retry prompt instead of a silent failure.
+`tests/ui/global-setup.js` starts the real `Start-TaggerUiServer.ps1`
+against an isolated temp `TAGGER_HOME` (real settings, real sessions, the
+same `TagLibSharp.dll`/`ffmpeg` the rest of the suite uses — nothing here is
+mocked), and `tests/ui/seed-session.ps1` seeds a fresh session with real
+audio/image files via the real `New-TaggerSession`/`Set-TaggerJsonFile`
+machinery, so every seeded `proposal.json` is schema-valid by construction.
+Each spec file seeds its own session, so no test depends on another's
+leftover state.
+
+Coverage, one spec file per theme:
+
+1. `load-and-sessions.spec.js` — auto-loads the newest session with a
+   proposal, reload behavior, the "Past sessions" dropdown (labeled by
+   source root + date + stage, never the raw session id), and the
+   unsaved-changes confirm when switching sessions.
+2. `edit-and-save.spec.js` — editing a field marks the release dirty (dot +
+   unsaved counts), Save clears both and persists to disk (with
+   `proposal.backup.json` holding the pre-save version), and the
+   `beforeunload` prompt on an unsaved edit.
+3. `review-state.spec.js` — the ambiguous Discogs candidate picker, Approve/
+   Reject (mutually exclusive) and the resulting status badges.
+4. `covers.spec.js` — cover-size display (`"WxH → WxH embedded"` vs.
+   `"(embedded as is)"`), the lightbox (open/close via button, outside
+   click, and Escape), and manual cover upload (valid image, non-image
+   rejection, appending alongside existing candidates, and an unsaved
+   upload's file surviving on disk under `manual-covers/` even after a
+   reload discards it from the gallery).
+5. `companions.spec.js` — the Other Files table (nested vs. loose, the
+   letter-first-name backfill for an older `proposal.json`, inline
+   name/collision warnings, and the ignored-files rows), ending in a real
+   end-to-end spec that edits companions in the browser, saves, then runs
+   the real `Tagger.ps1 apply` and asserts the actual target folder layout.
+6. `server-down.spec.js` — kills the real server process mid-session and
+   confirms Save and a live session switch both surface a visible
+   error/retry message. Runs last, in its own Playwright project
+   (`server-down`), since it deliberately ends the shared server every
+   other spec file depends on.
+
+Two items from the original 8-item list don't carry over verbatim, because
+the UI itself changed (see
+[07-editing-ui-module.md](07-editing-ui-module.md)): "open a session folder
+via the picker" became the no-click auto-load `load-and-sessions.spec.js`
+covers, and "revoke folder permission" (a File System Access API concept)
+became `server-down.spec.js`'s server-process-killed case, the equivalent
+failure mode under the current server-backed design.
+
+Run `npm install && npx playwright install chromium` once inside `tests/ui`,
+then `npx playwright test` from that folder, or
+`tests/Invoke-TaggerTests.ps1 -IncludeUi` (see Test runner below).
 
 ## Decisions & rationale
 
@@ -151,27 +196,51 @@ tracked in [tests/manual/ui-checklist.md](../tests/manual/ui-checklist.md):
   share one library, so a systematic TagLibSharp bug could pass both sides) —
   an explicit, accepted trade-off for a zero-manual-setup writer (see
   [08](08-implementation-module.md)).
-- **No UI automation for v1**: proportionate effort for a personal tool used
-  by one person — a documented manual checklist is enough, and can be
-  revisited if the UI grows more complex.
+- **UI automation via Playwright, superseding "no UI automation for v1"**:
+  the original decision was proportionate effort for an 8-item checklist on
+  a personal tool used by one person. The checklist tripled in size as step
+  07 grew real features (cover sizing, manual upload, companion-file
+  review) — at that size, a human re-running it by hand became the actual
+  bottleneck, and the risk of a skipped or careless run outweighed the
+  setup cost of Playwright (already a one-time `npm install`, no build
+  step, no change to `ui/` itself). The old manual checklist file has been
+  deleted; the Playwright specs are the current source of truth for what
+  the UI must do.
 
 ## Test runner
 
-`tests/Invoke-TaggerTests.ps1 [-SkipIntegration] [-Path <paths>]` wraps
-`Invoke-Pester` with one convenience: `-SkipIntegration` excludes the
-`Integration`-tagged tests in `tests/Tagger.TagLibSharp.Integration.Tests.ps1`
-(via `Filter.ExcludeTag`), which need a real `TagLibSharp.dll` and a real
-`ffmpeg` on the machine running the tests. Excluding the tag this way also
-skips that file's top-level `BeforeAll` entirely — confirmed empirically,
-not just assumed — so the "fail if the DLL/ffmpeg is missing" throws never
-fire when the tag is excluded.
+`tests/Invoke-TaggerTests.ps1 [-SkipIntegration] [-IncludeUi] [-Path <paths>]`
+wraps `Invoke-Pester` with two conveniences:
+
+- `-SkipIntegration` excludes the `Integration`-tagged tests in
+  `tests/Tagger.TagLibSharp.Integration.Tests.ps1` (via `Filter.ExcludeTag`),
+  which need a real `TagLibSharp.dll` and a real `ffmpeg` on the machine
+  running the tests. Excluding the tag this way also skips that file's
+  top-level `BeforeAll` entirely — confirmed empirically, not just assumed —
+  so the "fail if the DLL/ffmpeg is missing" throws never fire when the tag
+  is excluded.
+- `-IncludeUi` additionally runs the Playwright suite in `tests/ui` after
+  the Pester tests pass (skipped, with a warning rather than a failure, if
+  `tests/ui/node_modules` hasn't been installed yet — see "UI verification"
+  above for the one-time setup). Pester's own `-Path`/`-SkipIntegration`
+  don't apply to it; it always runs its own full suite.
+
+Both `Pester` version 6.2.0 and the older Windows-bundled 3.4.0 were found
+installed on the development machine with no 5.x present; despite every
+test file's own `Import-Module Pester -MinimumVersion 5.0` (which resolves
+to 6.2.0), the full suite — including the `Integration`-tagged tests —
+passed unmodified. No version pin was needed in practice, but if a future
+Pester release does break the suite, pin a maximum version on this script's
+own `Import-Module Pester` line rather than touching all fourteen per-file
+copies.
 
 ## Definition of done
 
 - `Invoke-Pester` (or `tests/Invoke-TaggerTests.ps1`) runs green across all
-  unit tests.
+  unit tests, including the `Integration`-tagged ones.
 - The fixture source tree, run through the full pipeline end-to-end
   (`-WhatIf` then real), produces the exact expected `recognition.json` /
   `proposal.json` / target layout for every planted pattern — enforced by
   the golden-file comparison above, not just the schema/structure checks.
-- The manual UI checklist has been run at least once and passed.
+- The Playwright UI suite (`tests/Invoke-TaggerTests.ps1 -IncludeUi`, or
+  `npx playwright test` in `tests/ui`) runs green.

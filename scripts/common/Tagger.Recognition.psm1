@@ -191,6 +191,36 @@ function Get-TaggerTrackOrder {
 
 # --- Cue sheets --------------------------------------------------------------
 
+function Get-TaggerCueSheetPathForAudio {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileInfo]$AudioFile,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.IO.FileInfo[]]$CueFiles
+    )
+
+    if ($CueFiles.Count -eq 0) { return $null }
+    if ($CueFiles.Count -eq 1) { return $CueFiles[0] }
+
+    # More than one .cue file usually means one per rip format sitting side by side (e.g. a
+    # ".flac.cue" and a ".wav.cue" next to a single real .flac, the .wav rip never having been kept)
+    # - pick the one that actually names the present audio file, instead of an arbitrary first match.
+    # The two match rules are tried in priority order, not merged into one set: a real-world sample
+    # had both "Album.ape.cue" (exact-name form) and "Album.cue" (basename form) naming the SAME
+    # present .ape - that's redundant naming, not competing formats, so it must still resolve to one
+    # cue file instead of bailing out to $null just because 2 files matched across the two rules.
+    $exactNameMatch = @($CueFiles | Where-Object { $_.Name -ieq "$($AudioFile.Name).cue" })
+    if ($exactNameMatch.Count -eq 1) { return $exactNameMatch[0] }
+
+    $baseNameMatch = @($CueFiles | Where-Object { $_.BaseName -ieq $AudioFile.BaseName })
+    if ($baseNameMatch.Count -eq 1) { return $baseNameMatch[0] }
+
+    return $null
+}
+
 function Test-IsCueSheetRelease {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -200,9 +230,40 @@ function Test-IsCueSheetRelease {
     )
 
     $audioFiles = Get-TaggerAudioFilesInFolder -Path $Path
+    if ($audioFiles.Count -ne 1) { return $false }
+
     $cueFiles = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
 
-    return ($audioFiles.Count -eq 1 -and $cueFiles.Count -eq 1)
+    return ($null -ne (Get-TaggerCueSheetPathForAudio -AudioFile $audioFiles[0] -CueFiles $cueFiles))
+}
+
+function ConvertFrom-TaggerCueSheetText {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [byte[]]$Bytes
+    )
+
+    # A declared UTF-8 BOM is trustworthy as-is.
+    if ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8.GetString($Bytes, 3, $Bytes.Length - 3)
+    }
+
+    # No BOM: try strict UTF-8 first (throws on any invalid byte sequence, unlike the default decoder
+    # which silently substitutes U+FFFD and loses data). Cue sheets ripped on Windows are very often
+    # actually Windows-1252 (legacy ANSI codepage) - that's where accented letters (e.g. German
+    # u-umlaut) show up as invalid UTF-8 sequences, so falling back to 1252 recovers them correctly.
+    # Plain-ASCII cue sheets (the common case) are valid UTF-8 either way, so this only changes
+    # behavior for genuinely non-UTF-8 files.
+    $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    try {
+        return $strictUtf8.GetString($Bytes)
+    }
+    catch [System.Text.DecoderFallbackException] {
+        return [System.Text.Encoding]::GetEncoding(1252).GetString($Bytes)
+    }
 }
 
 function ConvertFrom-TaggerCueSheet {
@@ -213,7 +274,9 @@ function ConvertFrom-TaggerCueSheet {
     )
 
     try {
-        $lines = Get-Content -LiteralPath (ConvertTo-TaggerLongPath -Path $CueFilePath) -ErrorAction Stop
+        $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-TaggerLongPath -Path $CueFilePath))
+        $text = ConvertFrom-TaggerCueSheetText -Bytes $bytes
+        $lines = $text -split "`r`n|`r|`n"
     }
     catch {
         return $null
@@ -256,7 +319,11 @@ function Resolve-TaggerCompanionKind {
         [Parameter(Mandatory)]
         [string]$FileName,
 
+        # AllowEmptyString: see Test-TaggerIsAudioExtension in Tagger.Common.psm1 - a companion
+        # file with no extension at all falls through to kind 'other' below, instead of the
+        # Mandatory string binder rejecting '' before this function even runs.
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$Extension
     )
 
@@ -281,21 +348,31 @@ function Get-TaggerCompanionFiles {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$Path
+        [string]$Path,
+
+        # The cue sheet actually used to split this release's tracks (see Test-IsCueSheetRelease
+        # above), if any. That one file is superseded by the split and must stay silently excluded
+        # here - it's neither a companion nor something to flag. Any *other* .cue sitting in the
+        # folder is not used for anything, so it must not just vanish; it's routed to Ignored below.
+        [string]$CueSheetPath
     )
 
     $companions = [System.Collections.Generic.List[object]]::new()
     $ignored = [System.Collections.Generic.List[object]]::new()
 
-    # Audio and .cue files are excluded by extension below regardless of which folder they're in
-    # (they're tracks/cue sheets, handled elsewhere) - everything else, including a stray playlist
-    # or image sitting inside a disc subfolder, is still a real companion/ignored file and must not
-    # be dropped just because of where it happens to live.
+    # Audio files are excluded by extension below regardless of which folder they're in (they're
+    # tracks, handled elsewhere) - everything else, including a stray playlist or image sitting
+    # inside a disc subfolder, is still a real companion/ignored file and must not be dropped just
+    # because of where it happens to live.
     $allFiles = @(Get-ChildItem -LiteralPath $Path -File -Recurse -ErrorAction SilentlyContinue)
     foreach ($file in $allFiles) {
         $ext = $file.Extension.ToLowerInvariant()
         if (Test-TaggerIsAudioExtension -Extension $ext) { continue }
-        if ($ext -eq '.cue') { continue }
+        if ($ext -eq '.cue') {
+            if ($CueSheetPath -and $file.FullName -eq $CueSheetPath) { continue }
+            $ignored.Add([pscustomobject]@{ sourcePath = $file.FullName; reason = 'cue-sheet-not-used' })
+            continue
+        }
 
         if ($ext -in @('.m3u', '.m3u8', '.pls')) {
             $ignored.Add([pscustomobject]@{ sourcePath = $file.FullName; reason = 'playlist-file' })
@@ -313,6 +390,46 @@ function Get-TaggerCompanionFiles {
 # --- TagLibSharp --------------------------------------------------------------
 # Import-TaggerTagLibSharp itself now lives in Tagger.Common.psm1 (shared with
 # Tagger.Implementation.psm1's tag-writing) - already imported above, no new import needed.
+
+function Save-TaggerEmbeddedCoverToCache {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Picture,
+
+        [string]$DataHome
+    )
+
+    $bytes = $Picture.Data.Data
+    if (-not $bytes -or $bytes.Length -eq 0) { return $null }
+
+    # Get-TaggerEffectiveDataHome (not Resolve-TaggerDataHome directly) so this cache lands in
+    # whatever data home the current run was actually configured with (Set-TaggerTagLibSharpContext,
+    # called once by Invoke-TaggerRecognition) rather than always the repo-default '.data' folder.
+    $DataHome = Get-TaggerEffectiveDataHome -DataHome $DataHome
+
+    $hashBytes = [System.Security.Cryptography.SHA256]::HashData($bytes)
+    $hashHex = [System.Convert]::ToHexString($hashBytes).ToLowerInvariant()
+
+    $extension = switch ($Picture.MimeType) {
+        'image/png' { '.png' }
+        'image/jpeg' { '.jpg' }
+        default { '.jpg' }
+    }
+
+    $cacheDir = Join-Path $DataHome 'embedded-covers'
+    if (-not (Test-Path -LiteralPath $cacheDir)) {
+        New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+    }
+
+    $cachePath = Join-Path $cacheDir "$hashHex$extension"
+    if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf)) {
+        [System.IO.File]::WriteAllBytes($cachePath, $bytes)
+    }
+
+    return $cachePath
+}
 
 function Get-TaggerAudioTags {
     [CmdletBinding()]
@@ -333,13 +450,22 @@ function Get-TaggerAudioTags {
         $tag = $file.Tag
         $properties = $file.Properties
 
+        $embeddedCoverPath = $null
+        $pictures = @($tag.Pictures)
+        if ($pictures.Count -gt 0) {
+            $picture = $pictures | Where-Object { $_.Type -eq [TagLib.PictureType]::FrontCover } | Select-Object -First 1
+            if (-not $picture) { $picture = $pictures[0] }
+            $embeddedCoverPath = Save-TaggerEmbeddedCoverToCache -Picture $picture -DataHome $DataHome
+        }
+
         return @{
-            Artist          = if ($tag.FirstPerformer) { $tag.FirstPerformer } else { $null }
-            Album           = if ($tag.Album) { $tag.Album } else { $null }
-            Title           = if ($tag.Title) { $tag.Title } else { $null }
-            Format          = $extension.TrimStart('.')
-            IsLossless      = Test-TaggerIsLosslessFormat -Extension $extension
-            DurationSeconds = [double]$properties.Duration.TotalSeconds
+            Artist            = if ($tag.FirstPerformer) { $tag.FirstPerformer } else { $null }
+            Album             = if ($tag.Album) { $tag.Album } else { $null }
+            Title             = if ($tag.Title) { $tag.Title } else { $null }
+            Format            = $extension.TrimStart('.')
+            IsLossless        = Test-TaggerIsLosslessFormat -Extension $extension
+            DurationSeconds   = [double]$properties.Duration.TotalSeconds
+            EmbeddedCoverPath = $embeddedCoverPath
         }
     }
     finally {
@@ -464,13 +590,11 @@ function Resolve-TaggerFolderKind {
         return [pscustomobject]@{ Kind = 'unrecognized'; Reason = 'no-audio-files' }
     }
 
-    # Loose (non-audio) files sitting directly alongside subfolders is exactly the "random leftovers
-    # mixed with subfolders" case - genuinely unclear, so it's flagged rather than guessed.
-    $directFiles = @(Get-ChildItem -LiteralPath $Path -File -ErrorAction SilentlyContinue)
-    $hasSubfolders = @(Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue).Count -gt 0
-    if ($directFiles.Count -gt 0 -and $hasSubfolders) {
-        return [pscustomobject]@{ Kind = 'unrecognized'; Reason = 'unclassified-folder' }
-    }
+    # By this point Test-IsReleaseFolder (above) has already claimed any folder with a direct audio
+    # file as a 'release' (flagged nested-release-suspected downstream if it also has subfolders with
+    # their own audio) - so any direct files still present here are necessarily non-audio (discography
+    # .txt, liner notes, cover art, Thumbs.db, playlists, ...). That's common real-world clutter with
+    # no structural meaning, so it's ignored rather than blocking recognition of the folder.
 
     # Not ambiguous (doesn't look like a grouping/category/band-member folder), and audio exists
     # somewhere below - treat as a transparent nesting layer rather than flagging it. At Root this
@@ -577,9 +701,16 @@ function New-TaggerReleaseRecord {
     if ($discFolders.Count -eq 0) {
         if (Test-IsCueSheetRelease -Path $Path) {
             $audioFile = (Get-TaggerAudioFilesInFolder -Path $Path)[0]
-            $cueFile = Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' | Select-Object -First 1
+            $cueFilesHere = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
+            $cueFile = Get-TaggerCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
             $cueSheet = [pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName }
             $audioTags = Get-TaggerAudioTags -Path $audioFile.FullName
+            # ffmpeg has no ape encoder/muxer (see Invoke-TaggerFfmpegSplit in
+            # Tagger.Implementation.psm1), so a cue split of an .ape source can never stream-copy
+            # into .ape - it re-encodes to .flac instead. Naming these tracks 'flac' here keeps
+            # proposedFileName (Tagger.EditProposal.psm1) in sync with what the split actually
+            # produces. Still fully lossless - isLossless below is untouched.
+            $cueSplitFormat = if ($audioTags.Format -eq 'ape') { 'flac' } else { $audioTags.Format }
             $cueTracks = ConvertFrom-TaggerCueSheet -CueFilePath $cueFile.FullName
 
             if ($null -eq $cueTracks) {
@@ -592,7 +723,8 @@ function New-TaggerReleaseRecord {
                         detectedTrackNumberInDisc = 1
                         inferredTrackOrder        = $true
                         existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
-                        format                    = $audioTags.Format
+                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
+                        format                    = $cueSplitFormat
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
                         cueTimestamp              = '00:00:00'
@@ -600,7 +732,20 @@ function New-TaggerReleaseRecord {
                     })
             }
             else {
-                foreach ($cueTrack in $cueTracks) {
+                # Each cue track's own duration is the gap to the next track's start (or, for the
+                # last track, the gap to the whole file's end) - a flat copy of the whole-file
+                # duration onto every track (as this used to do) is wrong for every track but the
+                # first. ConvertFrom-TaggerCueSheet already returns tracks sorted by Number.
+                $cueTracksSorted = @($cueTracks)
+                for ($i = 0; $i -lt $cueTracksSorted.Count; $i++) {
+                    $cueTrack = $cueTracksSorted[$i]
+                    $startSeconds = ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $cueTrack.Timestamp
+                    $endSeconds = if ($i -lt ($cueTracksSorted.Count - 1)) {
+                        ConvertTo-TaggerCueTimestampSeconds -CueTimestamp $cueTracksSorted[$i + 1].Timestamp
+                    }
+                    else {
+                        $audioTags.DurationSeconds
+                    }
                     $tracks.Add([pscustomobject]@{
                             sourceFilePath            = $audioFile.FullName
                             discFolder                = $null
@@ -608,9 +753,10 @@ function New-TaggerReleaseRecord {
                             detectedTrackNumberInDisc = $cueTrack.Number
                             inferredTrackOrder        = $false
                             existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $cueTrack.Title }
-                            format                    = $audioTags.Format
+                            existingCoverArtPath      = $audioTags.EmbeddedCoverPath
+                            format                    = $cueSplitFormat
                             isLossless                = $audioTags.IsLossless
-                            durationSeconds           = $audioTags.DurationSeconds
+                            durationSeconds           = [Math]::Round(($endSeconds - $startSeconds), 3)
                             cueTimestamp              = $cueTrack.Timestamp
                             isCueVirtualTrack         = $true
                         })
@@ -629,6 +775,7 @@ function New-TaggerReleaseRecord {
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
                         existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -659,6 +806,7 @@ function New-TaggerReleaseRecord {
                         detectedTrackNumberInDisc = 1
                         inferredTrackOrder        = $true
                         existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -679,6 +827,7 @@ function New-TaggerReleaseRecord {
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
                         existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -707,6 +856,7 @@ function New-TaggerReleaseRecord {
                         detectedTrackNumberInDisc = $item.Number
                         inferredTrackOrder        = $item.InferredOrder
                         existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
                         format                    = $audioTags.Format
                         isLossless                = $audioTags.IsLossless
                         durationSeconds           = $audioTags.DurationSeconds
@@ -717,7 +867,7 @@ function New-TaggerReleaseRecord {
         }
     }
 
-    $companions = Get-TaggerCompanionFiles -Path $Path
+    $companions = Get-TaggerCompanionFiles -Path $Path -CueSheetPath $cueSheet.cueFilePath
 
     $confidence = 1.0
     if ($recognitionFlags.Count -gt 0) { $confidence = 0.8 }

@@ -65,13 +65,6 @@ BeforeAll {
         return [TagLib.File]::Create($Path)
     }
 
-    function Get-TestSafeFileName {
-        param([Parameter(Mandatory)] [AllowEmptyString()] [string]$Name)
-        return InModuleScope Tagger.Implementation -Parameters @{ n = $Name } {
-            param($n)
-            ConvertTo-SafeFileName -Name $n
-        }
-    }
 }
 
 Describe 'Set-TaggerAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' {
@@ -250,6 +243,38 @@ Describe 'Get-TaggerAudioTags on a real file (real TagLibSharp)' -Tag 'Integrati
         $result.DurationSeconds | Should -BeGreaterThan 0.9
         $result.DurationSeconds | Should -BeLessThan 1.2
     }
+
+    It 'extracts an already-embedded cover to a cache file under DataHome and returns EmbeddedCoverPath' {
+        # Isolated from $script:DataHome (the real repo .data used elsewhere in this file to locate
+        # the real TagLibSharp.dll) so this test's cover-cache write can't leak into the real repo.
+        $isolatedDataHome = Join-Path $script:workDir 'data-home'
+
+        $path = Join-Path $script:workDir 'track.flac'
+        New-TestAudioFile -Path $path -Format flac
+        $coverPath = Join-Path $script:workDir 'cover.jpg'
+        New-TestCoverImage -Path $coverPath -Color 'green'
+        $expectedBytes = [System.IO.File]::ReadAllBytes($coverPath)
+        $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
+        Set-TaggerAudioTags -Path $path -Tags $tags -CoverImagePath $coverPath -TagLibSharpPath $script:TagLibSharpPath
+
+        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome $isolatedDataHome
+
+        $result.EmbeddedCoverPath | Should -Not -BeNullOrEmpty
+        $result.EmbeddedCoverPath | Should -Exist
+        $result.EmbeddedCoverPath | Should -BeLike (Join-Path $isolatedDataHome 'embedded-covers' '*')
+        [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($result.EmbeddedCoverPath)) | Should -Be ([System.Convert]::ToBase64String($expectedBytes))
+    }
+
+    It 'returns a null EmbeddedCoverPath when the file has no embedded picture' {
+        $path = Join-Path $script:workDir 'track-no-cover.flac'
+        New-TestAudioFile -Path $path -Format flac
+        $tags = [pscustomobject]@{ artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2010; discNumber = 1; track = 1; title = 'Title' }
+        Set-TaggerAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+
+        $result = Get-TaggerAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath -DataHome (Join-Path $script:workDir 'data-home')
+
+        $result.EmbeddedCoverPath | Should -BeNullOrEmpty
+    }
 }
 
 # End-to-end with real ffmpeg and real TagLibSharp, closing the same "only Recognition was ever
@@ -316,9 +341,10 @@ Describe 'Full pipeline with real TagLibSharp and ffmpeg' -Tag 'Integration' {
 
         # The release/track *names* (not the full path, which legitimately contains a drive-letter
         # colon and backslash separators) must be sanitized, matching what ConvertTo-SafeFileName
-        # would produce.
+        # would produce. The Album *tag* is a different story - metadata isn't constrained by
+        # filesystem rules, so it must keep the raw, unsanitized Discogs title.
         $release.proposed.releaseFolderName.IndexOfAny($invalidChars) | Should -Be -1
-        $release.proposed.album | Should -Be (Get-TestSafeFileName -Name 'OK Computer? / Live: Edition').SafeName
+        $release.proposed.album | Should -Be 'OK Computer? / Live: Edition'
 
         $releasePath = Join-Path $script:targetRoot $release.proposed.artistFolderName $release.proposed.releaseFolderName
         Test-Path -LiteralPath $releasePath | Should -Be $true
@@ -345,10 +371,12 @@ Describe 'Full pipeline with real TagLibSharp and ffmpeg' -Tag 'Integration' {
             }
         }
 
-        # The proposed tag/name values are themselves already sanitized (New-TaggerProposedReleaseNames
-        # and New-TaggerProposedTrackSet in Tagger.EditProposal.psm1 run every Discogs-sourced string
-        # through ConvertTo-SafeFileName before it ever reaches proposal.json) - tags and file/folder
-        # names share one safe value, there is no separate "raw tag vs sanitized name" pair to compare.
-        $release.proposed.album | Should -Not -Match '[?/:]'
+        # New-TaggerProposedReleaseNames/New-TaggerProposedTrackSet (Tagger.EditProposal.psm1) run
+        # each Discogs-sourced string through ConvertTo-SafeFileName only for the filesystem-facing
+        # name fields (releaseFolderName, artistFolderName, proposedFileName). The tag fields
+        # (proposed.album, tags.album, tags.title, proposedTitle) keep the raw, un-sanitized text,
+        # so a real TagLibSharp read-back must still see the original punctuation.
+        $release.proposed.album | Should -Match '[?/:]'
+        $release.tracks[0].tags.album | Should -Be 'OK Computer? / Live: Edition'
     }
 }

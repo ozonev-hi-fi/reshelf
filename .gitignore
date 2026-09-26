@@ -2,3 +2,6 @@ config/settings.json
 *.local.json
 .env
 .data/
+tests/ui/node_modules/
+tests/ui/test-results/
+tests/ui/.tmp/

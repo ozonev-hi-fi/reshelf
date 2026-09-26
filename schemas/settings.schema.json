@@ -22,7 +22,7 @@
   "properties": {
     "defaultSourceRoot": { "type": "string" },
     "targetRoot": { "type": "string", "minLength": 1 },
-    "copyMode": { "type": "string", "enum": ["copy", "move"] },
+    "copyMode": { "type": "string", "enum": ["copy"] },
     "namingTemplates": {
       "type": "object",
       "additionalProperties": false,

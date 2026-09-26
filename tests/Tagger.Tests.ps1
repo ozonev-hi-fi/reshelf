@@ -180,6 +180,20 @@ Describe 'Tagger.ps1 settings/session dispatch' {
         (Get-TaggerSettings -DataHome $dataHome).defaultSourceRoot | Should -Be $sourceRoot
     }
 
+    It 'recognize -SourceRoot without -SaveAsDefault leaves defaultSourceRoot unchanged' {
+        $targetRoot = Join-Path $TestDrive 'target'
+        $originalDefaultSourceRoot = Join-Path $TestDrive 'source-original-default'
+        New-Item -ItemType Directory -Path $originalDefaultSourceRoot -Force | Out-Null
+        Invoke-Tagger settings init -TargetRoot $targetRoot -DefaultSourceRoot $originalDefaultSourceRoot | Out-Null
+
+        $otherSourceRoot = Join-Path $TestDrive 'source-other'
+        New-Item -ItemType Directory -Path $otherSourceRoot -Force | Out-Null
+
+        Invoke-Tagger recognize -SourceRoot $otherSourceRoot | Out-Null
+
+        (Get-TaggerSettings -DataHome $dataHome).defaultSourceRoot | Should -Be $originalDefaultSourceRoot
+    }
+
     It 'session show without a session id fails with a clear error instead of listing everything' {
         $result = Invoke-Tagger session show
 
@@ -218,5 +232,30 @@ Describe 'Tagger.ps1 settings/session dispatch' {
 
         $resumeResult = Invoke-Tagger session resume -SessionId $session.sessionId
         ($resumeResult.Output -join "`n") | Should -BeLike "*apply -SessionId $($session.sessionId)*"
+    }
+
+    It 'session resume via the CLI reports the right next command for every session stage' {
+        $sourceRoot = Join-Path $TestDrive 'source-for-resume-stages'
+        New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+        $session = New-TaggerSession -SourceRoot $sourceRoot -DataHome $dataHome
+
+        $stageExpectations = [ordered]@{
+            'recognized'        = "*propose -SessionId $($session.sessionId)*"
+            'proposed'          = "*ui start*mark-reviewed -SessionId $($session.sessionId)*"
+            'reviewed'          = "*apply -SessionId $($session.sessionId)*"
+            'applied'           = '*complete*'
+            'partially-applied' = "*apply -SessionId $($session.sessionId)*"
+        }
+
+        foreach ($stage in $stageExpectations.Keys) {
+            Set-TaggerSessionStage -SessionId $session.sessionId -Stage $stage -DataHome $dataHome | Out-Null
+
+            $result = Invoke-Tagger session resume -SessionId $session.sessionId
+            $result.ExitCode | Should -Be 0
+            # Format-List wraps a long NextCommand value across lines at the host's console width -
+            # collapse all whitespace (including the wrap) to single spaces before matching.
+            $flattenedOutput = ($result.Output -join ' ') -replace '\s+', ' '
+            $flattenedOutput | Should -BeLike $stageExpectations[$stage] -Because "stage '$stage' should report its own next command"
+        }
     }
 }

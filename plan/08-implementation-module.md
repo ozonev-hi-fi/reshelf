@@ -10,7 +10,8 @@ music files.
 ## Inputs / outputs
 
 - Input: approved `proposal.json` ([03](03-domain-model-and-json-schemas.md)),
-  `settings.json` (copy vs. move mode).
+  `settings.json` (`copyMode`, always `"copy"` — source files are always read-only to Tagger; see
+  "Decisions & rationale" below).
 - Output: files under `targetRoot` in the final structure (manifesto §4),
   updated `lossy-tracking.json` ([09](09-lossy-lossless-tracking.md)),
   `apply-log.json`.
@@ -27,7 +28,10 @@ with no writes.
 By default, releases with `discogsMatch.status == "ambiguous"` and
 `humanReview.resolved != true` are skipped (see
 [07-editing-ui-module.md](07-editing-ui-module.md)) unless
-`-IncludeUnresolved` is passed.
+`-IncludeUnresolved` is passed. A release with `humanReview.rejected == true`
+is always skipped, counted separately as `Rejected` in the run summary, and
+is never included even with `-IncludeUnresolved` — that flag means "apply
+what hasn't been reviewed yet," not "override an explicit rejection".
 
 ### Per-release pipeline
 
@@ -40,9 +44,10 @@ By default, releases with `discogsMatch.status == "ambiguous"` and
    uniformly for lossless formats like flac and lossy ones like mp3 — `-c
    copy` extracts without re-encoding, so no quality loss and no
    lossy-to-lossy re-compression artifacts). Verify the resulting track
-   count matches the cue sheet's track count before deleting the original
-   `.cue` file and single audio file (manifesto §4.4 requires the `.cue`
-   deleted afterward — only once splitting is verified successful).
+   count matches the cue sheet's track count before proceeding. The source
+   `.cue` and single audio file are never deleted — source files are always
+   read-only to Tagger (revised from the original plan; see "Decisions &
+   rationale" below).
 3. **Copy/move into a staging area**: `TargetRoot\.tagger-staging\<stableKey>\...`,
    never directly into the final target path yet.
 4. **Rename** files/folders per `proposal.json`'s `proposed*`/`proposedFileName`
@@ -56,13 +61,26 @@ By default, releases with `discogsMatch.status == "ambiguous"` and
    `TagLib.File.Create(...)` / set properties / `.Save()` call per staged
    track, embedding the resized cover (`TagLib.Picture`) directly into each
    file's tags. No external process, no GUI, nothing to author by hand.
-7. **Companion files**: copied to their `placement` (nested subfolder, or
-   loose with a letter-prefixed filename per manifesto §4.5).
+7. **Companion files**: `companionFiles` entries with `include == false`
+   (set in the Editing UI, [07](07-editing-ui-module.md)) are skipped
+   entirely — never copied, and (like every source file) never deleted from
+   the source either. Every other entry is copied to its `placement`: a
+   **nested** one keeps its
+   subfolder path and file name unchanged; a **loose** one uses its
+   `proposedFileName` — computed by [06](06-edit-proposal-module.md) as a
+   letter-first name per manifesto §4.5 (never the old digit → `_` prefix,
+   which sorted *before* tracks in Explorer and so broke the rule it was
+   meant to satisfy), and editable in the UI. Before copying anything for a
+   release, every included loose companion's target name is validated —
+   starts with a letter, doesn't collide with a track's target file name or
+   with another included companion's target path — and the whole release
+   fails cleanly (status `failed`, clear message, batch continues) if not; a
+   `proposal.json` from before `proposedFileName` existed falls back to
+   computing one from the companion's `kind` at apply time.
 8. **Atomic-ish final commit**: only after every prior step succeeds for the
    whole release, `Move-Item` the staged folder from
    `.tagger-staging\<stableKey>` to its real final path under `targetRoot`.
-   If `copyMode == "move"`, source files are deleted only now, after the
-   commit succeeds — never before.
+   The source is left untouched — nothing is ever deleted from it.
 9. **Update `lossy-tracking.json`** per `lossyLossless.action`
    ([09](09-lossy-lossless-tracking.md)).
 10. **Append to `apply-log.json`**: `{ stableKey, appliedAtUtc, status,
@@ -92,13 +110,16 @@ final path looking "present" to a later run's duplicate check.
   process, no GUI, no manual Action-Group authoring. The trade-off (reading
   and writing sharing one library instead of two independent ones) is
   discussed in [11](11-testing-and-verification-strategy.md).
-- **Verify split track count before deleting source**: splitting is
-  destructive to the manifesto's stated end state (cue+single-file must not
-  survive) — verifying first avoids losing a release to a bad split with no
-  way back.
-- **Move only after commit succeeds**: protects the user's original files
-  when `copyMode == "move"` — a crash mid-pipeline should never leave the
-  user with neither a valid source nor a valid target copy.
+- **Verify split track count before proceeding**: a bad split (wrong track
+  count) must fail the release cleanly rather than commit incomplete or
+  misaligned tracks to the target.
+- **Source files are always read-only, no "move" mode** (revised from the
+  original plan): an earlier design deleted the cue-sheet source after a
+  verified split, and deleted moved per-track/companion sources in a "move"
+  `copyMode` — both were removed entirely after an incident destroyed source
+  releases that had no other backup. `copyMode` now only accepts `"copy"`;
+  no code path in Tagger, and no external tool it calls (ffmpeg,
+  TagLibSharp), ever deletes or modifies a file under the source root.
 
 ## Edge cases
 

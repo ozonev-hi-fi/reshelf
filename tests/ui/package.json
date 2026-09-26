@@ -1,0 +1,11 @@
+{
+  "name": "tagger-ui-tests",
+  "private": true,
+  "description": "Playwright suite for the Tagger editing UI (plan/07, plan/11) - automates what was tests/manual/ui-checklist.md.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}

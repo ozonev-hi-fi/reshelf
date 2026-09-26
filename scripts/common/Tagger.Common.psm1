@@ -51,6 +51,23 @@ function ConvertTo-TaggerNormalizedText {
     return [regex]::Replace($stripped, '\s+', ' ').Trim()
 }
 
+function ConvertTo-TaggerCueTimestampSeconds {
+    [CmdletBinding()]
+    [OutputType([double])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$CueTimestamp
+    )
+
+    # A cue sheet's INDEX 01 timestamp is MM:SS:FF - minutes, seconds, CD-audio frames
+    # (00-74, 75 frames/sec), NOT HH:MM:SS.
+    $parts = $CueTimestamp -split ':'
+    $minutes = [int]$parts[0]
+    $seconds = [int]$parts[1]
+    $frames = [int]$parts[2]
+    return [Math]::Round((($minutes * 60) + $seconds + ($frames / 75.0)), 3)
+}
+
 function Get-TaggerSha256Hex {
     [CmdletBinding()]
     [OutputType([string])]
@@ -116,7 +133,11 @@ function Test-TaggerIsAudioExtension {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
+        # AllowEmptyString: a file with no extension at all (e.g. a stray companion file) is a
+        # legitimate, non-crashing input here - it's simply never audio. Without this attribute,
+        # PowerShell's binder rejects '' outright for a Mandatory string parameter.
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$Extension
     )
 
@@ -128,6 +149,7 @@ function Test-TaggerIsLosslessFormat {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$Extension
     )
 
@@ -175,22 +197,25 @@ function ConvertTo-SafeFileName {
     param(
         [Parameter(Mandatory)]
         [AllowEmptyString()]
-        [string]$Name
+        [string]$Name,
+
+        [string]$Context = ''
     )
 
+    $prefix = if ($Context) { "${Context}: " } else { '' }
     $substitutions = [System.Collections.Generic.List[string]]::new()
     $result = $Name
 
     foreach ($invalidChar in $script:TaggerInvalidFileNameChars | Select-Object -Unique) {
         if ($result.Contains($invalidChar)) {
-            $substitutions.Add("invalid character '$invalidChar' replaced with '_'")
+            $substitutions.Add("${prefix}invalid character '$invalidChar' replaced with '_'")
             $result = $result.Replace([string]$invalidChar, '_')
         }
     }
 
     $trimmed = $result.TrimEnd('.', ' ')
     if ($trimmed -ne $result) {
-        $substitutions.Add('trailing dot/space removed')
+        $substitutions.Add("${prefix}trailing dot/space removed")
         $result = $trimmed
     }
 
@@ -200,7 +225,7 @@ function ConvertTo-SafeFileName {
     $dotIndex = $result.IndexOf('.')
     $stem = if ($dotIndex -ge 0) { $result.Substring(0, $dotIndex) } else { $result }
     if ($script:TaggerReservedDeviceNames -icontains $stem) {
-        $substitutions.Add("reserved device name '$stem' suffixed with '_'")
+        $substitutions.Add("${prefix}reserved device name '$stem' suffixed with '_'")
         $result = "${stem}_" + $result.Substring($stem.Length)
     }
 
@@ -209,6 +234,57 @@ function ConvertTo-SafeFileName {
         WasChanged    = ($result -ne $Name)
         Substitutions = @($substitutions)
     }
+}
+
+function Test-TaggerLooseCompanionFileName {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$FileName
+    )
+
+    # Manifesto SS4.5: a loose companion (directly in the release folder, next to numbered
+    # tracks) must start with a letter, so normal alphabetical sorting in a file explorer
+    # always puts tracks first. \p{L} covers non-ASCII letters (e.g. Cyrillic) too, not just A-Z.
+    return $FileName -match '^\p{L}'
+}
+
+# Kind -> the word prefixed onto a loose companion file name that doesn't start with a letter,
+# so the result both satisfies Test-TaggerLooseCompanionFileName and stays human-readable about
+# what the file actually is (a plain '_' prefix, the old behavior, gave no such hint and also
+# broke manifesto SS4.5: Explorer sorts '_' *before* digits, so it would still sort above tracks).
+$script:TaggerCompanionKindPrefixWords = @{
+    cover   = 'Cover'
+    booklet = 'Booklet'
+    photo   = 'Photo'
+    lyrics  = 'Lyrics'
+    other   = 'Extra'
+}
+
+function Get-TaggerLooseCompanionFileName {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$FileName,
+
+        [Parameter(Mandatory)]
+        [string]$Kind
+    )
+
+    $safe = (ConvertTo-SafeFileName -Name $FileName).SafeName
+
+    if (Test-TaggerLooseCompanionFileName -FileName $safe) {
+        return [pscustomobject]@{ FileName = $safe; WasPrefixed = $false }
+    }
+
+    $prefixWord = $script:TaggerCompanionKindPrefixWords[$Kind]
+    if (-not $prefixWord) { $prefixWord = $script:TaggerCompanionKindPrefixWords['other'] }
+
+    return [pscustomobject]@{ FileName = "$prefixWord $safe"; WasPrefixed = $true }
 }
 
 function ConvertTo-TaggerTruncatedSegment {
@@ -286,7 +362,10 @@ function Get-TaggerFileSetHash {
     )
 
     $entries = foreach ($path in $FilePaths) {
-        $item = Get-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $path)
+        # -ErrorAction Stop: Get-Item's default is a non-terminating error, which would otherwise
+        # leave $item as $null and fail one line later with a confusing "cannot call a method on a
+        # null-valued expression" instead of this cmdlet's own clear "cannot find path" message.
+        $item = Get-Item -LiteralPath (ConvertTo-TaggerLongPath -Path $path) -ErrorAction Stop
         "$($item.Name.ToLowerInvariant())|$($item.Length)"
     }
 
@@ -342,6 +421,23 @@ function Set-TaggerTagLibSharpContext {
     $script:TaggerDataHome = $DataHome
 }
 
+function Get-TaggerEffectiveDataHome {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [string]$DataHome
+    )
+
+    # Same fallback Import-TaggerTagLibSharp already uses to locate the DLL (explicit param, else
+    # the context Set-TaggerTagLibSharpContext stashed for this run, else the on-disk default) -
+    # exposed here so callers outside this module (e.g. Tagger.Recognition.psm1's embedded-cover
+    # cache) resolve to the same data home a run was actually configured with, not always the
+    # repo-default '.data' folder.
+    if (-not $DataHome) { $DataHome = $script:TaggerDataHome }
+    if (-not $DataHome) { $DataHome = Resolve-TaggerDataHome }
+    return $DataHome
+}
+
 function Import-TaggerTagLibSharp {
     [CmdletBinding()]
     param(
@@ -369,8 +465,8 @@ function Import-TaggerTagLibSharp {
     Add-Type -Path $TagLibSharpPath
 }
 
-Export-ModuleMember -Function Resolve-TaggerDataHome, Get-TaggerStableKey, ConvertTo-TaggerLongPath, `
-    ConvertTo-TaggerNormalizedText, Get-TaggerSha256Hex, Test-TaggerIsAudioExtension, Test-TaggerIsLosslessFormat, `
+Export-ModuleMember -Function Resolve-TaggerDataHome, Get-TaggerEffectiveDataHome, Get-TaggerStableKey, ConvertTo-TaggerLongPath, `
+    ConvertTo-TaggerNormalizedText, ConvertTo-TaggerCueTimestampSeconds, Get-TaggerSha256Hex, Test-TaggerIsAudioExtension, Test-TaggerIsLosslessFormat, `
     Get-TaggerAudioFilesInFolder, ConvertFrom-TaggerTrackFileName, ConvertTo-SafeFileName, Get-TaggerFileSetHash, `
     Set-TaggerTagLibSharpContext, Import-TaggerTagLibSharp, Protect-TaggerSecret, Unprotect-TaggerSecret, Get-TaggerRelativePath, `
-    ConvertTo-TaggerTruncatedSegment
+    ConvertTo-TaggerTruncatedSegment, Test-TaggerLooseCompanionFileName, Get-TaggerLooseCompanionFileName

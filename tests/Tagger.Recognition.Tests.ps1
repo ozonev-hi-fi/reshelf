@@ -257,6 +257,26 @@ Describe 'ConvertFrom-TaggerCueSheet (private)' {
         }
     }
 
+    It 'correctly decodes accented titles from a Windows-1252-encoded cue file (no BOM)' {
+        # Real-world case: German cue sheets ripped on Windows are often Windows-1252, not UTF-8.
+        # Reading them as UTF-8 (the default) turns bytes like u-umlaut into lossy U+FFFD replacement
+        # characters instead of recovering the real title. Built from explicit char codes rather than
+        # a literal accented character in this source file, to avoid this very same class of mixup.
+        InModuleScope Tagger.Recognition {
+            $uUmlaut = [char]0xFC
+            $expectedTitle = "F${uUmlaut}r einen Augenblick"
+            $cueText = "TRACK 01 AUDIO`r`n    TITLE `"$expectedTitle`"`r`n    INDEX 01 00:00:00`r`n"
+
+            $path = Join-Path $TestDrive 'german.cue'
+            $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($cueText)
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+
+            $tracks = ConvertFrom-TaggerCueSheet -CueFilePath $path
+            $tracks.Count | Should -Be 1
+            $tracks[0].Title | Should -Be $expectedTitle
+        }
+    }
+
     It 'returns $null for a missing cue file' {
         InModuleScope Tagger.Recognition {
             ConvertFrom-TaggerCueSheet -CueFilePath (Join-Path $TestDrive 'does-not-exist.cue') | Should -Be $null
@@ -288,9 +308,24 @@ Describe 'Get-TaggerCompanionFiles (private)' {
     It 'routes a playlist file to ignored with reason playlist-file' {
         InModuleScope Tagger.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
             param($fixturesDir)
-            $result = Get-TaggerCompanionFiles -Path (Join-Path $fixturesDir 'Pink Floyd\1994 Live In Concert (Bootleg)')
+            $releaseDir = Join-Path $fixturesDir 'Pink Floyd\1994 Live In Concert (Bootleg)'
+            # This fixture is a single-file + .cue release - passing the real cue sheet path (as
+            # Invoke-TaggerRecognition itself does) keeps the used cue file excluded here, so only
+            # the playlist shows up as ignored.
+            $result = Get-TaggerCompanionFiles -Path $releaseDir -CueSheetPath (Join-Path $releaseDir 'Live In Concert.cue')
             $result.Ignored.Count | Should -Be 1
             $result.Ignored[0].reason | Should -Be 'playlist-file'
+        }
+    }
+
+    It 'routes an unused .cue file to ignored with reason cue-sheet-not-used when no CueSheetPath is given' {
+        InModuleScope Tagger.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            $releaseDir = Join-Path $fixturesDir 'Pink Floyd\1994 Live In Concert (Bootleg)'
+            $result = Get-TaggerCompanionFiles -Path $releaseDir
+            $cueEntry = $result.Ignored | Where-Object { $_.sourcePath -like '*Live In Concert.cue' }
+            $cueEntry | Should -Not -BeNullOrEmpty
+            $cueEntry.reason | Should -Be 'cue-sheet-not-used'
         }
     }
 
@@ -301,6 +336,24 @@ Describe 'Get-TaggerCompanionFiles (private)' {
             $result.Companions | Where-Object { $_.sourcePath -like '*CD 1*' -or $_.sourcePath -like '*CD 2*' } | Should -BeNullOrEmpty
             $playlistInDisc = $result.Ignored | Where-Object { $_.sourcePath -like '*CD 1*setlist.m3u' }
             $playlistInDisc | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'classifies a file with no extension at all as a companion of kind other, instead of throwing' {
+        # Found against a real collection sample: a 0-byte loose file with no extension
+        # (e.g. an aborted download) sitting next to real tracks. Test-TaggerIsAudioExtension /
+        # Resolve-TaggerCompanionKind used to reject '' outright as a Mandatory string parameter.
+        InModuleScope Tagger.Recognition {
+            $releaseDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'Some Release'
+            New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Extensionless') -Force | Out-Null
+
+            { $result = Get-TaggerCompanionFiles -Path $releaseDir } | Should -Not -Throw
+
+            $result = Get-TaggerCompanionFiles -Path $releaseDir
+            $result.Companions.Count | Should -Be 1
+            $result.Companions[0].kind | Should -Be 'other'
+            $result.Companions[0].placement | Should -Be 'loose'
         }
     }
 }
@@ -355,12 +408,13 @@ Describe 'Invoke-TaggerRecognition' {
             param($Path, $TagLibSharpPath, $DataHome)
             $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
             return @{
-                Artist          = $null
-                Album           = $null
-                Title           = [System.IO.Path]::GetFileNameWithoutExtension($Path)
-                Format          = $ext
-                IsLossless      = ($ext -in @('flac', 'wav'))
-                DurationSeconds = 200
+                Artist            = $null
+                Album             = $null
+                Title             = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format            = $ext
+                IsLossless        = ($ext -in @('flac', 'wav', 'ape'))
+                DurationSeconds   = 200
+                EmbeddedCoverPath = $null
             }
         }
     }
@@ -427,7 +481,7 @@ Describe 'Invoke-TaggerRecognition' {
         $result = Invoke-TaggerRecognition -SourceRoot $FixturesDir -SessionId 'session-4' -DataHome $dataHome
 
         $zzTop = $result.artists | Where-Object { $_.recognizedName -eq 'ZZ Top' }
-        $zzTop.releases.Count | Should -Be 4
+        $zzTop.releases.Count | Should -Be 5
         ($zzTop.releases.recognizedTitle) | Should -Contain 'One Foot In The Blues'
 
         # "Lives" is a second category name, planted separately from "EPs".
@@ -435,6 +489,12 @@ Describe 'Invoke-TaggerRecognition' {
         $live | Should -Not -BeNullOrEmpty
         $live.recognizedYear | Should -Be 2005
         ($result.artists.recognizedName) | Should -Not -Contain 'Lives'
+
+        # "Singles" is a third category name, planted separately from "EPs"/"Lives".
+        $single = $zzTop.releases | Where-Object { $_.recognizedTitle -eq 'Pincushion' }
+        $single | Should -Not -BeNullOrEmpty
+        $single.recognizedYear | Should -Be 1996
+        ($result.artists.recognizedName) | Should -Not -Contain 'Singles'
     }
 
     It 'parses a numbered track filename with no dash separator in the fixture tree' {
@@ -580,8 +640,68 @@ Describe 'Invoke-TaggerRecognition' {
         $release.tracks.Count | Should -Be 2
         ($release.tracks.isCueVirtualTrack) | Should -Not -Contain $false
         $release.tracks[0].cueTimestamp | Should -Be '00:00:00'
+        # Each cue track must get its OWN duration (gap to the next track's start, or to the
+        # whole file's end for the last track) - not a flat copy of the whole-file mock duration
+        # (200, from the Describe-level Get-TaggerAudioTags mock) onto every track.
+        $release.tracks[0].durationSeconds | Should -Be 192.6
+        $release.tracks[1].durationSeconds | Should -Be 7.4
         $release.ignoredFiles.Count | Should -Be 1
         $release.ignoredFiles[0].reason | Should -Be 'playlist-file'
+    }
+
+    It 'names cue-sheet virtual tracks from an .ape source as flac, since ffmpeg cannot write .ape' {
+        # ffmpeg has no ape encoder/muxer, so a cue split of an .ape source always re-encodes to
+        # .flac (see Invoke-TaggerFfmpegSplit in Tagger.Implementation.psm1). The track's format
+        # here must already say 'flac' so proposedFileName matches what apply actually produces.
+        # Built dynamically under $TestDrive rather than checked into the static fixture tree -
+        # the shared fixture tree feeds Tagger.Pipeline.Tests.ps1's golden-file comparisons, and a
+        # new release there would need those golden files regenerated too.
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $releaseDir = Join-Path $sourceRoot 'APE Cue Band' '1993 APE Bootleg'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Show.ape') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Show.cue') -Value @'
+PERFORMER "APE Cue Band"
+TITLE "APE Bootleg"
+FILE "Show.ape" WAVE
+  TRACK 01 AUDIO
+    TITLE "Intro"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "Main Set"
+    INDEX 01 05:10:20
+'@
+
+        # Second track starts at 05:10:20 (~310s) - the Describe-level mock's flat 200s whole-file
+        # duration is shorter than that (unrealistic; a real file can't be shorter than its own
+        # last track), which would make the now-computed per-track duration negative. Override
+        # with a duration that actually fits both tracks; this test only cares about format/
+        # isLossless, not duration.
+        Mock -ModuleName Tagger.Recognition Get-TaggerAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
+            return @{
+                Artist            = $null
+                Album             = $null
+                Title             = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format            = $ext
+                IsLossless        = ($ext -in @('flac', 'wav', 'ape'))
+                DurationSeconds   = 400
+                EmbeddedCoverPath = $null
+            }
+        }
+
+        $result = Invoke-TaggerRecognition -SourceRoot $sourceRoot -SessionId 'session-11b' -DataHome $dataHome
+
+        $band = $result.artists | Where-Object { $_.recognizedName -eq 'APE Cue Band' }
+        $release = $band.releases[0]
+        $release.cueSheet | Should -Not -BeNullOrEmpty
+        $release.tracks.Count | Should -Be 2
+        ($release.tracks.format) | Should -Not -Contain 'ape'
+        $release.tracks[0].format | Should -Be 'flac'
+        $release.tracks[0].isLossless | Should -Be $true
+        $release.tracks[1].format | Should -Be 'flac'
+        $release.tracks[1].isLossless | Should -Be $true
     }
 
     It 'falls back to whole-folder alphabetical order for unnumbered tracks' {
@@ -649,16 +769,164 @@ Describe 'Invoke-TaggerRecognition' {
         $sharedArtist.sourcePaths.Count | Should -Be 2
     }
 
-    It 'flags a folder with loose files mixed with subfolders as unclassified-folder' {
+    It 'treats a loose audio file mixed with a subfolder of its own audio as a suspected nested release, not unclassified' {
+        # A direct audio file makes Test-IsReleaseFolder claim the folder as a 'release' before the
+        # unclassified-folder check ever runs - so this case is caught via nested-release-suspected
+        # review instead, not a hard unrecognized rejection.
         $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         $messyDir = Join-Path $sourceRoot 'Some Artist' 'Messy Junk'
         New-Item -ItemType Directory -Path (Join-Path $messyDir 'Weird Sub') -Force | Out-Null
-        New-Item -ItemType File -Path (Join-Path $messyDir 'notes.txt') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $messyDir 'Bonus Track.flac') -Force | Out-Null
         New-Item -ItemType File -Path (Join-Path $messyDir 'Weird Sub' '01 - Track.flac') -Force | Out-Null
 
         $result = Invoke-TaggerRecognition -SourceRoot $sourceRoot -SessionId 'session-17' -DataHome $dataHome
 
-        $entry = $result.unrecognized | Where-Object { $_.path -like '*Messy Junk' }
-        $entry.reason | Should -Be 'unclassified-folder'
+        $result.unrecognized | Where-Object { $_.path -like '*Messy Junk' } | Should -BeNullOrEmpty
+        $release = $result.artists.releases | Where-Object { $_.sourceFolderPath -like '*Messy Junk' }
+        $release | Should -Not -BeNullOrEmpty
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'nested-release-suspected'
+    }
+
+    It 'ignores a loose non-audio file sitting next to release subfolders and still recognizes the releases' {
+        # Real-world case: an artist folder with a "Discography.txt" (or similar liner-notes/info
+        # file) dropped directly alongside the release subfolders - no structural meaning, shouldn't
+        # block recognition of the releases underneath.
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $artistDir = Join-Path $sourceRoot 'Some Artist'
+        $releaseDir = Join-Path $artistDir '2010 Some Album'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $artistDir 'Discography.txt') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir '01 - Track.flac') -Force | Out-Null
+
+        $result = Invoke-TaggerRecognition -SourceRoot $sourceRoot -SessionId 'session-17b' -DataHome $dataHome
+
+        $result.unrecognized | Where-Object { $_.path -like '*Some Artist' } | Should -BeNullOrEmpty
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
+        $artist | Should -Not -BeNullOrEmpty
+        $artist.releases.Count | Should -Be 1
+        $artist.releases[0].recognizedTitle | Should -Be 'Some Album'
+    }
+
+    It 'still recognizes a single-file + .cue release when an orphaned second .cue for an unused rip format is also present' {
+        # Found against a real collection sample: a release with one real .flac plus both
+        # "Album.flac.cue" (matches the flac) and "Album.wav.cue" (orphaned - no .wav ever existed).
+        # Before the Get-TaggerCueSheetPathForAudio fix, 2 .cue files disqualified the folder from
+        # cue-release detection entirely, silently collapsing the whole album into one giant
+        # "track" instead of splitting it per the cue sheet.
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $releaseDir = Join-Path $sourceRoot 'Some Artist' '2003 Some Album'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Some Album.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Some Album.wav.cue') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Some Album.flac.cue') -Value @'
+TRACK 01 AUDIO
+  TITLE "First Track"
+  INDEX 01 00:00:00
+TRACK 02 AUDIO
+  TITLE "Second Track"
+  INDEX 01 03:30:00
+'@
+
+        # Second track starts at 03:30:00 (210s) - the Describe-level mock's flat 200s whole-file
+        # duration is shorter than that (unrealistic; a real file can't be shorter than its own
+        # last track), which would make the now-computed per-track duration negative. Override
+        # with a duration that actually fits both tracks; this test only cares about cue-file
+        # selection and track titles, not duration.
+        Mock -ModuleName Tagger.Recognition Get-TaggerAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
+            return @{
+                Artist            = $null
+                Album             = $null
+                Title             = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format            = $ext
+                IsLossless        = ($ext -in @('flac', 'wav', 'ape'))
+                DurationSeconds   = 300
+                EmbeddedCoverPath = $null
+            }
+        }
+
+        $result = Invoke-TaggerRecognition -SourceRoot $sourceRoot -SessionId 'session-22' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
+        $release = $artist.releases[0]
+        $release.cueSheet | Should -Not -BeNullOrEmpty
+        $release.cueSheet.cueFilePath | Should -Be (Join-Path $releaseDir 'Some Album.flac.cue')
+        $release.tracks.Count | Should -Be 2
+        $release.tracks[1].existingTags.title | Should -Be 'Second Track'
+    }
+}
+
+Describe 'Get-TaggerCueSheetPathForAudio (private)' {
+    BeforeAll {
+        # FileInfo objects are built here in the test's own scope (not inside InModuleScope) and
+        # handed in via -Parameters - same reason as Get-TestUnprotectedSecret elsewhere in this
+        # repo's tests: a function/variable defined at this script's top level isn't visible inside
+        # an InModuleScope block, which runs in the imported module's own scope instead.
+        function New-FakeCueFileInfo {
+            param([string]$Name)
+            return [System.IO.FileInfo]::new((Join-Path $TestDrive $Name))
+        }
+    }
+
+    It 'returns $null when there are no cue files' {
+        $audio = New-FakeCueFileInfo 'Album.flac'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio } {
+            param($audio)
+            Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @() | Should -Be $null
+        }
+    }
+
+    It 'returns the only cue file regardless of its name when exactly one exists' {
+        $audio = New-FakeCueFileInfo 'Album.flac'
+        $cue = New-FakeCueFileInfo 'tracklist.cue'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio; cue = $cue } {
+            param($audio, $cue)
+            (Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @($cue)).Name | Should -Be 'tracklist.cue'
+        }
+    }
+
+    It 'picks the cue file matching audioname.ext.cue out of several' {
+        $audio = New-FakeCueFileInfo 'Album.flac'
+        $match = New-FakeCueFileInfo 'Album.flac.cue'
+        $orphan = New-FakeCueFileInfo 'Album.wav.cue'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio; match = $match; orphan = $orphan } {
+            param($audio, $match, $orphan)
+            (Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @($match, $orphan)).Name | Should -Be 'Album.flac.cue'
+        }
+    }
+
+    It 'picks the cue file matching the audio file''s base name out of several' {
+        $audio = New-FakeCueFileInfo 'Album.flac'
+        $match = New-FakeCueFileInfo 'Album.cue'
+        $orphan = New-FakeCueFileInfo 'Album.wav.cue'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio; match = $match; orphan = $orphan } {
+            param($audio, $match, $orphan)
+            (Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @($match, $orphan)).Name | Should -Be 'Album.cue'
+        }
+    }
+
+    It 'returns $null when several cue files exist and none names the audio file' {
+        $audio = New-FakeCueFileInfo 'Album.flac'
+        $a = New-FakeCueFileInfo 'Other.flac.cue'
+        $b = New-FakeCueFileInfo 'Other.wav.cue'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio; a = $a; b = $b } {
+            param($audio, $a, $b)
+            Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @($a, $b) | Should -Be $null
+        }
+    }
+
+    It 'prefers the audioname.ext.cue match over a basename.cue match naming the same audio file' {
+        # Real-world case: "Album.ape.cue" and "Album.cue" both present, identical content, both
+        # naming the one .ape that's actually there - not competing formats, just redundant naming.
+        # Must still resolve to one cue file instead of the 2-matches-across-rules $null bailout.
+        $audio = New-FakeCueFileInfo 'Album.ape'
+        $exactNameCue = New-FakeCueFileInfo 'Album.ape.cue'
+        $baseNameCue = New-FakeCueFileInfo 'Album.cue'
+        InModuleScope Tagger.Recognition -Parameters @{ audio = $audio; exactNameCue = $exactNameCue; baseNameCue = $baseNameCue } {
+            param($audio, $exactNameCue, $baseNameCue)
+            (Get-TaggerCueSheetPathForAudio -AudioFile $audio -CueFiles @($exactNameCue, $baseNameCue)).Name | Should -Be 'Album.ape.cue'
+        }
     }
 }

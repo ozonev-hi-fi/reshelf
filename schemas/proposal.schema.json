@@ -177,10 +177,11 @@
         "humanReview": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["required", "resolved", "notes"],
+          "required": ["required", "resolved", "rejected", "notes"],
           "properties": {
             "required": { "type": "boolean" },
             "resolved": { "type": "boolean" },
+            "rejected": { "type": "boolean" },
             "notes": { "type": "string" }
           }
         }
@@ -196,6 +197,7 @@
         "detectedTrackNumberInDisc",
         "inferredTrackOrder",
         "existingTags",
+        "existingCoverArtPath",
         "format",
         "isLossless",
         "durationSeconds",
@@ -223,6 +225,7 @@
             "title": { "type": ["string", "null"] }
           }
         },
+        "existingCoverArtPath": { "type": ["string", "null"] },
         "format": { "type": "string", "minLength": 1 },
         "isLossless": { "type": "boolean" },
         "durationSeconds": { "type": "number", "minimum": 0 },
@@ -255,7 +258,9 @@
       "properties": {
         "sourcePath": { "type": "string", "minLength": 1 },
         "kind": { "type": "string", "enum": ["cover", "booklet", "photo", "lyrics", "other"] },
-        "placement": { "type": "string", "minLength": 1 }
+        "placement": { "type": "string", "minLength": 1 },
+        "include": { "type": "boolean" },
+        "proposedFileName": { "type": ["string", "null"], "minLength": 1 }
       }
     },
     "ignoredFile": {

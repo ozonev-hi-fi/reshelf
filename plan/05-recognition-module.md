@@ -36,27 +36,39 @@ produce `recognition.json`. Matches manifesto §7 module 2.
   artist (e.g. `David Byrne` inside `Talking Heads`) — this is actually a
   second, separate main artist nested for historical/organizational reasons.
 
-### The rule: ambiguous cases are never auto-resolved
+### The rule: only genuinely ambiguous cases go to a human
 
 Grouping folders, band-member folders, and category subfolders are exactly
-the patterns manifesto §1 calls out as real, recurring chaos. Rather than
-guessing:
+the patterns manifesto §1 calls out as real, recurring chaos, but as
+implemented (checked 2026-09-26) only grouping folders are actually
+ambiguous enough to need a human decision:
 
-- Every folder that any heuristic flags as ambiguous goes into
-  `unrecognized[]` with a `reason` code (`grouping-folder-suspected`,
-  `band-member-suspected`, `category-subfolder-suspected`) and `children`
-  listing what's inside.
-- A human-editable `overrides.json` file (one per source root, stored next to
+- **Category subfolder** (`Test-IsCategorySubfolder`) and **band-member
+  folder** (`Test-IsBandMemberFolder`) are resolved automatically, with no
+  review flag: a category subfolder's releases are attached to the parent
+  artist, and a band-member folder gets its own top-level artist bucket. Both
+  patterns are structurally unambiguous once detected — there's no second
+  plausible reading of "EPs" under an artist folder, or of a folder that
+  itself contains release-shaped children nested one level inside another
+  artist. `overrides.json` can still override the *name* used (a
+  `parentArtistName` for a category override, an `artistName` for a
+  band-member override) if the folder name alone guesses wrong, but no
+  override is required to resolve the folder itself.
+- **Grouping folder** (`Test-IsGroupingFolder`) is the one pattern that stays
+  genuinely ambiguous — "does this folder contain several different artists,
+  or is it itself one artist's odd folder name?" isn't answerable from
+  structure alone. It goes into `unrecognized[]` with reason
+  `grouping-folder-suspected` and `children` listing what's inside, unless a
+  human-editable `overrides.json` entry (one per source root, stored next to
   that source root's session data, reusable across re-runs of the same
-  source) lets the user tell Recognition explicitly: "this folder is a
-  grouping folder, treat each child as its own artist" or "this folder is a
-  category subfolder, its children belong to artist X". Recognition reads
-  `overrides.json` **before** applying heuristics, so a resolved override
-  short-circuits the ambiguity on every subsequent run.
+  source) already resolves it: `{"kind": "grouping"}` tells Recognition
+  "treat each child as its own artist". Recognition reads `overrides.json`
+  **before** applying heuristics, so a resolved override short-circuits the
+  ambiguity on every subsequent run.
 - This is the concrete hook for the manifesto's "AI skill" idea (§8): an AI
-  skill's job is to help a human populate `overrides.json` faster (e.g. by
-  looking at a folder tree and suggesting entries) — not to change
-  Recognition's code or bypass the human-review gate.
+  skill's job is to help a human populate `overrides.json`'s grouping-folder
+  entries faster (e.g. by looking at a folder tree and suggesting entries) —
+  not to change Recognition's code or bypass the human-review gate.
 
 ### Track/disc parsing
 

@@ -2,9 +2,12 @@
 
 ## Purpose / scope
 
-Resolve source/target roots, naming templates, copy-vs-move mode, and
+Resolve source/target roots, naming templates, copy mode, and
 session state — the configuration every other module reads before doing
-anything. Matches manifesto §7 module 1.
+anything. Matches manifesto §7 module 1. `copyMode` only ever accepts
+`"copy"` — a "move" mode existed briefly and was removed after it destroyed
+source releases with no other backup; source files are always read-only to
+Tagger.
 
 ## Inputs / outputs
 
@@ -43,9 +46,11 @@ Defaults match manifesto §4 exactly (`"{year} {album}"`, `"{trackNumber} {title
 but are configurable in case the target format ever needs to change without
 code edits.
 
-`trackNumberPadWidth`: computed per-release, not fixed — `max(2, digits needed
-for the release's total track count across all discs)`. A 150-track box set
-gets 3-digit numbers; everything else gets the manifesto's standard 2 digits.
+`trackNumberPadWidth`: a configurable *floor*, not a fixed value — the actual
+per-release width is `max(settings.trackNumberPadWidth, digits needed for the
+release's total track count across all discs)`. The setting defaults to 2, so
+a 150-track box set still gets 3-digit numbers and everything else still gets
+the manifesto's standard 2 digits unless the setting is raised.
 
 ### Session persistence
 
@@ -55,8 +60,13 @@ gets 3-digit numbers; everything else gets the manifesto's standard 2 digits.
 - `Resume-TaggerSession -SessionId <id>` — loads `session.json`, prints the
   current `stage` and the next command to run (see
   [10](10-error-handling-and-edge-cases.md) for the full resume flow).
-- `Complete-TaggerSession -SessionId <id>` — sets `stage = "applied"`.
-- CLI: `Tagger.ps1 session list|resume|show`.
+- `Set-TaggerSessionStage -SessionId <id> -Stage <stage>` — sets any stage
+  (`recognized`/`proposed`/`reviewed`/`applied`/`partially-applied`); every
+  module that finishes a step calls this itself. A separate
+  `Complete-TaggerSession` (fixed to `stage = "applied"`) existed briefly but
+  was removed as dead code — nothing called it and `Set-TaggerSessionStage`
+  already covers the same case.
+- CLI: `Tagger.ps1 session list|resume|show|mark-reviewed`.
 
 ## Decisions & rationale
 

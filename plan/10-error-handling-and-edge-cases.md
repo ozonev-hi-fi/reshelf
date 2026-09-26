@@ -34,10 +34,10 @@ next":
 | `stage` | Meaning | Next command |
 |---|---|---|
 | `recognized` | Recognition done | `Tagger.ps1 propose -SessionId <id>` |
-| `proposed` | Proposal done, awaiting review | open [07-editing-ui-module.md](07-editing-ui-module.md) |
+| `proposed` | Proposal done, awaiting review | `Tagger.ps1 ui start`, review, then `Tagger.ps1 session mark-reviewed -SessionId <id>` |
 | `reviewed` | UI approvals saved | `Tagger.ps1 apply -SessionId <id>` |
-| `applied` | Implementation finished | nothing — session complete |
-| `partially-applied` | Implementation stopped with some releases failed/skipped | `Tagger.ps1 apply -SessionId <id>` again — reruns only unresolved/failed releases via `apply-log.json` |
+| `applied` | Implementation finished (a plain skip — an unresolved/rejected release — doesn't count as a failure here) | nothing — session complete |
+| `partially-applied` | Implementation stopped with **at least one release actually failed** (as opposed to merely skipped) | `Tagger.ps1 apply -SessionId <id>` again — reruns only unresolved/failed releases via `apply-log.json` |
 
 `Tagger.ps1 session resume <id>` reads `stage` and prints the exact next
 command, so resuming a session never requires remembering where things were

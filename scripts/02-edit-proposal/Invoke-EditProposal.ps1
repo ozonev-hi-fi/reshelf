@@ -16,6 +16,8 @@ param(
 
     [string]$TrackFileTemplate = '{trackNumber} {title}',
 
+    [int]$TrackNumberPadWidth = 2,
+
     [int]$CoverMaxDimension = 600,
 
     [int]$CacheTtlDays = 30,
@@ -32,5 +34,6 @@ Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Tagger.LossyTracking.psm1'
 Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Tagger.EditProposal.psm1') -Force
 
 Invoke-TaggerEditProposal -SessionId $SessionId -RecognitionPath $RecognitionPath -TargetRoot $TargetRoot -DataHome $DataHome `
-    -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -CoverMaxDimension $CoverMaxDimension `
+    -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth `
+    -CoverMaxDimension $CoverMaxDimension `
     -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -ProposalPath $ProposalPath

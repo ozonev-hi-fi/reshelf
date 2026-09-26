@@ -7,17 +7,17 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="unsupported-banner" class="banner banner-error" hidden>
-    This browser does not support the File System Access API. Please use
-    Chrome or Edge to review and edit proposals.
-  </div>
-
   <header id="app-header">
     <h1>Tagger</h1>
-    <button id="open-folder-btn">Open Session Folder</button>
-    <button id="permission-retry-btn" hidden>Retry</button>
+    <button id="retry-btn" hidden>Retry</button>
     <span id="session-status"></span>
   </header>
+
+  <div id="session-history" hidden>
+    <label>Past sessions
+      <select id="session-history-select"></select>
+    </label>
+  </div>
 
   <div id="filters">
     <label><input type="checkbox" id="filter-needs-review" /> Needs review only</label>
@@ -28,11 +28,16 @@
     <aside id="release-list"></aside>
 
     <section id="detail-panel" hidden>
+      <div id="save-row-top">
+        <button id="save-btn-top" class="save-btn">Save</button>
+        <span id="unsaved-count-top" class="unsaved-count"></span>
+      </div>
+
       <h2 id="detail-title"></h2>
 
       <table id="before-after-table">
         <thead>
-          <tr><th>Before</th><th>After</th></tr>
+          <tr><th id="before-after-before-header">Before</th><th>After</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -47,6 +52,9 @@
         <label>Year
           <input type="number" id="field-year" />
         </label>
+        <label>Artist Folder Name
+          <input type="text" id="field-artist-folder" />
+        </label>
         <label>Release Folder Name
           <input type="text" id="field-release-folder" />
         </label>
@@ -59,7 +67,22 @@
         <tbody></tbody>
       </table>
 
+      <h3>Other files</h3>
+      <table id="companion-table">
+        <thead>
+          <tr><th>Include</th><th>Before</th><th>After</th><th>Kind</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="companion-empty" hidden>No other files</p>
+
       <div id="cover-gallery"></div>
+
+      <div id="manual-cover-row">
+        <label for="manual-cover-input" id="manual-cover-btn" class="button-like">Add cover from file…</label>
+        <input type="file" id="manual-cover-input" accept="image/png,image/jpeg" hidden />
+        <span id="manual-cover-status"></span>
+      </div>
 
       <div id="discogs-candidates" hidden>
         <h3>Discogs match is ambiguous - pick the correct edition</h3>
@@ -71,13 +94,20 @@
       </label>
 
       <label><input type="checkbox" id="approve-checkbox" /> Approve</label>
+      <label><input type="checkbox" id="reject-checkbox" /> Reject (never apply - e.g. a duplicate pressing you don't want)</label>
 
       <div id="save-row">
-        <button id="save-btn">Save</button>
+        <button id="save-btn" class="save-btn">Save</button>
+        <span id="unsaved-count" class="unsaved-count"></span>
         <span id="save-status"></span>
       </div>
     </section>
   </main>
+
+  <dialog id="cover-modal">
+    <img id="cover-modal-img" alt="" />
+    <button id="cover-modal-close" type="button">X</button>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>

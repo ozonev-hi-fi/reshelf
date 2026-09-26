@@ -22,6 +22,7 @@
               "detectedTrackNumberInDisc": 1,
               "inferredTrackOrder": false,
               "existingTags": { "artist": null, "album": null, "title": null },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 231,
@@ -43,7 +44,7 @@
             }
           ],
           "companionFiles": [
-            { "sourcePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\cover.jpg", "kind": "cover", "placement": "loose" }
+            { "sourcePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\cover.jpg", "kind": "cover", "placement": "loose", "include": true, "proposedFileName": "cover.jpg" }
           ],
           "ignoredFiles": [],
           "cueSheet": null,
@@ -73,7 +74,7 @@
           },
           "lossyLossless": { "isLossy": false, "action": "none" },
           "targetAction": "create-new",
-          "humanReview": { "required": false, "resolved": true, "notes": "" }
+          "humanReview": { "required": false, "resolved": true, "rejected": false, "notes": "" }
         }
       ]
     }

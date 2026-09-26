@@ -86,6 +86,13 @@ Notes:
 - `recognitionFlags` carries machine-readable reason codes (e.g.
   `"no-track-number"`, `"no-separator"`) even when `needsReview` is false, so
   the Edit Proposal step can make informed decisions.
+- `ignoredFiles[].reason`: `"playlist-file"` (manifesto §4.4: no playlists
+  allowed), or `"cue-sheet-not-used"` for a `.cue` file that is *not* the one
+  actually used to split a single-file+cue release (see [05](05-recognition-module.md))
+  — that used cue sheet stays out of both `companionFiles` and `ignoredFiles`,
+  since it's fully represented by `cueSheet` instead.
+- `companionFiles[].placement`: `"loose"` (directly in the release folder,
+  next to the media files) or `"nested"` (in a subfolder) — see manifesto §4.5.
 
 ### `proposal.json` (output of step 6, read/written by step 7)
 
@@ -132,7 +139,7 @@ Extends each release from `recognition.json` with:
   },
   "lossyLossless": { "isLossy": false, "action": "none" },   // none | log-for-upgrade | replace-existing
   "targetAction": "create-new",   // create-new | skip-existing-identical | update-existing | conflict
-  "humanReview": { "required": false, "resolved": true, "notes": "" }
+  "humanReview": { "required": false, "resolved": true, "rejected": false, "notes": "" }
 }
 ```
 
@@ -141,11 +148,26 @@ Field rules that directly encode manifesto §5:
 - `tags.track` restarts at 1 per disc, **no leading zero**.
 - `proposedFileName`'s `NN` prefix is zero-padded and continuous across discs
   (differs from `tags.track`).
-- `tags.artist == tags.albumArtist == proposedArtistFolderName`, always.
+- `tags.artist == tags.albumArtist` always equal the *raw* artist name;
+  `proposed.artistFolderName` is the same text with filesystem-invalid
+  characters replaced by `_` (via `ConvertTo-SafeFileName`) — they match
+  character-for-character except where sanitization applied.
 - feat. artists appear only in `proposedTitle` / `proposedFileName`, never in
   `tags.artist` / `tags.albumArtist`.
-- `tags.year` / `tags.album` always match `proposed.releaseFolderName`
-  (`"yyyy The Album Name"`).
+- `tags.album` is the *raw* album/release title; `proposed.releaseFolderName`
+  (`"yyyy The Album Name"`) uses the sanitized form of the same title, with
+  `tags.year` supplying the `yyyy` prefix. Sanitization never touches
+  `tags.*` or `proposedTitle` — only the filesystem-facing name fields
+  (`artistFolderName`, `releaseFolderName`, `proposedFileName`).
+- `humanReview.rejected` is a human's deliberate, permanent "never apply
+  this" decision — distinct from `resolved: false`, which just means "not
+  reviewed yet." Set only via the editing UI (step 07); [08](08-implementation-module.md)
+  always skips a rejected release, even with `-IncludeUnresolved`, since that
+  flag means "apply what hasn't been looked at yet," not "override an
+  explicit no." A real example: two folders turn out to be different
+  physical pressings of the same album (e.g. two different Discogs release
+  ids) that only diverged this late because pressing/rip tags in the folder
+  names broke automatic matching — the one not being kept gets rejected here.
 
 ### `session.json`
 
@@ -167,7 +189,7 @@ Field rules that directly encode manifesto §5:
 {
   "defaultSourceRoot": "",
   "targetRoot": "E:\\Music",
-  "copyMode": "copy",              // copy | move
+  "copyMode": "copy",               // "copy" only - source files are always read-only
   "namingTemplates": {
     "releaseFolder": "{year} {album}",
     "trackFile": "{trackNumber} {title}"
@@ -205,11 +227,26 @@ schema — it's a standalone, library-wide ledger rather than per-session.
 ## Edge cases
 
 - Track counts over 99 → `trackNumberPadWidth` computed per-release as
-  `max(2, digits needed for total track count across discs)`, not hardcoded to
-  2 (see [04](04-settings-module.md)).
+  `max(settings.trackNumberPadWidth, digits needed for total track count
+  across discs)` — the setting is the *floor*, not a fixed value; it defaults
+  to 2, which reproduces the original hardcoded behavior (see
+  [04](04-settings-module.md)).
 - A release with no year known yet (recognized but not matched to Discogs) →
-  `recognizedYear: null` permitted in `recognition.json`; `proposal.json`
-  requires a resolved year before `targetAction` can be `create-new`.
+  `recognizedYear: null` permitted in `recognition.json`. As implemented
+  (checked 2026-09-26), `proposal.json` does **not** block on this the way
+  originally planned: `New-TaggerProposedReleaseNames`
+  (`Tagger.EditProposal.psm1`) substitutes a fixed sentinel year (`1900`,
+  `schema:UnresolvedYearSentinel`, the schema's own minimum) for the folder
+  name and forces `humanReview.required = true` with a
+  `"UNRESOLVED YEAR: placeholder value used, must be corrected before
+  applying"` note, so the release still gets a `targetAction` (typically
+  `create-new`) and can be applied with `-IncludeUnresolved`. `stableKey`
+  itself is still computed from the real `recognizedYear` (`null` if
+  unresolved), never from the sentinel — this is why the re-run/target-match
+  logic (steps [06](06-edit-proposal-module.md)/[10](10-error-handling-and-edge-cases.md))
+  can't rely on recomputing a stableKey from the *target folder's* name (which
+  always has the sentinel year baked in) for this case; it must look the
+  release up by its own stableKey instead (e.g. via `apply-log.json`).
 
 ## Definition of done
 

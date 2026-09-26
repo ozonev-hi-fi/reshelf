@@ -74,18 +74,39 @@ Applies manifesto §5 rules mechanically, using Discogs data as ground truth:
 
 ### Target comparison (lossy/lossless + duplicate handling)
 
-- `Test-TargetReleaseExists -StableKey <key>` checks whether the target
-  already has a release with this `stableKey`.
-- Not present → `targetAction = "create-new"`.
-- Present, and existing target is lossy while the new source is lossless →
-  `lossyLossless.action = "replace-existing"`, `targetAction = "update-existing"`.
-- Present and effectively identical (same `stableKey`, same source file-set
-  hash — see [10](10-error-handling-and-edge-cases.md)) →
-  `targetAction = "skip-existing-identical"`, no Discogs re-query needed
-  (cache would return instantly anyway, but this avoids even building the
-  query).
-- Present but different in a way that isn't a lossy→lossless upgrade →
-  `targetAction = "conflict"`, `humanReview.required = true`.
+As implemented (checked 2026-09-26): Discogs is always queried first — the
+per-request cache (`cacheTtlDays`) is what keeps a re-run cheap, not a
+skip-the-query shortcut — and the target comparison below runs afterwards,
+independent of the Discogs match:
+
+- `Test-TaggerTargetReleaseExists -StableKey <key>` checks whether the target
+  already has a release with this `stableKey`, by scanning `TargetRoot`'s
+  actual folder tree and recomputing each folder's `stableKey` from its
+  on-disk name. This can't be relied on alone for a release whose
+  `recognizedYear` was unresolved (see [03](03-domain-model-and-json-schemas.md)'s
+  edge cases) — the target folder's name always carries the resolved sentinel
+  year, which recomputes a *different* `stableKey` than the release's own.
+- First, regardless of the above: if `apply-log.json` has a still-valid
+  `applied` entry for this `stableKey` (target path still under `TargetRoot`,
+  folder still exists — same check [08](08-implementation-module.md)'s own
+  skip logic uses) whose recorded `sourceFileSetHash` matches the *current*
+  source file-set hash → `targetAction = "skip-existing-identical"`
+  immediately. This is the primary "was this exact release already applied
+  and unchanged" check — necessary because Implementation renames every
+  target file and rewrites its tags, so a target file set's name|size hash
+  can never equal the source's again after a real apply.
+- Otherwise, falling back to the target-folder hash comparison:
+  - Not present → `targetAction = "create-new"`.
+  - Present, and existing target is lossy while the new source is lossless →
+    `lossyLossless.action = "replace-existing"`, `targetAction = "update-existing"`.
+  - Present and effectively identical by file-set hash (same `stableKey`, same
+    source file-set hash — see [10](10-error-handling-and-edge-cases.md)) →
+    `targetAction = "skip-existing-identical"`. In practice this path only
+    fires for a target Tagger didn't create itself (e.g. a manually
+    pre-populated target folder) — a real `apply`'s own target is caught by
+    the apply-log check above instead.
+  - Present but different in a way that isn't a lossy→lossless upgrade →
+    `targetAction = "conflict"`, `humanReview.required = true`.
 
 ## Decisions & rationale
 
@@ -95,8 +116,17 @@ Applies manifesto §5 rules mechanically, using Discogs data as ground truth:
   Discogs is the source of truth for *what the title/tracklist/year are*, not
   for *how the Artist tag must be constructed* — that construction rule is
   the manifesto's own policy layered on top.
-- **Skip-existing-identical avoids re-querying Discogs**: keeps repeated runs
-  over a growing collection cheap and fast, not just correct.
+- **Discogs is always queried, but the cache makes a re-run cheap anyway**:
+  originally planned as an explicit skip-the-query shortcut for an identical
+  release; as implemented, `cacheTtlDays` already answers a repeated identical
+  query from disk without a live HTTP call, so a separate shortcut wasn't
+  needed to keep repeated runs fast.
+- **The re-run skip check goes through `apply-log.json`, not the target
+  folder's own file names**: Implementation always renames and re-tags a
+  target release's files, so comparing name|size hashes against the target
+  folder can never again match the source after one real apply — the
+  apply-log's own recorded source hash is the only reliable "was this exact
+  thing already applied, unchanged" signal.
 
 ## Edge cases
 

@@ -79,7 +79,14 @@ function Get-TaggerSettings {
         throw "Settings file at '$settingsPath' does not match the settings schema. Fix it manually or re-run 'Tagger.ps1 settings init -Force'."
     }
 
-    return Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+    $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+
+    # dataHome is derived (wherever this settings.json actually lives), never a stored user choice -
+    # always override whatever value is on disk, so a copied/moved data home or a leftover value from
+    # before the default location changed can never point Get-TaggerSession/etc. at the wrong folder.
+    $settings.dataHome = $DataHome
+
+    return $settings
 }
 
 function Initialize-TaggerSettings {
@@ -121,19 +128,17 @@ function Initialize-TaggerSettings {
         }
     }
 
+    # 'move' mode used to delete source files after applying (or after a cue-sheet split) - removed
+    # entirely after an incident destroyed source releases with no other backup. Source files are
+    # always read-only to Tagger now, so 'copy' is the only valid value - no longer worth an
+    # interactive prompt, since there is no real choice to make.
     if (-not $CopyMode) {
-        if (Test-TaggerHostIsInteractive) {
-            $promptedCopyMode = Read-Host 'Copy mode: copy or move (default: copy)'
-            $CopyMode = if ($promptedCopyMode) { $promptedCopyMode } else { 'copy' }
-        }
-        else {
-            $CopyMode = 'copy'
-        }
+        $CopyMode = 'copy'
     }
 
     $CopyMode = $CopyMode.ToLowerInvariant()
-    if ($CopyMode -notin @('copy', 'move')) {
-        throw "Invalid copy mode '$CopyMode'. Must be 'copy' or 'move'."
+    if ($CopyMode -ne 'copy') {
+        throw "Invalid copy mode '$CopyMode'. Must be 'copy' - 'move' is no longer supported, since Tagger never deletes source files."
     }
 
     # Never a param (only ever prompted, never accepted as a plain command-line -Value) - a token
@@ -225,8 +230,11 @@ function Set-TaggerSettings {
 
     if ($Key -eq 'copyMode') {
         $newValue = $newValue.ToLowerInvariant()
-        if ($newValue -notin @('copy', 'move')) {
-            throw "Invalid copy mode '$newValue'. Must be 'copy' or 'move'."
+        if ($newValue -ne 'copy') {
+            # 'move' deleted source files after applying - removed entirely after an incident
+            # destroyed source releases with no other backup. Source files are always read-only
+            # to Tagger now, so 'copy' is the only valid value.
+            throw "Invalid copy mode '$newValue'. Must be 'copy' - 'move' is no longer supported, since Tagger never deletes source files."
         }
     }
 
@@ -365,7 +373,7 @@ function Resume-TaggerSession {
 
     $nextCommand = switch ($session.stage) {
         'recognized' { "Tagger.ps1 propose -SessionId $SessionId" }
-        'proposed' { 'Open the editing UI (see plan/07-editing-ui-module.md) to review proposal.json' }
+        'proposed' { "Tagger.ps1 ui start, review the proposal in the browser, then Tagger.ps1 session mark-reviewed -SessionId $SessionId" }
         'reviewed' { "Tagger.ps1 apply -SessionId $SessionId" }
         'applied' { 'Nothing - session complete.' }
         'partially-applied' { "Tagger.ps1 apply -SessionId $SessionId" }
@@ -377,30 +385,6 @@ function Resume-TaggerSession {
         Stage       = $session.stage
         NextCommand = $nextCommand
     }
-}
-
-function Complete-TaggerSession {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$SessionId,
-
-        [string]$DataHome
-    )
-
-    if (-not $DataHome) {
-        $DataHome = Resolve-TaggerDataHome
-    }
-
-    $session = Get-TaggerSession -SessionId $SessionId -DataHome $DataHome
-    $session.stage = 'applied'
-    $session.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
-
-    $sessionFile = Join-Path $DataHome 'sessions' $SessionId 'session.json'
-    Set-TaggerJsonFile -Path $sessionFile -InputObject $session -SchemaName session | Out-Null
-
-    return $session
 }
 
 function Set-TaggerSessionStage {
@@ -437,4 +421,4 @@ function Set-TaggerSessionStage {
 }
 
 Export-ModuleMember -Function Get-TaggerSettings, Initialize-TaggerSettings, Set-TaggerSettings, Set-TaggerDiscogsToken, `
-    New-TaggerSession, Resume-TaggerSession, Complete-TaggerSession, Get-TaggerSession, Set-TaggerSessionStage
+    New-TaggerSession, Resume-TaggerSession, Get-TaggerSession, Set-TaggerSessionStage

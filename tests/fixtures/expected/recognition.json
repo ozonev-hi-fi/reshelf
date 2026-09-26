@@ -28,6 +28,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -69,6 +70,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -112,6 +114,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -153,9 +156,10 @@
                 "album": null,
                 "title": "Speak To Me"
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
-              "durationSeconds": 200,
+              "durationSeconds": 192.6,
               "cueTimestamp": "00:00:00",
               "isCueVirtualTrack": true
             },
@@ -170,9 +174,10 @@
                 "album": null,
                 "title": "Breathe"
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
-              "durationSeconds": 200,
+              "durationSeconds": 7.4,
               "cueTimestamp": "03:12:45",
               "isCueVirtualTrack": true
             }
@@ -219,6 +224,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -236,6 +242,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -279,6 +286,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -296,6 +304,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -337,6 +346,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -378,6 +388,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -395,6 +406,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -419,7 +431,8 @@
       "sourcePaths": [
         "<SOURCE_ROOT>\\ZZ Top",
         "<SOURCE_ROOT>\\ZZ Top\\EPs",
-        "<SOURCE_ROOT>\\ZZ Top\\Lives"
+        "<SOURCE_ROOT>\\ZZ Top\\Lives",
+        "<SOURCE_ROOT>\\ZZ Top\\Singles"
       ],
       "releases": [
         {
@@ -440,6 +453,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -457,6 +471,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -496,6 +511,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -513,6 +529,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -530,6 +547,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -547,6 +565,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -564,6 +583,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -581,6 +601,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -629,6 +650,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -646,6 +668,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -679,6 +702,41 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
+        },
+        {
+          "stableKey": "a7d8b3543f18f149",
+          "recognizedTitle": "Pincushion",
+          "recognizedYear": 1996,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\Singles\\1996 Pincushion",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\Singles\\1996 Pincushion\\01 - Pincushion.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Pincushion.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,

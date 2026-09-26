@@ -1,25 +1,45 @@
 const state = {
-  dirHandle: null,
-  fileHandle: null,
+  currentSessionId: null,
+  sessions: [], // [{ sessionId, sourceRoot, stage, updatedAtUtc, hasProposal }]
   proposal: null,
   selectedReleaseKey: null,
   filters: { needsReviewOnly: false, ambiguousOnly: false },
-  dirty: false,
+  dirtyReleaseKeys: new Set(),
   lastError: null,
 };
 
-function checkBrowserSupport() {
-  const supported = 'showDirectoryPicker' in window;
-  if (!supported) {
-    document.getElementById('unsupported-banner').hidden = false;
-    document.getElementById('open-folder-btn').disabled = true;
+function isDirty() {
+  return state.dirtyReleaseKeys.size > 0;
+}
+
+// The local server (Start-TaggerUiServer.ps1) reads/writes proposal.json itself - it already has
+// full disk access as a PowerShell process, unlike the browser. This page never picks or opens a
+// folder; it just asks the server for JSON over fetch(), same as any other web page.
+
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    // No JSON body (e.g. a plain error page) - fall through to the generic message below.
   }
-  return supported;
+  if (!res.ok) {
+    const message = body && body.error ? body.error : `Request to ${url} failed (${res.status}).`;
+    throw new Error(message);
+  }
+  return body;
 }
 
 function wireStaticControls() {
-  document.getElementById('open-folder-btn').addEventListener('click', openSessionFolder);
-  document.getElementById('permission-retry-btn').addEventListener('click', retryPermission);
+  document.getElementById('retry-btn').addEventListener('click', loadCurrentSession);
+  document.getElementById('session-history-select').addEventListener('change', (e) => {
+    if (isDirty() && !window.confirm('You have unsaved changes. Discard them and switch session?')) {
+      e.target.value = state.currentSessionId ?? '';
+      return;
+    }
+    onSelectHistorySession(e.target.value);
+  });
   document.getElementById('filter-needs-review').addEventListener('change', (e) => {
     state.filters.needsReviewOnly = e.target.checked;
     renderList();
@@ -29,73 +49,130 @@ function wireStaticControls() {
     renderList();
   });
   document.getElementById('save-btn').addEventListener('click', saveProposal);
+  document.getElementById('save-btn-top').addEventListener('click', saveProposal);
+  document.getElementById('manual-cover-input').addEventListener('change', onManualCoverFileChosen);
+
+  const coverModal = document.getElementById('cover-modal');
+  document.getElementById('cover-modal-close').addEventListener('click', () => coverModal.close());
+  coverModal.addEventListener('click', (e) => {
+    if (e.target === coverModal) coverModal.close();
+  });
 }
 
 function setSessionStatus(text) {
   document.getElementById('session-status').textContent = text;
 }
 
-function showPermissionRetry() {
-  document.getElementById('permission-retry-btn').hidden = false;
-  setSessionStatus(state.lastError ? `Error: ${state.lastError}` : 'Permission needed.');
+function showRetry(message) {
+  document.getElementById('retry-btn').hidden = false;
+  setSessionStatus(message ? `Error: ${message}` : 'Something went wrong.');
 }
 
-function hidePermissionRetry() {
-  document.getElementById('permission-retry-btn').hidden = true;
+function hideRetry() {
+  document.getElementById('retry-btn').hidden = true;
 }
 
-async function openSessionFolder() {
+function describeSession(session) {
+  const date = new Date(session.updatedAtUtc).toLocaleDateString();
+  return `Reviewing: ${session.sourceRoot} (${date}, ${session.stage})`;
+}
+
+function clearReleaseView() {
+  document.getElementById('detail-panel').hidden = true;
+  document.getElementById('release-list').innerHTML = '';
+}
+
+// --- Loading the current session on page load, and switching between sessions --------
+
+async function loadCurrentSession() {
   try {
-    state.dirHandle = await window.showDirectoryPicker();
-    await loadProposal();
+    hideRetry();
+    setSessionStatus('Loading...');
+    const data = await fetchJson('/api/current-session');
+
+    if (!data.found) {
+      state.currentSessionId = null;
+      state.proposal = null;
+      setSessionStatus(data.message);
+      clearReleaseView();
+    } else {
+      state.currentSessionId = data.sessionId;
+      state.proposal = data.proposal;
+      state.selectedReleaseKey = null;
+      state.dirtyReleaseKeys.clear();
+      updateSaveIndicator();
+      setSessionStatus(describeSession(data));
+      document.getElementById('detail-panel').hidden = true;
+      renderList();
+    }
+    await refreshSessionHistory();
   } catch (err) {
-    if (err.name !== 'AbortError') {
-      state.lastError = err.message;
-      showPermissionRetry();
-    }
+    state.lastError = err.message;
+    showRetry(err.message);
   }
 }
 
-async function verifyPermission(handle, mode) {
-  const options = { mode };
-  if ((await handle.queryPermission(options)) === 'granted') {
-    return true;
-  }
-  return (await handle.requestPermission(options)) === 'granted';
-}
-
-async function loadProposal() {
+async function refreshSessionHistory() {
   try {
-    state.fileHandle = await state.dirHandle.getFileHandle('proposal.json');
+    const sessions = await fetchJson('/api/sessions');
+    state.sessions = sessions;
+    renderSessionHistory(sessions);
+  } catch (err) {
+    // The main session already loaded fine at this point - a broken history list is a
+    // secondary feature, not worth showing as a hard error.
+    console.warn('Could not load session history:', err);
+  }
+}
 
-    if (!(await verifyPermission(state.fileHandle, 'readwrite'))) {
-      state.lastError = 'Read/write permission was not granted for this folder.';
-      showPermissionRetry();
-      return;
-    }
+function renderSessionHistory(sessions) {
+  const container = document.getElementById('session-history');
+  const select = document.getElementById('session-history-select');
 
-    const file = await state.fileHandle.getFile();
-    state.proposal = JSON.parse(await file.text());
+  if (sessions.length <= 1) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  select.innerHTML = '';
+
+  for (const session of sessions) {
+    const option = document.createElement('option');
+    option.value = session.sessionId;
+    const date = new Date(session.updatedAtUtc).toLocaleDateString();
+    const suffix = session.hasProposal ? '' : ' (no proposal yet)';
+    option.textContent = `${session.sourceRoot} - ${date} - ${session.stage}${suffix}`;
+    select.appendChild(option);
+  }
+  select.value = state.currentSessionId ?? '';
+}
+
+async function onSelectHistorySession(sessionId) {
+  const session = state.sessions.find((s) => s.sessionId === sessionId);
+  if (!session) return;
+
+  if (!session.hasProposal) {
+    state.currentSessionId = sessionId;
+    state.proposal = null;
+    setSessionStatus(`${session.sourceRoot} has no proposal.json yet.`);
+    clearReleaseView();
+    return;
+  }
+
+  try {
+    hideRetry();
+    const proposal = await fetchJson(`/api/sessions/${sessionId}/proposal`);
+    state.currentSessionId = sessionId;
+    state.proposal = proposal;
     state.selectedReleaseKey = null;
-    state.dirty = false;
-    state.lastError = null;
-
-    hidePermissionRetry();
-    setSessionStatus(`Loaded: proposal.json (session ${state.proposal.sessionId})`);
+    state.dirtyReleaseKeys.clear();
+    updateSaveIndicator();
+    setSessionStatus(describeSession(session));
     document.getElementById('detail-panel').hidden = true;
     renderList();
   } catch (err) {
     state.lastError = err.message;
-    showPermissionRetry();
+    showRetry(err.message);
   }
-}
-
-async function retryPermission() {
-  if (!state.dirHandle) {
-    await openSessionFolder();
-    return;
-  }
-  await loadProposal();
 }
 
 function flattenReleases(proposal) {
@@ -113,6 +190,9 @@ function findRelease(stableKey) {
 }
 
 function getReleaseStatus(release) {
+  if (release.humanReview.rejected) {
+    return 'rejected';
+  }
   if (release.discogsMatch.status === 'ambiguous' && !release.humanReview.resolved) {
     return 'ambiguous';
   }
@@ -130,11 +210,17 @@ function renderList() {
     return;
   }
 
+  // Checking both filters is a union ("needs review" OR "ambiguous"), not an intersection - a
+  // release's status is exactly one of these at a time, so combining them with separate AND
+  // checks (the previous behavior) meant checking both boxes together always produced zero rows.
+  const activeStatusFilters = [];
+  if (state.filters.needsReviewOnly) activeStatusFilters.push('needsReview');
+  if (state.filters.ambiguousOnly) activeStatusFilters.push('ambiguous');
+
   const byArtist = new Map();
   for (const entry of flattenReleases(state.proposal)) {
     const status = getReleaseStatus(entry.release);
-    if (state.filters.needsReviewOnly && status !== 'needsReview') continue;
-    if (state.filters.ambiguousOnly && status !== 'ambiguous') continue;
+    if (activeStatusFilters.length > 0 && !activeStatusFilters.includes(status)) continue;
 
     if (!byArtist.has(entry.artistName)) {
       byArtist.set(entry.artistName, []);
@@ -154,6 +240,7 @@ function renderList() {
       row.className = 'release-row';
       row.dataset.stableKey = release.stableKey;
       row.classList.toggle('selected', release.stableKey === state.selectedReleaseKey);
+      row.classList.toggle('unsaved', state.dirtyReleaseKeys.has(release.stableKey));
 
       const label = document.createElement('span');
       label.className = 'release-label';
@@ -195,40 +282,83 @@ function renderDetail() {
   renderBeforeAfterTable(release);
   renderReleaseFields(release);
   renderTrackFieldsTable(release);
+  renderCompanionTable(release);
   renderCoverGallery(release);
   renderDiscogsCandidates(release);
+  document.getElementById('manual-cover-status').textContent = '';
 
   const notesField = document.getElementById('notes-field');
   notesField.value = release.humanReview.notes;
   notesField.oninput = () => onEditNotes(release, notesField.value);
 
   const approveCheckbox = document.getElementById('approve-checkbox');
-  approveCheckbox.checked = release.humanReview.resolved;
+  approveCheckbox.checked = release.humanReview.resolved && !release.humanReview.rejected;
   approveCheckbox.onchange = () => onToggleApprove(release, approveCheckbox.checked);
+
+  const rejectCheckbox = document.getElementById('reject-checkbox');
+  rejectCheckbox.checked = release.humanReview.rejected;
+  rejectCheckbox.onchange = () => onToggleReject(release, rejectCheckbox.checked);
 }
 
 function renderBeforeAfterTable(release) {
   const tbody = document.querySelector('#before-after-table tbody');
+  const beforeHeader = document.getElementById('before-after-before-header');
   tbody.innerHTML = '';
+
+  const isMultiDisc = new Set(release.tracks.map((t) => t.proposedDiscNumber)).size > 1;
+  beforeHeader.colSpan = isMultiDisc ? 2 : 1;
 
   const folderRow = document.createElement('tr');
   const folderBefore = document.createElement('td');
   folderBefore.textContent = release.sourceFolderPath;
+  if (isMultiDisc) folderBefore.colSpan = 2;
   const folderAfter = document.createElement('td');
   folderAfter.textContent = `${release.proposed.artistFolderName}\\${release.proposed.releaseFolderName}`;
   folderRow.appendChild(folderBefore);
   folderRow.appendChild(folderAfter);
   tbody.appendChild(folderRow);
 
+  if (!isMultiDisc) {
+    for (const track of release.tracks) {
+      const row = document.createElement('tr');
+      const before = document.createElement('td');
+      before.textContent = track.originalFileName;
+      const after = document.createElement('td');
+      after.textContent = track.proposedFileName;
+      row.appendChild(before);
+      row.appendChild(after);
+      tbody.appendChild(row);
+    }
+    return;
+  }
+
+  // Group tracks by disc, in first-seen order, labeled by the source's own discFolder name
+  // (e.g. "Disc 1") when it had one, falling back to the proposed disc number otherwise (e.g. a
+  // multi-disc cue release with no named subfolder).
+  const discGroups = new Map();
   for (const track of release.tracks) {
-    const row = document.createElement('tr');
-    const before = document.createElement('td');
-    before.textContent = track.originalFileName;
-    const after = document.createElement('td');
-    after.textContent = track.proposedFileName;
-    row.appendChild(before);
-    row.appendChild(after);
-    tbody.appendChild(row);
+    const label = track.discFolder ?? `Disc ${track.proposedDiscNumber}`;
+    if (!discGroups.has(label)) discGroups.set(label, []);
+    discGroups.get(label).push(track);
+  }
+
+  for (const [label, tracks] of discGroups) {
+    tracks.forEach((track, index) => {
+      const row = document.createElement('tr');
+      if (index === 0) {
+        const discCell = document.createElement('td');
+        discCell.textContent = label;
+        discCell.rowSpan = tracks.length;
+        row.appendChild(discCell);
+      }
+      const before = document.createElement('td');
+      before.textContent = track.originalFileName;
+      const after = document.createElement('td');
+      after.textContent = track.proposedFileName;
+      row.appendChild(before);
+      row.appendChild(after);
+      tbody.appendChild(row);
+    });
   }
 }
 
@@ -244,6 +374,10 @@ function renderReleaseFields(release) {
   const yearField = document.getElementById('field-year');
   yearField.value = release.proposed.year ?? '';
   yearField.oninput = () => onEditYear(release, yearField.value);
+
+  const artistFolderField = document.getElementById('field-artist-folder');
+  artistFolderField.value = release.proposed.artistFolderName;
+  artistFolderField.oninput = () => onEditArtistFolderName(release, artistFolderField.value);
 
   const releaseFolderField = document.getElementById('field-release-folder');
   releaseFolderField.value = release.proposed.releaseFolderName;
@@ -285,6 +419,161 @@ function renderTrackFieldsTable(release) {
   }
 }
 
+// --- Other (non-media) files -------------------------------------------------------------
+// Recognition/EditProposal already classified these (kind, placement) and, for a loose one,
+// proposed a letter-first name (New-TaggerCompanionProposal, Tagger.EditProposal.psm1) - this
+// table just makes that visible and lets the user override the name or drop the file from
+// copying (manifesto SS4.5 / SS7.2: "we need to see them in Editing module").
+
+// Display-only: mirrors Get-TaggerRelativePath (Tagger.Common.psm1) closely enough for showing a
+// "Before" path, but keeps native backslashes since this is text shown to a Windows user, not a
+// value written back into a document.
+function getCompanionRelativePath(release, sourcePath) {
+  const root = release.sourceFolderPath.replace(/[\\/]+$/, '');
+  if (sourcePath.toLowerCase().startsWith(root.toLowerCase())) {
+    return sourcePath.slice(root.length).replace(/^[\\/]+/, '');
+  }
+  return sourcePath;
+}
+
+// Mirrors Test-TaggerLooseCompanionFileName (Tagger.Common.psm1) - a loose companion must start
+// with a letter (manifesto SS4.5), including non-ASCII letters, so normal alphabetical sorting in
+// a file explorer always puts numbered tracks first.
+function startsWithLetter(name) {
+  return /^\p{L}/u.test(name ?? '');
+}
+
+function renderCompanionTable(release) {
+  const table = document.getElementById('companion-table');
+  const tbody = table.querySelector('tbody');
+  const emptyMsg = document.getElementById('companion-empty');
+  tbody.innerHTML = '';
+
+  const companions = release.companionFiles ?? [];
+  const ignored = release.ignoredFiles ?? [];
+
+  if (companions.length === 0 && ignored.length === 0) {
+    table.hidden = true;
+    emptyMsg.hidden = false;
+    return;
+  }
+  table.hidden = false;
+  emptyMsg.hidden = true;
+
+  for (const companion of companions) {
+    const row = document.createElement('tr');
+    row.className = 'companion-row';
+    row.dataset.sourcePath = companion.sourcePath;
+    const isLoose = companion.placement === 'loose';
+
+    const includeCell = document.createElement('td');
+    const includeCheckbox = document.createElement('input');
+    includeCheckbox.type = 'checkbox';
+    includeCheckbox.checked = companion.include !== false;
+    includeCheckbox.onchange = () => onToggleCompanionInclude(release, companion, includeCheckbox.checked);
+    includeCell.appendChild(includeCheckbox);
+
+    const beforeName = getCompanionRelativePath(release, companion.sourcePath);
+    const beforeCell = document.createElement('td');
+    beforeCell.textContent = beforeName;
+
+    // A loose companion without a proposed name (e.g. a session saved before a rename
+    // suggestion existed for it) would otherwise show an empty "After" field and a
+    // spurious "Name is required" warning - fall back to the original file name instead.
+    if (isLoose && !companion.proposedFileName) {
+      companion.proposedFileName = beforeName;
+      markDirty(release);
+    }
+
+    const afterCell = document.createElement('td');
+    if (isLoose) {
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = companion.proposedFileName ?? '';
+      nameInput.oninput = () => onEditCompanionName(release, companion, nameInput.value);
+      afterCell.appendChild(nameInput);
+    } else {
+      // Nested companions (in a subfolder) are never renamed here - only excluded via the
+      // Include checkbox - so the After column just repeats the same relative path.
+      afterCell.appendChild(document.createTextNode(getCompanionRelativePath(release, companion.sourcePath)));
+    }
+    const warningEl = document.createElement('div');
+    warningEl.className = 'companion-warning';
+    warningEl.hidden = true;
+    afterCell.appendChild(warningEl);
+
+    const kindCell = document.createElement('td');
+    kindCell.textContent = companion.kind;
+
+    row.append(includeCell, beforeCell, afterCell, kindCell);
+    tbody.appendChild(row);
+  }
+
+  for (const entry of ignored) {
+    const row = document.createElement('tr');
+    row.className = 'companion-row-ignored';
+
+    const includeCell = document.createElement('td');
+    const beforeCell = document.createElement('td');
+    beforeCell.textContent = getCompanionRelativePath(release, entry.sourcePath);
+    const afterCell = document.createElement('td');
+    afterCell.textContent = `Not copied: ${entry.reason}`;
+    const kindCell = document.createElement('td');
+
+    row.append(includeCell, beforeCell, afterCell, kindCell);
+    tbody.appendChild(row);
+  }
+
+  refreshCompanionWarnings(release);
+}
+
+// Re-validates every included loose companion's proposed name in place, without rebuilding the
+// table - a full rebuild on every keystroke would reset the text input's cursor/focus while
+// typing. Mirrors the checks Invoke-TaggerReleaseStaging makes before copying anything
+// (Tagger.Implementation.psm1), so a problem is visible here before an apply run would fail it.
+function refreshCompanionWarnings(release) {
+  const trackFileNames = new Set(release.tracks.map((t) => t.proposedFileName.toLowerCase()));
+  const includedNamesSeen = new Set();
+
+  for (const row of document.querySelectorAll('#companion-table tbody tr.companion-row')) {
+    const companion = release.companionFiles.find((c) => c.sourcePath === row.dataset.sourcePath);
+    const warningEl = row.querySelector('.companion-warning');
+    let warning = '';
+
+    if (companion.placement === 'loose' && companion.include !== false) {
+      const name = companion.proposedFileName ?? '';
+      const lowerName = name.toLowerCase();
+      if (!name) {
+        warning = 'Name is required.';
+      } else if (!startsWithLetter(name)) {
+        warning = 'Must start with a letter.';
+      } else if (trackFileNames.has(lowerName)) {
+        warning = 'Same name as a track file.';
+      } else if (includedNamesSeen.has(lowerName)) {
+        warning = 'Same name as another included file.';
+      } else {
+        includedNamesSeen.add(lowerName);
+      }
+    }
+
+    warningEl.textContent = warning;
+    warningEl.hidden = !warning;
+    row.classList.toggle('companion-row-warning', !!warning);
+  }
+}
+
+function onEditCompanionName(release, companion, value) {
+  companion.proposedFileName = toSafeFileName(value);
+  markDirty(release);
+  refreshCompanionWarnings(release);
+}
+
+function onToggleCompanionInclude(release, companion, checked) {
+  companion.include = checked;
+  markDirty(release);
+  refreshCompanionWarnings(release);
+}
+
 // Shared by the cover gallery and the Discogs candidate picker - both are just a
 // radio-button list with different label content, so the list-building/wiring is
 // written once here instead of duplicated per caller.
@@ -307,6 +596,32 @@ function renderRadioList(container, { items, name, className, isChecked, onSelec
   }
 }
 
+// A cover candidate's url is either a remote Discogs image (loads directly) or a local companion
+// file's absolute path (e.g. "D:\...\Front.jpg") - the browser can't load a raw filesystem path,
+// so that case is routed through the server's local-file endpoint instead, which only serves a
+// path this session's own proposal.json already names as a cover candidate.
+function resolveCoverImageSrc(url) {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `/api/sessions/${state.currentSessionId}/local-file?path=${encodeURIComponent(url)}`;
+}
+
+function openCoverModal(candidate) {
+  const modalImg = document.getElementById('cover-modal-img');
+  modalImg.src = resolveCoverImageSrc(candidate.url);
+  modalImg.alt = candidate.sourceEdition;
+  document.getElementById('cover-modal').showModal();
+}
+
+// Mirrors Invoke-TaggerFfmpegResize's scale-down-only, aspect-preserving filter.
+function computeEmbeddedCoverSize(width, height, maxDimension) {
+  const scale = Math.min(1, maxDimension / width, maxDimension / height);
+  return {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+    resized: scale < 1,
+  };
+}
+
 function renderCoverGallery(release) {
   renderRadioList(document.getElementById('cover-gallery'), {
     items: release.coverArt.candidates,
@@ -315,10 +630,28 @@ function renderCoverGallery(release) {
     isChecked: (candidate) => candidate.url === release.coverArt.chosenCandidateUrl,
     onSelect: (candidate) => onSelectCover(release, candidate.url),
     buildContent: (candidate) => {
+      const fragment = document.createDocumentFragment();
+
+      const maxDimension = release.coverArt.targetMaxDimension;
+      const embedded = computeEmbeddedCoverSize(candidate.width, candidate.height, maxDimension);
+      const size = document.createElement('span');
+      size.className = 'cover-size';
+      size.textContent = embedded.resized
+        ? `${candidate.width}x${candidate.height} → ${embedded.width}x${embedded.height} embedded`
+        : `${candidate.width}x${candidate.height} (embedded as is)`;
+      size.title = `Embedded cover is limited to ${maxDimension}px on the longest side`;
+      fragment.appendChild(size);
+
       const img = document.createElement('img');
-      img.src = candidate.url;
+      img.src = resolveCoverImageSrc(candidate.url);
       img.alt = candidate.sourceEdition;
-      return img;
+      img.addEventListener('click', (e) => {
+        e.preventDefault();
+        openCoverModal(candidate);
+      });
+      fragment.appendChild(img);
+
+      return fragment;
     },
   });
 }
@@ -347,8 +680,9 @@ function renderDiscogsCandidates(release) {
 }
 
 function markDirty(release) {
-  state.dirty = true;
+  state.dirtyReleaseKeys.add(release.stableKey);
   updateReleaseRowBadge(release);
+  updateSaveIndicator();
 }
 
 // Only patches the one row's badge/label in place instead of rebuilding the whole
@@ -367,6 +701,15 @@ function updateReleaseRowBadge(release) {
 
   const label = row.querySelector('.release-label');
   label.textContent = `${release.proposed.year ?? ''} ${release.proposed.album}`.trim();
+
+  row.classList.toggle('unsaved', state.dirtyReleaseKeys.has(release.stableKey));
+}
+
+function updateSaveIndicator() {
+  const count = state.dirtyReleaseKeys.size;
+  const text = count > 0 ? `${count} unsaved change${count === 1 ? '' : 's'}` : '';
+  document.getElementById('unsaved-count').textContent = text;
+  document.getElementById('unsaved-count-top').textContent = text;
 }
 
 function onEditArtist(release, value) {
@@ -374,7 +717,6 @@ function onEditArtist(release, value) {
     track.tags.artist = value;
     track.tags.albumArtist = value;
   }
-  release.proposed.artistFolderName = value;
   markDirty(release);
 }
 
@@ -392,6 +734,11 @@ function onEditYear(release, value) {
   for (const track of release.tracks) {
     track.tags.year = year;
   }
+  markDirty(release);
+}
+
+function onEditArtistFolderName(release, value) {
+  release.proposed.artistFolderName = value;
   markDirty(release);
 }
 
@@ -458,6 +805,46 @@ function onSelectCover(release, url) {
   markDirty(release);
 }
 
+// Unlike every other edit in this file, the uploaded file's bytes are written to disk
+// immediately (via the manual-cover endpoint) rather than staying purely in-memory until Save -
+// Implementation reads cover art from a disk path (chosenCandidateUrl), not from proposal.json's
+// in-memory shape, so the bytes must exist on disk before Apply can ever run. Only the candidate
+// pointer added to release.coverArt below follows the normal deferred-Save path via markDirty.
+async function onManualCoverFileChosen(e) {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-choosing the same filename again later
+  if (!file) return;
+
+  const found = findRelease(state.selectedReleaseKey);
+  if (!found) return;
+  await uploadManualCover(found.release, file);
+}
+
+async function uploadManualCover(release, file) {
+  const status = document.getElementById('manual-cover-status');
+  status.textContent = 'Uploading...';
+  try {
+    const url = `/api/sessions/${state.currentSessionId}/manual-cover?filename=${encodeURIComponent(file.name)}`;
+    const result = await fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    release.coverArt.candidates.push({
+      url: result.url,
+      sourceEdition: 'manual upload',
+      width: result.width,
+      height: result.height,
+    });
+    release.coverArt.chosenCandidateUrl = result.url;
+    renderCoverGallery(release);
+    markDirty(release);
+    status.textContent = 'Uploaded - click Save to keep this selection.';
+  } catch (err) {
+    status.textContent = `Upload failed: ${err.message}`;
+  }
+}
+
 function onSelectDiscogsCandidate(release, releaseId) {
   release.discogsMatch.selectedReleaseId = releaseId;
   markDirty(release);
@@ -470,36 +857,51 @@ function onEditNotes(release, value) {
 
 function onToggleApprove(release, checked) {
   release.humanReview.resolved = checked;
+  if (checked && release.humanReview.rejected) {
+    // Approve and Reject are mutually exclusive - a release can't be both "apply this" and
+    // "never apply this" at once.
+    release.humanReview.rejected = false;
+    document.getElementById('reject-checkbox').checked = false;
+  }
+  markDirty(release);
+}
+
+function onToggleReject(release, checked) {
+  release.humanReview.rejected = checked;
+  if (checked) {
+    // Rejecting is itself a completed review decision (see plan/03/07), and mutually exclusive
+    // with Approve - a release can't be both "apply this" and "never apply this" at once.
+    release.humanReview.resolved = true;
+    document.getElementById('approve-checkbox').checked = false;
+  }
   markDirty(release);
 }
 
 async function saveProposal() {
   const saveStatus = document.getElementById('save-status');
   try {
-    if (!(await verifyPermission(state.fileHandle, 'readwrite'))) {
-      showPermissionRetry();
-      return;
-    }
-
-    const previousText = await (await state.fileHandle.getFile()).text();
-
-    const backupHandle = await state.dirHandle.getFileHandle('proposal.backup.json', { create: true });
-    const backupWritable = await backupHandle.createWritable();
-    await backupWritable.write(previousText);
-    await backupWritable.close();
-
-    const writable = await state.fileHandle.createWritable();
-    await writable.write(JSON.stringify(state.proposal, null, 2));
-    await writable.close();
-
-    state.dirty = false;
+    await fetchJson(`/api/sessions/${state.currentSessionId}/proposal`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.proposal, null, 2),
+    });
+    state.dirtyReleaseKeys.clear();
+    updateSaveIndicator();
+    renderList();
     saveStatus.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
   } catch (err) {
     saveStatus.textContent = `Save failed: ${err.message}`;
   }
 }
 
+window.addEventListener('beforeunload', (e) => {
+  if (isDirty()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 window.addEventListener('DOMContentLoaded', () => {
-  if (!checkBrowserSupport()) return;
   wireStaticControls();
+  loadCurrentSession();
 });

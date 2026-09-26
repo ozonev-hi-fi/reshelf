@@ -79,7 +79,7 @@ Describe 'recognition.json can be extended into a valid proposal.json' {
             })
         $release | Add-Member -NotePropertyName lossyLossless -NotePropertyValue ([pscustomobject]@{ isLossy = $false; action = 'none' })
         $release | Add-Member -NotePropertyName targetAction -NotePropertyValue 'create-new'
-        $release | Add-Member -NotePropertyName humanReview -NotePropertyValue ([pscustomobject]@{ required = $false; resolved = $true; notes = '' })
+        $release | Add-Member -NotePropertyName humanReview -NotePropertyValue ([pscustomobject]@{ required = $false; resolved = $true; rejected = $false; notes = '' })
 
         $json = $recognition | ConvertTo-Json -Depth 20
         Test-Json -Json $json -SchemaFile "$PSScriptRoot/../schemas/proposal.schema.json" | Should -Be $true

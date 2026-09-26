@@ -28,6 +28,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -79,6 +80,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -108,6 +110,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -161,6 +164,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "artist-name-split-from-folder-name; Discogs match status: not-found; UNRESOLVED YEAR: placeholder value used, must be corrected before applying.; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -190,6 +194,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -241,6 +246,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -270,9 +276,10 @@
                 "album": null,
                 "title": "Speak To Me"
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
-              "durationSeconds": 200,
+              "durationSeconds": 192.6,
               "cueTimestamp": "00:00:00",
               "isCueVirtualTrack": true,
               "proposedFileName": "01 Speak To Me.flac",
@@ -300,9 +307,10 @@
                 "album": null,
                 "title": "Breathe"
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
-              "durationSeconds": 200,
+              "durationSeconds": 7.4,
               "cueTimestamp": "03:12:45",
               "isCueVirtualTrack": true,
               "proposedFileName": "02 Breathe.flac",
@@ -359,6 +367,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -388,6 +397,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -418,6 +428,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -471,6 +482,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "artist-name-split-from-folder-name; Discogs match status: not-found; UNRESOLVED YEAR: placeholder value used, must be corrected before applying.; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -500,6 +512,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -530,6 +543,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -581,6 +595,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -610,6 +625,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -661,6 +677,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -690,6 +707,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -720,6 +738,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -773,6 +792,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
@@ -783,7 +803,8 @@
       "sourcePaths": [
         "<SOURCE_ROOT>\\ZZ Top",
         "<SOURCE_ROOT>\\ZZ Top\\EPs",
-        "<SOURCE_ROOT>\\ZZ Top\\Lives"
+        "<SOURCE_ROOT>\\ZZ Top\\Lives",
+        "<SOURCE_ROOT>\\ZZ Top\\Singles"
       ],
       "releases": [
         {
@@ -804,6 +825,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -834,6 +856,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -858,7 +881,9 @@
             {
               "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\1999 XXX\\cover.jpg",
               "kind": "cover",
-              "placement": "loose"
+              "placement": "loose",
+              "include": true,
+              "proposedFileName": "cover.jpg"
             }
           ],
           "ignoredFiles": [],
@@ -898,6 +923,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found"
           }
         },
@@ -919,6 +945,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -949,6 +976,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -979,6 +1007,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -1009,6 +1038,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -1039,6 +1069,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -1069,6 +1100,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "mp3",
               "isLossless": false,
               "durationSeconds": 200,
@@ -1093,7 +1125,9 @@
             {
               "sourcePath": "<SOURCE_ROOT>\\ZZ Top\\2003 Mescalero\\scans\\back.jpg",
               "kind": "booklet",
-              "placement": "nested"
+              "placement": "nested",
+              "include": true,
+              "proposedFileName": null
             }
           ],
           "ignoredFiles": [
@@ -1135,6 +1169,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "track-outside-disc-folder-suspected; Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         },
@@ -1156,6 +1191,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -1186,6 +1222,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -1237,6 +1274,7 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         },
@@ -1258,6 +1296,7 @@
                 "album": null,
                 "title": null
               },
+              "existingCoverArtPath": null,
               "format": "flac",
               "isLossless": true,
               "durationSeconds": 200,
@@ -1309,6 +1348,81 @@
           "humanReview": {
             "required": true,
             "resolved": false,
+            "rejected": false,
+            "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
+          }
+        },
+        {
+          "stableKey": "a7d8b3543f18f149",
+          "recognizedTitle": "Pincushion",
+          "recognizedYear": 1996,
+          "sourceFolderPath": "<SOURCE_ROOT>\\ZZ Top\\Singles\\1996 Pincushion",
+          "discFolderCount": 1,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\ZZ Top\\Singles\\1996 Pincushion\\01 - Pincushion.flac",
+              "discFolder": null,
+              "originalFileName": "01 - Pincushion.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": null
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 200,
+              "cueTimestamp": null,
+              "isCueVirtualTrack": false,
+              "proposedFileName": "01 Pincushion.flac",
+              "proposedDiscNumber": 1,
+              "proposedTrackNumber": 1,
+              "proposedTitle": "Pincushion",
+              "tags": {
+                "artist": "ZZ Top",
+                "albumArtist": "ZZ Top",
+                "album": "Pincushion",
+                "year": 1996,
+                "discNumber": 1,
+                "track": 1,
+                "title": "Pincushion"
+              }
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheet": null,
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": [],
+          "discogsMatch": {
+            "status": "not-found",
+            "selectedReleaseId": null,
+            "candidates": []
+          },
+          "proposed": {
+            "artistFolderName": "ZZ Top",
+            "releaseFolderName": "1996 Pincushion",
+            "year": 1996,
+            "album": "Pincushion"
+          },
+          "coverArt": {
+            "candidates": [],
+            "chosenCandidateUrl": null,
+            "targetMaxDimension": 600
+          },
+          "lossyLossless": {
+            "isLossy": false,
+            "action": "none"
+          },
+          "targetAction": "create-new",
+          "humanReview": {
+            "required": true,
+            "resolved": false,
+            "rejected": false,
             "notes": "Discogs match status: not-found; No cover art candidates found from Discogs or local companion files."
           }
         }
