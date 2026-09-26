@@ -79,11 +79,34 @@ Applies manifesto §5 rules mechanically, using Discogs data as ground truth:
 - Per track, in disc + in-disc-track order:
   - `proposedDiscNumber` = 1-based disc index (always set, even for
     single-disc).
-  - `proposedTrackNumber` = 1-based position within its disc (no leading
-    zero) — restarts at 1 per disc.
-  - Continuous filename number `NN` = running count across all discs in
-    order (disc 1 tracks first, then disc 2, ...), zero-padded to the
-    release's computed pad width ([04](04-settings-module.md)).
+  - `proposedTrackNumber` (= `tags.track`) = the track's **real** number on
+    its disc (no leading zero), restarting at 1 per disc. A track missing
+    from the source leaves a gap; the rest are not shifted up.
+  - Continuous filename number `NN` = the disc's offset + `proposedTrackNumber`,
+    counting across discs, zero-padded to
+    `max(trackNumberPadWidth, digits of the highest NN)` ([04](04-settings-module.md)).
+  - Where the real number comes from, first match wins
+    (`New-ReshelfProposedTrackSet`):
+    1. **Discogs data, single-disc source**: the track's index in the
+       *full* Discogs tracklist, not only the tracks the source has. Vinyl
+       positions (`A1`, `B2`) work too, because the index is used, not the
+       position text.
+    2. **Discogs data, multi-disc source**: `Track` from the position
+       (`1-3`, `CD2-1`, `2.05`, parsed by `Get-ReshelfDiscogsPositionParts`),
+       `NN` = the full-tracklist index. Used only when every aligned
+       position parses; otherwise step 3.
+    3. **Source file numbers** (`detectedTrackNumberInDisc`), per disc, when
+       none were inferred and none repeat. The disc offset is the sum of the
+       highest Track of each earlier disc. A later disc numbered
+       continuously in the source (`CD2\11 - …`, every number above the
+       running offset) has the offset subtracted, so Track restarts at 1.
+    4. **Counter** (1, 2, 3… per disc). Repeated source numbers on a disc
+       also add the note `track numbers from source file names are not
+       unique on disc N; renumbered sequentially` and force review.
+  - Real case (plan/12 milestone 5): *AOKI Takamasa – Indigo Rose*, source
+    missing track 1. Discogs aligned by title, so the proposal is
+    `02 Dear People.mp3` (Track 2) … `08 There's Not Much Left.mp3`
+    (Track 8). Before this rule it was `01 Dear People.mp3` (Track 1).
   - `proposedTitle` = Discogs track title, with any feat. artist / mix /
     remix / remaster wording preserved in the title text itself.
   - `proposedFileName` = `"{NN} {proposedTitle}.{ext}"`.

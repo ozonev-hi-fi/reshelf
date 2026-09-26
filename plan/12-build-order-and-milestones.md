@@ -7,11 +7,11 @@
 > Delete it (and nothing else in this file) once milestones 6–8 are done for
 > real. If you are Claude picking this up fresh with no other context: read
 > this block, then say to the user something like *"Picking up where we left
-> off — please review session `2026-09-26-0003` in the UI
-> (`pwsh scripts/Reshelf.ps1 ui start`) — check the Lossy tracker tab and the
-> Unrecognized section too, and try editing Artist/Album/Year to see the
-> folder name update live. Tell me what you find and I'll continue with M6
-> (apply) and M7 (idempotency/upgrade) once you're happy with this session."*
+> off — milestone 5 (UI review of session `2026-09-26-0003`) is done and its
+> one finding (track-number gaps) is fixed. If you haven't yet, open Aoki
+> Takamasa in the UI and retype one Track value so its file names refresh,
+> then Save. After that I'll continue with M6 (apply) and M7
+> (idempotency/upgrade)."*
 > Do not re-derive any of the below from scratch — it's all already done and
 > committed on `develop` (working tree was clean as of this note).
 >
@@ -33,15 +33,18 @@
 >   (matched 23/27, needsReview 8, 0 unrecognized). Two earlier sessions
 >   (`2026-09-26-0001`, `-0002`) are stale/superseded — ignore them, don't
 >   re-review them, they predate bug fixes.
-> - **Milestone 5 (UI round-trip)**: NOT YET DONE by the user. This is the
->   very next step — the user was asked to open `2026-09-26-0003` in the UI,
->   resolve real ambiguous/not-found releases, try the new folder-name live
->   preview, check the Unrecognized panel (should show 0 entries — `edbl` is
->   now recognized, not unrecognized) and the new Lossy tracker tab, Save,
->   reload, confirm it round-trips. **Waiting on the user's findings from
->   this before doing anything else.**
+> - **Milestone 5 (UI round-trip)**: review done by the user (2026-09-27)
+>   on `2026-09-26-0003`. One finding: *AOKI Takamasa – Indigo Rose* is
+>   missing track 1 on the source. The user fixed the Track tags to 2–8 by
+>   hand, but the file names stayed `01 …`–`07 …`. Root cause: `propose` and
+>   the UI both numbered files with a plain counter. Fixed: the file number
+>   now follows the real track position in both places (see
+>   [06](06-edit-proposal-module.md) "Per track" and
+>   [07](07-editing-ui-module.md) "Live track file-name preview"). The saved
+>   session is not re-derived automatically. Retyping one Track value on
+>   that release refreshes all its file names; then Save.
 > - **Milestones 6 (apply) and 7 (idempotency/upgrade)**: not started yet.
->   Do these only after the user confirms milestone 5 is good. See the
+>   Next, once the Aoki file names are refreshed and saved. See the
 >   "Sequence" section below for the exact runbook (M6/M7 haven't changed).
 >   Reminder for M7's upgrade-test: transcode one small FLAC release (e.g.
 >   `Axion\The Conquest of Space`) to mp3 in the scratchpad, apply the mp3
@@ -121,7 +124,7 @@ new design — every item below points back to the step file that defines it.
 | 0 | Scaffolding spike | **Confirmed** — the real `Integration`-tagged tests (`tests/Reshelf.TagLibSharp.Integration.Tests.ps1`) load the real `TagLibSharp.dll` via `Add-Type` and call a real `ffmpeg`, both reading and writing tags/cover art, and pass (see [11](11-testing-and-verification-strategy.md)). |
 | 1 | Discogs access + caching/throttling spike | **Confirmed** — see below. |
 | 2 | Schemas + settings | **Confirmed** — `tests/Reshelf.Schemas.Tests.ps1` and `tests/Reshelf.Settings.Tests.ps1` pass against real schema files and a real `Reshelf.Settings.psm1`. |
-| 3–8 | Real-sample milestones | **In progress** — real source is `D:\MusicToOrganize\Electro` (portable drive, pass `-SourceRoot` explicitly). Milestones 3 (recognize) and 4 (propose) done, see the ⚠️ TEMPORARY HANDOFF NOTE above for the current session id and exact status; milestone 5 (UI round-trip) is waiting on the user; 6–8 not started. Delete this row's detail once the handoff note above is deleted and replace with a normal confirmed/done summary. |
+| 3–8 | Real-sample milestones | **In progress** — real source is `D:\MusicToOrganize\Electro` (portable drive, pass `-SourceRoot` explicitly). Milestones 3 (recognize), 4 (propose) and 5 (UI round-trip) done, see the ⚠️ TEMPORARY HANDOFF NOTE above for the current session id and exact status; 6–8 not started. Delete this row's detail once the handoff note above is deleted and replace with a normal confirmed/done summary. |
 
 ### Milestone 1 — confirmed
 

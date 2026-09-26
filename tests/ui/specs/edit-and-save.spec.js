@@ -59,6 +59,56 @@ test.describe('editing and saving', () => {
     await expect(afterCell).toHaveText('01 Renamed Opener.flac');
   });
 
+  test('a Track number edit updates the file-name number (missing track keeps its gap) and survives Save and reload', async ({ page }) => {
+    const seeded = seedSession('edit-track-number');
+    await gotoApp(page);
+    const selectRich = () => page.locator(`.release-row[data-stable-key="${seeded.rich.stableKey}"]`).click();
+    await selectRich();
+
+    // Like a real release whose source is missing track 1: tracks are really 2 and 3.
+    const trackRows = page.locator('#track-fields-table tbody tr');
+    await trackRows.nth(1).locator('input[type="number"]').nth(1).fill('3');
+    await trackRows.nth(0).locator('input[type="number"]').nth(1).fill('2');
+
+    const afterCell = (n) => page.locator('#before-after-table tbody tr').nth(n).locator('td').last();
+    await expect(afterCell(1)).toHaveText('02 First Track.flac');
+    await expect(afterCell(2)).toHaveText('03 Second Track.flac');
+
+    await page.locator('#save-btn').click();
+    await expect(page.locator('#save-status')).toContainText('Saved');
+
+    const onDisk = JSON.parse(fs.readFileSync(seeded.proposalPath, 'utf-8'));
+    const release = onDisk.artists[0].releases.find((r) => r.stableKey === seeded.rich.stableKey);
+    expect(release.tracks.map((t) => t.proposedFileName)).toEqual(['02 First Track.flac', '03 Second Track.flac']);
+    expect(release.tracks.map((t) => t.tags.track)).toEqual([2, 3]);
+
+    await page.reload();
+    await selectRich();
+    await expect(afterCell(1)).toHaveText('02 First Track.flac');
+    await expect(afterCell(2)).toHaveText('03 Second Track.flac');
+  });
+
+  test('on a multi-disc release, a later disc\'s file numbers start after the highest Track of earlier discs', async ({ page }) => {
+    const seeded = seedSession('edit-multi-disc-number');
+    await gotoApp(page);
+    await page.locator(`.release-row[data-stable-key="${seeded.rich.stableKey}"]`).click();
+
+    const trackRows = page.locator('#track-fields-table tbody tr');
+    const discInput = (n) => trackRows.nth(n).locator('input[type="number"]').nth(0);
+    const trackInput = (n) => trackRows.nth(n).locator('input[type="number"]').nth(1);
+    await discInput(1).fill('2');
+    await trackInput(1).fill('1');
+
+    const afterCell = (n) => page.locator('#before-after-table tbody tr').nth(n).locator('td').last();
+    await expect(afterCell(1)).toHaveText('01 First Track.flac');
+    await expect(afterCell(2)).toHaveText('02 Second Track.flac');
+
+    // Disc 1 now has 3 tracks (1 and 2 missing on the source), so disc 2 starts at 04.
+    await trackInput(0).fill('3');
+    await expect(afterCell(1)).toHaveText('03 First Track.flac');
+    await expect(afterCell(2)).toHaveText('04 Second Track.flac');
+  });
+
   test('making an edit then trying to leave the page triggers the browser\'s own unsaved-changes prompt', async ({ page }) => {
     const seeded = seedSession('edit-beforeunload');
     await gotoApp(page);

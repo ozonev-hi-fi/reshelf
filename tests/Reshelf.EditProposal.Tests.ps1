@@ -404,6 +404,7 @@ Describe 'Resolve-ReshelfDiscogsTrackAlignment (private)' {
             $result.Aligned | Should -Be $true
             $result.Tracks[0].title | Should -Be 'Indigo Rose'
             $result.Tracks[1].title | Should -Be 'Sun'
+            $result.Indices | Should -Be @(2, 3)
             $result.MissingNote | Should -Be 'missing on source: 1 Cover Your Ears'
         }
     }
@@ -438,6 +439,187 @@ Describe 'Resolve-ReshelfDiscogsTrackAlignment (private)' {
             $result = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $sourceTracks -DiscogsTracks $discogsTracks
 
             $result.Aligned | Should -Be $false
+        }
+    }
+}
+
+Describe 'Get-ReshelfDiscogsPositionParts (private)' {
+    It 'parses disc-track positions' {
+        InModuleScope Reshelf.EditProposal {
+            $p = Get-ReshelfDiscogsPositionParts -Position '1-3'
+            $p.Disc | Should -Be 1; $p.Track | Should -Be 3
+            $p = Get-ReshelfDiscogsPositionParts -Position 'CD2-1'
+            $p.Disc | Should -Be 2; $p.Track | Should -Be 1
+            $p = Get-ReshelfDiscogsPositionParts -Position '2.05'
+            $p.Disc | Should -Be 2; $p.Track | Should -Be 5
+        }
+    }
+
+    It 'parses a plain number as a track with no disc' {
+        InModuleScope Reshelf.EditProposal {
+            $p = Get-ReshelfDiscogsPositionParts -Position '7'
+            $p.Disc | Should -BeNullOrEmpty; $p.Track | Should -Be 7
+        }
+    }
+
+    It 'returns nothing usable for vinyl sides or empty input' {
+        InModuleScope Reshelf.EditProposal {
+            foreach ($position in @('A1', 'B2', '', $null)) {
+                $p = Get-ReshelfDiscogsPositionParts -Position $position
+                $p.Disc | Should -BeNullOrEmpty; $p.Track | Should -BeNullOrEmpty
+            }
+        }
+    }
+}
+
+Describe 'New-ReshelfProposedTrackSet (private) - real track positions' {
+    BeforeAll {
+        $script:TestNames = [pscustomobject]@{ Artist = 'Some Artist'; Album = 'Some Album'; Year = 2002 }
+
+        function New-NumberingTestTrack {
+            param(
+                [string]$FileName,
+                [Nullable[int]]$Number,
+                [string]$DiscFolder = $null,
+                [bool]$Inferred = $false
+            )
+            [pscustomobject]@{
+                originalFileName          = $FileName
+                discFolder                = if ($DiscFolder) { $DiscFolder } else { $null }
+                detectedTrackNumberInDisc = $Number
+                inferredTrackOrder        = $Inferred
+                existingTags              = [pscustomobject]@{ artist = $null; album = $null; title = $null }
+                format                    = 'mp3'
+            }
+        }
+    }
+
+    It 'keeps a missing first track as a gap in file names and tags when Discogs is aligned' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '02 - dear people.mp3' -Number 2)
+            (New-NumberingTestTrack -FileName '03 - hope.mp3' -Number 3)
+        )
+        $discogs = @(
+            [pscustomobject]@{ position = '1'; title = 'Cover Your Ears' }
+            [pscustomobject]@{ position = '2'; title = 'Dear People' }
+            [pscustomobject]@{ position = '3'; title = 'Hope' }
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; discogs = $discogs; names = $script:TestNames } {
+            param($tracks, $discogs, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks $discogs -DiscogsIndices @(2, 3) -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('02 Dear People.mp3', '03 Hope.mp3')
+            $set.Tracks.tags.track | Should -Be @(2, 3)
+            $set.Tracks.proposedTrackNumber | Should -Be @(2, 3)
+            $set.Notes.Count | Should -Be 0
+        }
+    }
+
+    It 'uses a vinyl-style tracklist index for a single-disc release' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1)
+            (New-NumberingTestTrack -FileName '03 - c.mp3' -Number 3)
+        )
+        $discogs = @(
+            [pscustomobject]@{ position = 'A1'; title = 'A' }
+            [pscustomobject]@{ position = 'A2'; title = 'B' }
+            [pscustomobject]@{ position = 'B1'; title = 'C' }
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; discogs = $discogs; names = $script:TestNames } {
+            param($tracks, $discogs, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks $discogs -DiscogsIndices @(1, 3) -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '03 C.mp3')
+            $set.Tracks.tags.track | Should -Be @(1, 3)
+        }
+    }
+
+    It 'uses source file numbers when there is no Discogs data, keeping a gap in the middle' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '04 - four.mp3' -Number 4)
+            (New-NumberingTestTrack -FileName '06 - six.mp3' -Number 6)
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:TestNames } {
+            param($tracks, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('04 Four.mp3', '06 Six.mp3')
+            $set.Tracks.tags.track | Should -Be @(4, 6)
+        }
+    }
+
+    It 'uses Discogs disc-track positions on a multi-disc release, with the file number from the full tracklist' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '02 - b.mp3' -Number 2 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '01 - d.mp3' -Number 1 -DiscFolder 'CD 2')
+        )
+        # Disc 1's last track ("C") is missing from the source - only Discogs knows disc 1 has 3.
+        $discogs = @(
+            [pscustomobject]@{ position = '1-1'; title = 'A' }
+            [pscustomobject]@{ position = '1-2'; title = 'B' }
+            [pscustomobject]@{ position = '1-3'; title = 'C' }
+            [pscustomobject]@{ position = '2-1'; title = 'D' }
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; discogs = $discogs; names = $script:TestNames } {
+            param($tracks, $discogs, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks $discogs -DiscogsIndices @(1, 2, 4) -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '02 B.mp3', '04 D.mp3')
+            $set.Tracks.tags.discNumber | Should -Be @(1, 1, 2)
+            $set.Tracks.tags.track | Should -Be @(1, 2, 1)
+        }
+    }
+
+    It 'offsets a later disc by the highest track number of earlier discs without Discogs data' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '03 - c.mp3' -Number 3 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '02 - e.mp3' -Number 2 -DiscFolder 'CD 2')
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:TestNames } {
+            param($tracks, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '03 C.mp3', '05 E.mp3')
+            $set.Tracks.tags.track | Should -Be @(1, 3, 2)
+        }
+    }
+
+    It 'restarts Track at 1 on a later disc whose source files are numbered continuously' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '02 - b.mp3' -Number 2 -DiscFolder 'CD 1')
+            (New-NumberingTestTrack -FileName '03 - c.mp3' -Number 3 -DiscFolder 'CD 2')
+            (New-NumberingTestTrack -FileName '04 - d.mp3' -Number 4 -DiscFolder 'CD 2')
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:TestNames } {
+            param($tracks, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '02 B.mp3', '03 C.mp3', '04 D.mp3')
+            $set.Tracks.tags.track | Should -Be @(1, 2, 1, 2)
+        }
+    }
+
+    It 'renumbers a disc sequentially and adds a note when source file numbers repeat' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1)
+            (New-NumberingTestTrack -FileName '01 - b.mp3' -Number 1)
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:TestNames } {
+            param($tracks, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '02 B.mp3')
+            $set.Tracks.tags.track | Should -Be @(1, 2)
+            $set.Notes | Should -Be @('track numbers from source file names are not unique on disc 1; renumbered sequentially')
+        }
+    }
+
+    It 'numbers sequentially, with no note, when the track order was inferred (no numbers in file names)' {
+        $tracks = @(
+            (New-NumberingTestTrack -FileName 'a.mp3' -Number 1 -Inferred $true)
+            (New-NumberingTestTrack -FileName 'b.mp3' -Number 2 -Inferred $true)
+        )
+        InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:TestNames } {
+            param($tracks, $names)
+            $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}'
+            $set.Tracks.proposedFileName | Should -Be @('01 A.mp3', '02 B.mp3')
+            $set.Notes.Count | Should -Be 0
         }
     }
 }
@@ -814,6 +996,54 @@ Describe 'Invoke-ReshelfEditProposal' {
                 $releaseTracks[$i].tags.track | Should -Be $row.Track
                 $releaseTracks[$i].tags.title | Should -Be $row.Title
             }
+        }
+
+        It 'keeps the real track position when the source is missing a track Discogs has (plan/12 milestone 5)' {
+            $folder = Join-Path $script:sourceRoot 'aoki takamasa' '2002 indigo rose'
+            $t2 = New-TestAudioFile -Path (Join-Path $folder '02 - dear people.flac')
+            $t3 = New-TestAudioFile -Path (Join-Path $folder '03 - hope.flac')
+
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t2 -OriginalFileName '02 - dear people.flac' -DetectedTrackNumberInDisc 2)
+                (New-TestTrack -SourceFilePath $t3 -OriginalFileName '03 - hope.flac' -DetectedTrackNumberInDisc 3)
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'aoki takamasa' -Album 'indigo rose' -Year 2002) `
+                -RecognizedTitle 'indigo rose' -RecognizedYear 2002 -SourceFolderPath $folder -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'aoki takamasa'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $script:customSearch = [pscustomobject]@{
+                results = @([pscustomobject]@{ id = 777; type = 'release'; title = 'AOKI Takamasa - Indigo Rose'; year = '2002'; format = @('CD', 'Album') })
+            }
+            $script:customDetail = [pscustomobject]@{
+                id        = 777
+                title     = 'Indigo Rose'
+                year      = 2002
+                country   = 'JP'
+                artists   = @([pscustomobject]@{ name = 'AOKI Takamasa'; id = 1 })
+                formats   = @([pscustomobject]@{ name = 'CD'; qty = '1'; descriptions = @('Album') })
+                images    = @()
+                tracklist = @(
+                    [pscustomobject]@{ position = '1'; title = 'Cover Your Ears'; duration = '' }
+                    [pscustomobject]@{ position = '2'; title = 'Dear People'; duration = '' }
+                    [pscustomobject]@{ position = '3'; title = 'Hope'; duration = '' }
+                )
+            }
+
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                if ($Path -eq '/database/search') { return $script:customSearch }
+                return $script:customDetail
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.tracks.proposedFileName | Should -Be @('02 Dear People.flac', '03 Hope.flac')
+            $releaseResult.tracks.tags.track | Should -Be @(2, 3)
+            $releaseResult.humanReview.required | Should -Be $true
+            $releaseResult.humanReview.notes | Should -Match 'missing on source: 1 Cover Your Ears'
         }
 
         It 'keeps feat. wording out of Artist/AlbumArtist but in the title, and strips a Discogs disambiguation suffix' {

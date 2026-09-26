@@ -488,6 +488,7 @@ function Resolve-ReshelfDiscogsTrackAlignment {
     # release back to source titles (Aligned = $false), same as before this function existed.
     $usedDiscogsIndices = [System.Collections.Generic.HashSet[int]]::new()
     $aligned = [System.Collections.Generic.List[object]]::new()
+    $alignedIndices = [System.Collections.Generic.List[int]]::new()
 
     foreach ($sourceTrack in $SourceTracks) {
         $sourceTitle = if ($sourceTrack.existingTags.title) { $sourceTrack.existingTags.title } `
@@ -503,11 +504,12 @@ function Resolve-ReshelfDiscogsTrackAlignment {
         }
 
         if ($bestIndex -lt 0 -or $bestScore -lt 0.8) {
-            return [pscustomobject]@{ Aligned = $false; Tracks = @(); MissingNote = $null }
+            return [pscustomobject]@{ Aligned = $false; Tracks = @(); Indices = @(); MissingNote = $null }
         }
 
         [void]$usedDiscogsIndices.Add($bestIndex)
         $aligned.Add($DiscogsTracks[$bestIndex])
+        $alignedIndices.Add($bestIndex + 1)
     }
 
     $missing = @(for ($i = 0; $i -lt $DiscogsTracks.Count; $i++) {
@@ -517,7 +519,27 @@ function Resolve-ReshelfDiscogsTrackAlignment {
         })
     $missingNote = if ($missing.Count -gt 0) { "missing on source: $($missing -join ', ')" } else { $null }
 
-    return [pscustomobject]@{ Aligned = $true; Tracks = @($aligned); MissingNote = $missingNote }
+    return [pscustomobject]@{ Aligned = $true; Tracks = @($aligned); Indices = @($alignedIndices); MissingNote = $missingNote }
+}
+
+function Get-ReshelfDiscogsPositionParts {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Position
+    )
+
+    $text = if ($Position) { $Position.Trim() } else { '' }
+    if ($text -match '^(?:CD|DVD|Disc)?\s*(\d+)\s*[-.]\s*(\d+)$') {
+        return [pscustomobject]@{ Disc = [int]$Matches[1]; Track = [int]$Matches[2] }
+    }
+    if ($text -match '^(\d+)$') {
+        return [pscustomobject]@{ Disc = $null; Track = [int]$Matches[1] }
+    }
+    # Vinyl/cassette sides ("A1", "B2") and anything else carry no usable disc/track number.
+    return [pscustomobject]@{ Disc = $null; Track = $null }
 }
 
 # --- Track naming and tagging ---------------------------------------------------
@@ -530,9 +552,15 @@ function New-ReshelfProposedTrackSet {
         [AllowEmptyCollection()]
         [object[]]$Tracks,
 
+        # The FULL Discogs tracklist, not only the tracks the source has - a track's index in it is
+        # its real position on the release, so a track missing from the source keeps its gap.
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
         [object[]]$DiscogsTracks,
+
+        # 1-based index into $DiscogsTracks for each entry of $Tracks (same order). Empty means
+        # the two lists line up one-to-one.
+        [int[]]$DiscogsIndices = @(),
 
         [Parameter(Mandatory)]
         [object]$Names,
@@ -544,36 +572,97 @@ function New-ReshelfProposedTrackSet {
     )
 
     $substitutions = [System.Collections.Generic.List[string]]::new()
+    $notes = [System.Collections.Generic.List[string]]::new()
 
     # Group tracks by discFolder in first-seen order - a single-disc release has every track's
     # discFolder as $null, which naturally becomes one group (disc 1).
     $discOrder = [System.Collections.Generic.List[string]]::new()
-    $discGroups = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new()
-    foreach ($track in $Tracks) {
-        $key = if ($null -eq $track.discFolder) { '' } else { $track.discFolder }
+    $discGroups = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new()
+    for ($i = 0; $i -lt $Tracks.Count; $i++) {
+        $key = if ($null -eq $Tracks[$i].discFolder) { '' } else { $Tracks[$i].discFolder }
         if (-not $discGroups.ContainsKey($key)) {
             $discOrder.Add($key)
-            $discGroups[$key] = [System.Collections.Generic.List[object]]::new()
+            $discGroups[$key] = [System.Collections.Generic.List[int]]::new()
         }
-        $discGroups[$key].Add($track)
+        $discGroups[$key].Add($i)
     }
 
-    $padWidth = Get-ReshelfProposalPadWidth -TotalTrackCount $Tracks.Count -MinWidth $TrackNumberPadWidth
-    $useDiscogsTitles = ($DiscogsTracks.Count -gt 0)
+    $useDiscogs = ($DiscogsTracks.Count -gt 0 -and $Tracks.Count -gt 0)
+    if ($useDiscogs -and $DiscogsIndices.Count -eq 0) { $DiscogsIndices = @(1..$Tracks.Count) }
 
-    $continuous = 0
+    # Per manifesto sections 4.4/5 these are two different numbers: trackNumbers restart at 1 per
+    # disc (the Track tag), fileNumbers keep counting across discs (the filename's NN). Both follow
+    # the real release position, so a missing track leaves a gap in both instead of shifting the rest.
+    $trackNumbers = [int[]]::new($Tracks.Count)
+    $fileNumbers = [int[]]::new($Tracks.Count)
+    $numbersResolved = $false
+
+    if ($useDiscogs) {
+        if ($discOrder.Count -le 1) {
+            for ($i = 0; $i -lt $Tracks.Count; $i++) {
+                $trackNumbers[$i] = $DiscogsIndices[$i]
+                $fileNumbers[$i] = $DiscogsIndices[$i]
+            }
+            $numbersResolved = $true
+        }
+        else {
+            $parts = @(for ($i = 0; $i -lt $Tracks.Count; $i++) {
+                    Get-ReshelfDiscogsPositionParts -Position $DiscogsTracks[$DiscogsIndices[$i] - 1].position
+                })
+            if (@($parts | Where-Object { $null -eq $_.Disc -or $null -eq $_.Track }).Count -eq 0) {
+                for ($i = 0; $i -lt $Tracks.Count; $i++) {
+                    $trackNumbers[$i] = $parts[$i].Track
+                    $fileNumbers[$i] = $DiscogsIndices[$i]
+                }
+                $numbersResolved = $true
+            }
+        }
+    }
+
+    if (-not $numbersResolved) {
+        $offset = 0
+        $discIndex = 0
+        foreach ($discKey in $discOrder) {
+            $discIndex++
+            $indices = $discGroups[$discKey]
+            $detected = @($indices | ForEach-Object { $Tracks[$_].detectedTrackNumberInDisc })
+            $useDetected = (@($indices | Where-Object { $Tracks[$_].inferredTrackOrder }).Count -eq 0) -and
+            (@($detected | Where-Object { $null -eq $_ -or [int]$_ -lt 1 }).Count -eq 0)
+            if ($useDetected -and @($detected | Select-Object -Unique).Count -ne $detected.Count) {
+                $useDetected = $false
+                $notes.Add("track numbers from source file names are not unique on disc $discIndex; renumbered sequentially")
+            }
+
+            # Some rips number a later disc's files continuously ("CD2\11 - ...") instead of from 1 -
+            # every number being above the running offset means that, so the offset is taken back out.
+            $numberShift = 0
+            if ($useDetected -and $offset -gt 0 -and ($detected | Measure-Object -Minimum).Minimum -gt $offset) {
+                $numberShift = $offset
+            }
+
+            $position = 0
+            foreach ($i in $indices) {
+                $position++
+                $trackNumbers[$i] = if ($useDetected) { [int]$Tracks[$i].detectedTrackNumberInDisc - $numberShift } else { $position }
+                $fileNumbers[$i] = $offset + $trackNumbers[$i]
+            }
+            $offset += ($indices | ForEach-Object { $trackNumbers[$_] } | Measure-Object -Maximum).Maximum
+        }
+    }
+
+    $highestFileNumber = if ($Tracks.Count -gt 0) { ($fileNumbers | Measure-Object -Maximum).Maximum } else { 0 }
+    $padWidth = Get-ReshelfProposalPadWidth -TotalTrackCount $highestFileNumber -MinWidth $TrackNumberPadWidth
+
     $discIndex = 0
     $result = [System.Collections.Generic.List[object]]::new()
 
     foreach ($discKey in $discOrder) {
         $discIndex++
-        $trackIndexInDisc = 0
-        foreach ($track in $discGroups[$discKey]) {
-            $trackIndexInDisc++
-            $continuous++
+        foreach ($i in $discGroups[$discKey]) {
+            $track = $Tracks[$i]
 
-            if ($useDiscogsTitles) {
-                $rawTitle = Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$continuous - 1].title
+            if ($useDiscogs) {
+                $rawTitle = Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$DiscogsIndices[$i] - 1].title
             }
             elseif ($track.existingTags.title) {
                 $rawTitle = ConvertTo-ReshelfTitleCase -Text $track.existingTags.title
@@ -585,10 +674,7 @@ function New-ReshelfProposedTrackSet {
             $titleSan = ConvertTo-SafeFileName -Name $rawTitle -Context 'track file name'
             if ($titleSan.Substitutions.Count -gt 0) { $substitutions.AddRange([string[]]$titleSan.Substitutions) }
 
-            # {trackNumber} here is the continuous, zero-padded, cross-disc filename number - never
-            # tags.track below, which restarts at 1 per disc. These are two different numbers per
-            # manifesto section 5 and must not be conflated.
-            $padded = $continuous.ToString('0' * $padWidth)
+            $padded = $fileNumbers[$i].ToString('0' * $padWidth)
             $fileNameCore = Expand-ReshelfNamingTemplate -Template $TrackFileTemplate -Values @{ trackNumber = $padded; title = $titleSan.SafeName }
             $proposedFileName = "$fileNameCore.$($track.format)"
 
@@ -598,14 +684,14 @@ function New-ReshelfProposedTrackSet {
                 album       = $Names.Album
                 year        = $Names.Year
                 discNumber  = $discIndex
-                track       = $trackIndexInDisc
+                track       = $trackNumbers[$i]
                 title       = $rawTitle
             }
 
             $extended = $track | Select-Object *
             $extended | Add-Member -NotePropertyName proposedFileName -NotePropertyValue $proposedFileName -Force
             $extended | Add-Member -NotePropertyName proposedDiscNumber -NotePropertyValue $discIndex -Force
-            $extended | Add-Member -NotePropertyName proposedTrackNumber -NotePropertyValue $trackIndexInDisc -Force
+            $extended | Add-Member -NotePropertyName proposedTrackNumber -NotePropertyValue $trackNumbers[$i] -Force
             $extended | Add-Member -NotePropertyName proposedTitle -NotePropertyValue $rawTitle -Force
             $extended | Add-Member -NotePropertyName tags -NotePropertyValue $tags -Force
 
@@ -613,7 +699,7 @@ function New-ReshelfProposedTrackSet {
         }
     }
 
-    return [pscustomobject]@{ Tracks = @($result); Substitutions = @($substitutions) }
+    return [pscustomobject]@{ Tracks = @($result); Substitutions = @($substitutions); Notes = @($notes) }
 }
 
 # --- Cover art -------------------------------------------------------------------
@@ -1133,6 +1219,7 @@ function New-ReshelfProposedRelease {
     }
 
     $discogsTracks = @()
+    $discogsIndices = @()
     if ($match.Status -eq 'matched') {
         $rawDiscogsTracks = @($match.Detail.tracklist | Where-Object { $_.position -and $_.position.Trim() -ne '' })
         if ($rawDiscogsTracks.Count -eq $Release.tracks.Count) {
@@ -1142,7 +1229,8 @@ function New-ReshelfProposedRelease {
             $alignment = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $Release.tracks -DiscogsTracks $rawDiscogsTracks
             $requiresReview = $true
             if ($alignment.Aligned) {
-                $discogsTracks = $alignment.Tracks
+                $discogsTracks = $rawDiscogsTracks
+                $discogsIndices = $alignment.Indices
                 $note = "Discogs tracklist has $($rawDiscogsTracks.Count) tracks but source has $($Release.tracks.Count); aligned by title."
                 if ($alignment.MissingNote) { $note = "$note $($alignment.MissingNote)." }
                 $notes.Add($note)
@@ -1154,9 +1242,13 @@ function New-ReshelfProposedRelease {
         }
     }
 
-    $trackSet = New-ReshelfProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -Names $names -TrackFileTemplate $TrackFileTemplate `
-        -TrackNumberPadWidth $TrackNumberPadWidth
+    $trackSet = New-ReshelfProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -DiscogsIndices $discogsIndices `
+        -Names $names -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth
     if ($trackSet.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$trackSet.Substitutions) }
+    if ($trackSet.Notes.Count -gt 0) {
+        $notes.AddRange([string[]]$trackSet.Notes)
+        $requiresReview = $true
+    }
 
     $coverArt = New-ReshelfCoverArtProposal -Match $match -Release $Release -CoverMaxDimension $CoverMaxDimension
     if ($coverArt.candidates.Count -eq 0) {

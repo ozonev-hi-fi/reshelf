@@ -10,7 +10,7 @@ const state = {
   // {releaseFolder, trackFile, trackNumberPadWidth} from settings.json's namingTemplates, fetched
   // once at startup - lets an Artist/Album/Year edit preview the same folder name Step 6 would
   // actually propose, without waiting for a re-run of 'propose'.
-  namingTemplates: { releaseFolder: '{year} {album}', trackFile: '{trackNumber} {title}' },
+  namingTemplates: { releaseFolder: '{year} {album}', trackFile: '{trackNumber} {title}', trackNumberPadWidth: 2 },
   view: 'releases', // 'releases' | 'lossy'
   lossy: { entries: [], filterStatus: '' },
 };
@@ -953,16 +953,35 @@ function toSafeFileName(name) {
   return result;
 }
 
-// The leading "NN " / "NN - " prefix is the continuous cross-disc filename number
-// (never the per-disc proposedTrackNumber), so it's kept as-is and only the title
-// body is replaced - mirrors Split-ReshelfTrackFileName (Reshelf.Implementation.psm1).
-function deriveTrackFileName(currentFileName, newTitle) {
-  const dot = currentFileName.lastIndexOf('.');
-  const extension = dot >= 0 ? currentFileName.slice(dot) : '';
-  const withoutExtension = dot >= 0 ? currentFileName.slice(0, dot) : currentFileName;
-  const prefixMatch = withoutExtension.match(/^(\d+\s*[-–]\s*|\d+\s+)/);
-  const prefix = prefixMatch ? prefixMatch[0] : '';
-  return prefix + toSafeFileName(newTitle) + extension;
+// Mirrors New-ReshelfProposedTrackSet (Reshelf.EditProposal.psm1): the filename number is
+// the disc offset + Track, so a missing track keeps its gap. Unlike 'propose', the UI has no
+// Discogs per-disc counts, so a disc's size is its highest Track number - if the LAST track
+// of an earlier disc is missing, later discs come out one too low and need a manual fix.
+// The extension is kept from the current name ('propose' may already point it at a new format).
+function deriveTrackFileNames(release) {
+  const highestTrackByDisc = new Map();
+  for (const track of release.tracks) {
+    const current = highestTrackByDisc.get(track.proposedDiscNumber) ?? 0;
+    highestTrackByDisc.set(track.proposedDiscNumber, Math.max(current, track.proposedTrackNumber));
+  }
+  const offsetByDisc = new Map();
+  let offset = 0;
+  for (const disc of [...highestTrackByDisc.keys()].sort((a, b) => a - b)) {
+    offsetByDisc.set(disc, offset);
+    offset += highestTrackByDisc.get(disc);
+  }
+
+  const fileNumbers = release.tracks.map((t) => offsetByDisc.get(t.proposedDiscNumber) + t.proposedTrackNumber);
+  const padWidth = Math.max(state.namingTemplates.trackNumberPadWidth ?? 2, String(Math.max(0, ...fileNumbers)).length);
+
+  release.tracks.forEach((track, index) => {
+    const dot = track.proposedFileName.lastIndexOf('.');
+    const extension = dot >= 0 ? track.proposedFileName.slice(dot) : `.${track.format}`;
+    const core = state.namingTemplates.trackFile
+      .replaceAll('{trackNumber}', String(fileNumbers[index]).padStart(padWidth, '0'))
+      .replaceAll('{title}', toSafeFileName(track.proposedTitle));
+    track.proposedFileName = core + extension;
+  });
 }
 
 function onEditTrackField(release, track, field, value) {
@@ -985,9 +1004,9 @@ function onEditTrackField(release, track, field, value) {
   } else if (field === 'proposedTitle') {
     track.proposedTitle = value;
     track.tags.title = value;
-    track.proposedFileName = deriveTrackFileName(track.proposedFileName, value);
-    renderBeforeAfterTable(release);
   }
+  deriveTrackFileNames(release);
+  renderBeforeAfterTable(release);
   markDirty(release);
 }
 

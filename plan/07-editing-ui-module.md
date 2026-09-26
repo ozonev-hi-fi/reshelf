@@ -127,6 +127,19 @@ would recompute it from scratch) — there's no separate "don't touch what I
 typed" mode. The preview doesn't reproduce `ConvertTo-SafeFileName`'s
 reserved-device-name suffixing; `propose`/Save still apply that for real.
 
+### Live track file-name preview
+
+Editing a track's Disc, Track, or Title recomputes **every** track's
+`proposedFileName` in that release (`deriveTrackFileNames`, `app.js`) with
+the same rule as [06](06-edit-proposal-module.md): `NN` = disc offset +
+Track, so a missing track keeps its gap (Track 2 → `02 …`). The UI has no
+Discogs per-disc track counts, so a disc's size is its **highest Track
+number**. Known limitation: if the *last* track of an earlier disc is
+missing, later discs come out one too low. Fix those by raising the earlier
+disc's highest Track or by re-running `propose`. The file extension is kept
+from the current name. A session saved before this rule is not re-derived
+on load. Retype a Track value once to refresh that release's names.
+
 ### Unrecognized folders
 
 `proposal.json`'s own `unrecognized[]` (already written by

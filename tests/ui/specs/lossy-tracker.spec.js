@@ -113,6 +113,8 @@ test.describe('lossy tracker view', () => {
     seedLossyLedger([makeEntry()]);
     await gotoApp(page);
     await page.locator('#view-btn-lossy').click();
+    // Export writes only the rows already rendered - exporting before the ledger loads gives a header-only file.
+    await expect(page.locator('#lossy-table tbody tr')).toHaveCount(1);
 
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#lossy-export-csv-btn').click();
