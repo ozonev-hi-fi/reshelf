@@ -104,6 +104,39 @@ function Get-ReshelfStableKey {
     return (Get-ReshelfSha256Hex -Text $canonical).Substring(0, 16)
 }
 
+function Remove-ReshelfInvisibleCharacters {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    # Real case (plan/12 milestone 3): Discogs returned a release title containing zero-width
+    # spaces around a dash ("B​-​Sides"), invisible in the browser/UI but embedded
+    # verbatim into file/folder names and tags if left untouched. \p{Cf} (Unicode "format" category)
+    # covers zero-width space/non-joiner/joiner, the byte-order mark, and similar invisible marks.
+    return [regex]::Replace($Text, '\p{Cf}', '')
+}
+
+function ConvertTo-ReshelfTitleCase {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    # Deliberately minimal: only the first letter of each whitespace-separated word is
+    # uppercased, and nothing else is touched - preserves existing internal casing that's
+    # meaningful (e.g. "DJ", "McDonald") instead of a full Title Case library's word-list guessing.
+    # Only ever applied to a name with no Discogs (or, later, Bandcamp) match - those encyclopedias
+    # are trusted for casing (e.g. "edbl" stays lowercase when Discogs itself says so).
+    return [regex]::Replace($Text, '(?<=^|\s)(\p{Ll})', { param($m) $m.Value.ToUpperInvariant() })
+}
+
 function ConvertTo-ReshelfLongPath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -469,4 +502,5 @@ Export-ModuleMember -Function Resolve-ReshelfDataHome, Get-ReshelfEffectiveDataH
     ConvertTo-ReshelfNormalizedText, ConvertTo-ReshelfCueTimestampSeconds, Get-ReshelfSha256Hex, Test-ReshelfIsAudioExtension, Test-ReshelfIsLosslessFormat, `
     Get-ReshelfAudioFilesInFolder, ConvertFrom-ReshelfTrackFileName, ConvertTo-SafeFileName, Get-ReshelfFileSetHash, `
     Set-ReshelfTagLibSharpContext, Import-ReshelfTagLibSharp, Protect-ReshelfSecret, Unprotect-ReshelfSecret, Get-ReshelfRelativePath, `
-    ConvertTo-ReshelfTruncatedSegment, Test-ReshelfLooseCompanionFileName, Get-ReshelfLooseCompanionFileName
+    ConvertTo-ReshelfTruncatedSegment, Test-ReshelfLooseCompanionFileName, Get-ReshelfLooseCompanionFileName, `
+    Remove-ReshelfInvisibleCharacters, ConvertTo-ReshelfTitleCase

@@ -238,7 +238,7 @@
               "tags": {
                 "artist": "Isidor",
                 "albumArtist": "Isidor",
-                "album": "3218 (Soldier of Fortune Edition - Artwork)",
+                "album": "3218 (Soldier Of Fortune Edition - Artwork)",
                 "year": 1900,
                 "discNumber": 1,
                 "track": 1,
@@ -262,9 +262,9 @@
           },
           "proposed": {
             "artistFolderName": "Isidor",
-            "releaseFolderName": "1900 3218 (Soldier of Fortune Edition - Artwork)",
+            "releaseFolderName": "1900 3218 (Soldier Of Fortune Edition - Artwork)",
             "year": 1900,
-            "album": "3218 (Soldier of Fortune Edition - Artwork)"
+            "album": "3218 (Soldier Of Fortune Edition - Artwork)"
           },
           "coverArt": {
             "candidates": [],

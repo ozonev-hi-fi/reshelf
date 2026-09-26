@@ -331,6 +331,117 @@ Describe 'Get-ReshelfDiscogsCandidateScore (private)' {
     }
 }
 
+Describe 'Get-ReshelfDiscogsSearchTitleVariants (private)' {
+    # Each case is a real one from plan/12 milestone 3's re-verification against the actual Discogs
+    # API - a release_title search containing this "noise" returned zero results even for a release
+    # that demonstrably exists; the cleaned variant found it.
+    It 'strips a trailing parenthetical sub-title and dash, extracting no year (no digits inside)' {
+        InModuleScope Reshelf.EditProposal {
+            $result = Get-ReshelfDiscogsSearchTitleVariants -Title 'indigo rose - (progressive form)'
+            $result.Titles | Should -Be @('indigo rose - (progressive form)', 'indigo rose')
+            $result.YearHint | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'strips multiple trailing parenthetical groups and extracts a year hint from the first one' {
+        InModuleScope Reshelf.EditProposal {
+            $result = Get-ReshelfDiscogsSearchTitleVariants -Title 'Violator (1990) (ALFA ALCB-35) (1st Japan 1990)'
+            $result.Titles | Should -Be @('Violator (1990) (ALFA ALCB-35) (1st Japan 1990)', 'Violator')
+            $result.YearHint | Should -Be 1990
+        }
+    }
+
+    It 'strips a parenthetical group containing an internal dash' {
+        InModuleScope Reshelf.EditProposal {
+            $result = Get-ReshelfDiscogsSearchTitleVariants -Title '3218 (Soldier of Fortune Edition - Artwork)'
+            $result.Titles | Should -Be @('3218 (Soldier of Fortune Edition - Artwork)', '3218')
+        }
+    }
+
+    It 'strips a trailing edition word with no parentheses involved' {
+        InModuleScope Reshelf.EditProposal {
+            $result = Get-ReshelfDiscogsSearchTitleVariants -Title 'Forwards Special Edition'
+            $result.Titles | Should -Be @('Forwards Special Edition', 'Forwards')
+        }
+    }
+
+    It 'returns just one variant when there is nothing to clean' {
+        InModuleScope Reshelf.EditProposal {
+            $result = Get-ReshelfDiscogsSearchTitleVariants -Title 'OK Computer'
+            $result.Titles | Should -Be @('OK Computer')
+            $result.YearHint | Should -BeNullOrEmpty
+        }
+    }
+}
+
+Describe 'Get-ReshelfDiscogsFormatPreferenceRank (private)' {
+    It 'ranks Album lowest (most preferred), then EP, Single, Promo, then everything else' {
+        InModuleScope Reshelf.EditProposal {
+            (Get-ReshelfDiscogsFormatPreferenceRank -FormatText 'CD, Album') | Should -Be 0
+            (Get-ReshelfDiscogsFormatPreferenceRank -FormatText 'Vinyl, EP') | Should -Be 1
+            (Get-ReshelfDiscogsFormatPreferenceRank -FormatText 'Vinyl, 7", 45 RPM, Single') | Should -Be 2
+            (Get-ReshelfDiscogsFormatPreferenceRank -FormatText 'CDr, Promo') | Should -Be 3
+            (Get-ReshelfDiscogsFormatPreferenceRank -FormatText 'Cassette') | Should -Be 4
+        }
+    }
+}
+
+Describe 'Resolve-ReshelfDiscogsTrackAlignment (private)' {
+    It 'aligns every source track to its own Discogs track by title and notes the one Discogs has extra' {
+        InModuleScope Reshelf.EditProposal {
+            $sourceTracks = @(
+                [pscustomobject]@{ existingTags = @{ title = $null }; originalFileName = '01 - Indigo Rose.flac' }
+                [pscustomobject]@{ existingTags = @{ title = $null }; originalFileName = '02 - Sun.flac' }
+            )
+            $discogsTracks = @(
+                [pscustomobject]@{ position = '1'; title = 'Cover Your Ears' }
+                [pscustomobject]@{ position = '2'; title = 'Indigo Rose' }
+                [pscustomobject]@{ position = '3'; title = 'Sun' }
+            )
+
+            $result = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $sourceTracks -DiscogsTracks $discogsTracks
+
+            $result.Aligned | Should -Be $true
+            $result.Tracks[0].title | Should -Be 'Indigo Rose'
+            $result.Tracks[1].title | Should -Be 'Sun'
+            $result.MissingNote | Should -Be 'missing on source: 1 Cover Your Ears'
+        }
+    }
+
+    It 'does not align when a source track has no good match (score below 0.8)' {
+        InModuleScope Reshelf.EditProposal {
+            $sourceTracks = @(
+                [pscustomobject]@{ existingTags = @{ title = $null }; originalFileName = '01 - Completely Unrelated Name.flac' }
+            )
+            $discogsTracks = @(
+                [pscustomobject]@{ position = '1'; title = 'Airbag' }
+                [pscustomobject]@{ position = '2'; title = 'Paranoid Android' }
+            )
+
+            $result = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $sourceTracks -DiscogsTracks $discogsTracks
+
+            $result.Aligned | Should -Be $false
+            $result.Tracks.Count | Should -Be 0
+        }
+    }
+
+    It 'does not reuse the same Discogs track for two different source tracks' {
+        InModuleScope Reshelf.EditProposal {
+            $sourceTracks = @(
+                [pscustomobject]@{ existingTags = @{ title = $null }; originalFileName = '01 - Airbag.flac' }
+                [pscustomobject]@{ existingTags = @{ title = $null }; originalFileName = '02 - Some Other Song.flac' }
+            )
+            $discogsTracks = @(
+                [pscustomobject]@{ position = '1'; title = 'Airbag' }
+            )
+
+            $result = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $sourceTracks -DiscogsTracks $discogsTracks
+
+            $result.Aligned | Should -Be $false
+        }
+    }
+}
+
 Describe 'Resolve-ReshelfDiscogsMatch (private)' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -395,6 +506,108 @@ Describe 'Resolve-ReshelfDiscogsMatch (private)' {
 
         $result.Status | Should -Be 'not-found'
         $result.ErrorNote | Should -BeLike '*network is down*'
+    }
+
+    It 'falls back to the cleaned title variant when the raw title finds nothing (real "Forwards Special Edition" case)' {
+        $eggSearch = [pscustomobject]@{
+            results = @([pscustomobject]@{ id = 42; type = 'release'; title = 'The Egg - Forwards'; year = '2004'; format = @('CD', 'Album') })
+        }
+        $eggDetail = [pscustomobject]@{
+            id = 42; title = 'Forwards'; year = 2004; artists = @([pscustomobject]@{ name = 'The Egg' })
+            formats = @([pscustomobject]@{ name = 'CD'; descriptions = @('Album') }); images = @(); tracklist = @()
+        }
+
+        $calls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            $calls.Add([pscustomobject]@{ Path = $Path; Query = $Query })
+            if ($Path -eq '/database/search') {
+                if ($Query.release_title -eq 'Forwards') { return $eggSearch }
+                return [pscustomobject]@{ results = @() }
+            }
+            return $eggDetail
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'The Egg' -Title 'Forwards Special Edition' -Year $null -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'matched'
+        $result.SelectedReleaseId | Should -Be 42
+        ($calls | Where-Object Path -eq '/database/search').Count | Should -BeGreaterThan 1
+    }
+
+    It 'picks the eligible candidate whose real tracklist count matches the source, not just the top score' {
+        # Real case (plan/12 milestone 3): Pivot "O Soundtrack My Heart" had 5 same-scoring Discogs
+        # candidates (a 7" single, a promo CDr, 3 different album pressings) - the first one by
+        # search-result order was a 2-track single, but the source has 11 tracks.
+        $search = [pscustomobject]@{
+            results = @(
+                [pscustomobject]@{ id = 1; type = 'release'; title = 'Pivot - O Soundtrack My Heart'; year = '2008'; format = @('Vinyl', '7"', 'Single') }
+                [pscustomobject]@{ id = 2; type = 'release'; title = 'Pivot - O Soundtrack My Heart'; year = '2008'; format = @('CD', 'Album') }
+            )
+        }
+        $singleDetail = [pscustomobject]@{
+            id = 1; title = 'O Soundtrack My Heart'; year = 2008; artists = @([pscustomobject]@{ name = 'Pivot' })
+            formats = @([pscustomobject]@{ name = 'Vinyl'; descriptions = @('Single') }); images = @()
+            tracklist = @([pscustomobject]@{ position = '1'; title = 'A' }, [pscustomobject]@{ position = '2'; title = 'B' })
+        }
+        $albumDetail = [pscustomobject]@{
+            id = 2; title = 'O Soundtrack My Heart'; year = 2008; artists = @([pscustomobject]@{ name = 'Pivot' })
+            formats = @([pscustomobject]@{ name = 'CD'; descriptions = @('Album') }); images = @()
+            tracklist = @(1..11 | ForEach-Object { [pscustomobject]@{ position = "$_"; title = "Track $_" } })
+        }
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search') { return $search }
+            if ($Path -eq '/releases/1') { return $singleDetail }
+            if ($Path -eq '/releases/2') { return $albumDetail }
+            throw "unexpected path $Path"
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Pivot' -Title 'O Soundtrack My Heart' -Year 2008 -SourceTrackCount 11 -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'matched'
+        $result.SelectedReleaseId | Should -Be 2
+        $result.Detail.tracklist.Count | Should -Be 11
+    }
+
+    It 'prefers an Album-format candidate over a Promo one when no eligible candidate matches the source track count' {
+        $search = [pscustomobject]@{
+            results = @(
+                [pscustomobject]@{ id = 1; type = 'release'; title = 'Some Band - Some Album'; year = '2010'; format = @('CDr', 'Promo') }
+                [pscustomobject]@{ id = 2; type = 'release'; title = 'Some Band - Some Album'; year = '2010'; format = @('CD', 'Album') }
+            )
+        }
+        $promoDetail = [pscustomobject]@{
+            id = 1; title = 'Some Album'; year = 2010; artists = @([pscustomobject]@{ name = 'Some Band' })
+            formats = @([pscustomobject]@{ name = 'CDr'; descriptions = @('Promo') }); images = @()
+            tracklist = @(1..5 | ForEach-Object { [pscustomobject]@{ position = "$_"; title = "Track $_" } })
+        }
+        $albumDetail = [pscustomobject]@{
+            id = 2; title = 'Some Album'; year = 2010; artists = @([pscustomobject]@{ name = 'Some Band' })
+            formats = @([pscustomobject]@{ name = 'CD'; descriptions = @('Album') }); images = @()
+            tracklist = @(1..7 | ForEach-Object { [pscustomobject]@{ position = "$_"; title = "Track $_" } })
+        }
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search') { return $search }
+            if ($Path -eq '/releases/1') { return $promoDetail }
+            if ($Path -eq '/releases/2') { return $albumDetail }
+            throw "unexpected path $Path"
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            # Neither candidate's tracklist (5, 7) matches a source of 9 - falls to format preference.
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Some Band' -Title 'Some Album' -Year 2010 -SourceTrackCount 9 -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'matched'
+        $result.SelectedReleaseId | Should -Be 2
     }
 }
 

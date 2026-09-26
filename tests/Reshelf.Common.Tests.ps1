@@ -525,3 +525,37 @@ Describe 'Get-ReshelfRelativePath' {
         Get-ReshelfRelativePath -SourceRoot 'C:\Music\Source' -Path 'C:\Music\Source' | Should -Be ''
     }
 }
+
+Describe 'ConvertTo-ReshelfTitleCase' {
+    It 'capitalizes the first letter of every whitespace-separated word' {
+        ConvertTo-ReshelfTitleCase -Text 'aoki takamasa' | Should -Be 'Aoki Takamasa'
+    }
+
+    It 'capitalizes an all-lowercase single word (real "edbl" case)' {
+        ConvertTo-ReshelfTitleCase -Text 'edbl' | Should -Be 'Edbl'
+    }
+
+    It 'leaves interior/existing capitalization untouched, e.g. an already-capitalized abbreviation' {
+        ConvertTo-ReshelfTitleCase -Text 'DJ Shadow' | Should -Be 'DJ Shadow'
+    }
+
+    It 'returns an empty string unchanged' {
+        ConvertTo-ReshelfTitleCase -Text '' | Should -Be ''
+    }
+}
+
+Describe 'Remove-ReshelfInvisibleCharacters' {
+    It 'strips a zero-width space (real Discogs "B-Sides" case)' {
+        $withZwsp = 'B' + [char]0x200B + '-' + [char]0x200B + 'Sides'
+        Remove-ReshelfInvisibleCharacters -Text $withZwsp | Should -Be 'B-Sides'
+    }
+
+    It 'strips a byte-order-mark character embedded mid-string' {
+        $withBom = 'Some' + [char]0xFEFF + 'Title'
+        Remove-ReshelfInvisibleCharacters -Text $withBom | Should -Be 'SomeTitle'
+    }
+
+    It 'leaves ordinary text unchanged' {
+        Remove-ReshelfInvisibleCharacters -Text 'Ordinary Title' | Should -Be 'Ordinary Title'
+    }
+}

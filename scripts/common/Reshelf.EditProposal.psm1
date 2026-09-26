@@ -85,6 +85,42 @@ function Get-ReshelfStringSimilarity {
 
 # --- Discogs matching ----------------------------------------------------------
 
+function Get-ReshelfDiscogsSearchTitleVariants {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Title
+    )
+
+    # Real cases (plan/12 milestone 3): a source folder name often carries more than the Discogs
+    # release_title - a parenthetical sub-title/catalog/pressing note ("Violator (1990) (ALFA
+    # ALCB-35) (1st Japan 1990)"), or a trailing edition word ("Forwards Special Edition") - and
+    # Discogs' search field match fails outright when release_title still contains that noise, even
+    # for a release that demonstrably exists (confirmed directly against the live API). "Raw" is
+    # tried first (still finds a real one-word-off title), "cleaned" second.
+    $trimmedRaw = $Title.Trim()
+    $groupPattern = '\s*[\(\[][^\)\]]*[\)\]]'
+
+    $yearHint = $null
+    foreach ($groupMatch in [regex]::Matches($trimmedRaw, $groupPattern)) {
+        if (-not $yearHint -and $groupMatch.Value -match '(19|20)\d{2}') {
+            $yearHint = [int]$Matches[0]
+        }
+    }
+
+    $cleaned = [regex]::Replace($trimmedRaw, $groupPattern, '')
+    $cleaned = [regex]::Replace($cleaned, '\s*[-–—]\s*$', '')
+    $cleaned = [regex]::Replace($cleaned, '(?i)\s+\b(special|deluxe|limited|expanded|anniversary|remastered)\b\s*(edition)?\s*$', '')
+    $cleaned = [regex]::Replace($cleaned, '\s+', ' ').Trim()
+
+    $titles = [System.Collections.Generic.List[string]]::new()
+    $titles.Add($trimmedRaw)
+    if ($cleaned -and $cleaned -ne $trimmedRaw) { $titles.Add($cleaned) }
+
+    return [pscustomobject]@{ Titles = @($titles); YearHint = $yearHint }
+}
+
 function Get-ReshelfDiscogsSearchQuery {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -161,6 +197,71 @@ function Get-ReshelfDiscogsCandidateScore {
     return $score
 }
 
+function Get-ReshelfDiscogsFormatPreferenceRank {
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$FormatText
+    )
+
+    # Lower is more likely to be the "main" release a collection copy should be tagged against -
+    # used only as a tie-breaker when no eligible candidate's tracklist count matches the source
+    # (real case: Pivot "O Soundtrack My Heart" had 5 same-scoring candidates - a 7" single, a promo
+    # CDr, and 3 albums - and the search result order alone gave no reason to prefer one).
+    if ($FormatText -match '(?i)\balbum\b') { return 0 }
+    if ($FormatText -match '(?i)\bep\b') { return 1 }
+    if ($FormatText -match '(?i)\bsingle\b') { return 2 }
+    if ($FormatText -match '(?i)\bpromo\b') { return 3 }
+    return 4
+}
+
+function Select-ReshelfBestDiscogsCandidate {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$Eligible,
+
+        [int]$SourceTrackCount = 0,
+
+        [string]$DataHome,
+
+        [int]$CacheTtlDays = 30,
+
+        [int]$RateLimitPerMinute = 55
+    )
+
+    # $SourceTrackCount <= 0 means the caller doesn't know (or care) - keep the pre-existing
+    # behavior of trusting the top-scored candidate with exactly one detail fetch.
+    if ($SourceTrackCount -le 0 -or $Eligible.Count -eq 1) {
+        $top = $Eligible[0]
+        $detail = Invoke-DiscogsRequest -Path "/releases/$($top.releaseId)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        return [pscustomobject]@{ ReleaseId = $top.releaseId; Detail = $detail }
+    }
+
+    # Bounded to 5 detail fetches (same width as the Candidates list shown in the UI) - a real
+    # release rarely has more than a handful of same-scoring editions, and each fetch is cached.
+    $probeLimit = [Math]::Min(5, $Eligible.Count)
+    $probed = [System.Collections.Generic.List[object]]::new()
+    for ($i = 0; $i -lt $probeLimit; $i++) {
+        $candidate = $Eligible[$i]
+        $detail = Invoke-DiscogsRequest -Path "/releases/$($candidate.releaseId)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        $trackCount = @($detail.tracklist | Where-Object { $_.position -and $_.position.Trim() -ne '' }).Count
+        if ($trackCount -eq $SourceTrackCount) {
+            return [pscustomobject]@{ ReleaseId = $candidate.releaseId; Detail = $detail }
+        }
+        $probed.Add([pscustomobject]@{ Candidate = $candidate; Detail = $detail })
+    }
+
+    # None of the probed candidates has the source's exact track count - prefer an Album-format
+    # edition over EP/Single/Promo/etc among only the ones actually probed, instead of blindly
+    # keeping the top-scored one (which search-result order alone doesn't make more "correct").
+    $preferred = @($probed | Sort-Object { Get-ReshelfDiscogsFormatPreferenceRank -FormatText $_.Candidate.format })[0]
+    return [pscustomobject]@{ ReleaseId = $preferred.Candidate.releaseId; Detail = $preferred.Detail }
+}
+
 function Resolve-ReshelfDiscogsMatch {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -173,6 +274,10 @@ function Resolve-ReshelfDiscogsMatch {
 
         [Nullable[int]]$Year,
 
+        # 0 (default) means "unknown" - callers that don't have a source track count yet (or don't
+        # care, e.g. tests) get the pre-existing single-top-candidate behavior unchanged.
+        [int]$SourceTrackCount = 0,
+
         [string]$DataHome,
 
         [int]$CacheTtlDays = 30,
@@ -181,17 +286,43 @@ function Resolve-ReshelfDiscogsMatch {
     )
 
     try {
-        $query = Get-ReshelfDiscogsSearchQuery -ArtistName $ArtistName -Title $Title -Year $Year
-        $searchResult = Invoke-DiscogsRequest -Path '/database/search' -Query $query -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        $variants = Get-ReshelfDiscogsSearchTitleVariants -Title $Title
+        $effectiveYear = if ($null -ne $Year) { $Year } else { $variants.YearHint }
 
-        $releaseResults = @($searchResult.results | Where-Object { $_.type -eq 'release' })
+        # A ladder of at most 4 cached searches (2 title variants x with/without year), stopping at
+        # the first one that returns anything - not every combination up front, since most releases
+        # match on the very first (raw, with year) attempt and the rest would be wasted calls.
+        # Select-Object -Unique drops $null entries entirely rather than collapsing them to one
+        # (confirmed directly - @($null, $null) | Select-Object -Unique returns zero items), so a
+        # null-safe dedupe is built by hand instead: [$effectiveYear, $null] normally, or just
+        # [$null] when there's no year to try at all. The whole if-expression is wrapped in the
+        # outer @() - an inner-only @($null) still collapses to plain $null when it's the sole
+        # output of an if/else branch (confirmed directly), losing the one attempt entirely.
+        $yearAttempts = @(if ($null -ne $effectiveYear) { $effectiveYear; $null } else { $null })
+
+        $releaseResults = @()
+        foreach ($variantTitle in $variants.Titles) {
+            foreach ($attemptYear in $yearAttempts) {
+                $query = Get-ReshelfDiscogsSearchQuery -ArtistName $ArtistName -Title $variantTitle -Year $attemptYear
+                $searchResult = Invoke-DiscogsRequest -Path '/database/search' -Query $query -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+                $releaseResults = @($searchResult.results | Where-Object { $_.type -eq 'release' })
+                if ($releaseResults.Count -gt 0) { break }
+            }
+            if ($releaseResults.Count -gt 0) { break }
+        }
 
         if ($releaseResults.Count -eq 0) {
             return [pscustomobject]@{ Status = 'not-found'; SelectedReleaseId = $null; Candidates = @(); Detail = $null; ErrorNote = $null }
         }
 
         $scored = @(foreach ($result in $releaseResults) {
-                $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $Title -ExpectedYear $Year -Candidate $result
+                # Scored against every title variant, not just the one that happened to return
+                # results, and the best score kept - a candidate can score well against the raw
+                # title even when only the cleaned variant's search actually found it (or vice
+                # versa).
+                $score = ($variants.Titles | ForEach-Object {
+                        Get-ReshelfDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $_ -ExpectedYear $Year -Candidate $result
+                    } | Measure-Object -Maximum).Maximum
                 $candidateYear = $null
                 if ($result.year) { try { $candidateYear = [int]$result.year } catch { $candidateYear = $null } }
                 $formatText = (@($result.format) -join ', ')
@@ -209,25 +340,27 @@ function Resolve-ReshelfDiscogsMatch {
             })
 
         $sorted = @($scored | Sort-Object -Property score -Descending)
-        $top = $sorted[0]
         $topCandidates = @($sorted | Select-Object -First 5)
+        $eligible = @($sorted | Where-Object { $_.score -ge $script:DiscogsMatchThreshold })
 
-        if ($top.score -ge $script:DiscogsMatchThreshold) {
-            $detail = Invoke-DiscogsRequest -Path "/releases/$($top.releaseId)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        if ($eligible.Count -eq 0) {
             return [pscustomobject]@{
-                Status            = 'matched'
-                SelectedReleaseId = $top.releaseId
+                Status            = 'ambiguous'
+                SelectedReleaseId = $null
                 Candidates        = $topCandidates
-                Detail            = $detail
+                Detail            = $null
                 ErrorNote         = $null
             }
         }
 
+        $picked = Select-ReshelfBestDiscogsCandidate -Eligible $eligible -SourceTrackCount $SourceTrackCount `
+            -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+
         return [pscustomobject]@{
-            Status            = 'ambiguous'
-            SelectedReleaseId = $null
+            Status            = 'matched'
+            SelectedReleaseId = $picked.ReleaseId
             Candidates        = $topCandidates
-            Detail            = $null
+            Detail            = $picked.Detail
             ErrorNote         = $null
         }
     }
@@ -296,13 +429,19 @@ function New-ReshelfProposedReleaseNames {
     )
 
     if ($Match.Status -eq 'matched') {
-        $artistRaw = ($Match.Detail.artists[0].name -replace '\s+\(\d+\)$', '')
-        $titleRaw = $Match.Detail.title
+        # Discogs is the encyclopedia here and has priority for casing/text as-is (e.g. "edbl" is
+        # kept lowercase when Discogs itself agrees) - only invisible characters are stripped, never
+        # a case change. (Bandcamp will get the same priority once plan/13 adds it.)
+        $artistRaw = Remove-ReshelfInvisibleCharacters -Text ($Match.Detail.artists[0].name -replace '\s+\(\d+\)$', '')
+        $titleRaw = Remove-ReshelfInvisibleCharacters -Text $Match.Detail.title
         $yearRaw = $Match.Detail.year
     }
     else {
-        $artistRaw = $ArtistName
-        $titleRaw = $Release.recognizedTitle
+        # No encyclopedia entry to defer to - Title Case is applied so a folder/tag name like
+        # "aoki takamasa" (all-lowercase source folder) reads as "Aoki Takamasa" instead of
+        # silently keeping whatever casing the source folder happened to use.
+        $artistRaw = ConvertTo-ReshelfTitleCase -Text $ArtistName
+        $titleRaw = ConvertTo-ReshelfTitleCase -Text $Release.recognizedTitle
         $yearRaw = $Release.recognizedYear
     }
 
@@ -326,6 +465,59 @@ function New-ReshelfProposedReleaseNames {
         UsedSentinelYear  = $usedSentinelYear
         Substitutions     = @($artistSan.Substitutions + $titleSan.Substitutions)
     }
+}
+
+function Resolve-ReshelfDiscogsTrackAlignment {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$SourceTracks,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$DiscogsTracks
+    )
+
+    # Real case (plan/12 milestone 3): a Discogs tracklist can be longer than the source not because
+    # of a bad match, but because the source is genuinely missing a track (never ripped, a bonus
+    # track, etc.) - the caller's plain count check can't tell that apart from a wrong-edition match,
+    # so this tries a title-similarity alignment before giving up to a full fallback. Every source
+    # track must find its own distinct Discogs track (score >= 0.8) - a single miss falls the whole
+    # release back to source titles (Aligned = $false), same as before this function existed.
+    $usedDiscogsIndices = [System.Collections.Generic.HashSet[int]]::new()
+    $aligned = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($sourceTrack in $SourceTracks) {
+        $sourceTitle = if ($sourceTrack.existingTags.title) { $sourceTrack.existingTags.title } `
+            else { (ConvertFrom-ReshelfTrackFileName -FileName $sourceTrack.originalFileName).Title }
+        $normalizedSourceTitle = ConvertTo-ReshelfNormalizedText -Text $sourceTitle
+
+        $bestIndex = -1
+        $bestScore = 0.0
+        for ($i = 0; $i -lt $DiscogsTracks.Count; $i++) {
+            if ($usedDiscogsIndices.Contains($i)) { continue }
+            $candidateScore = Get-ReshelfStringSimilarity -A $normalizedSourceTitle -B (ConvertTo-ReshelfNormalizedText -Text $DiscogsTracks[$i].title)
+            if ($candidateScore -gt $bestScore) { $bestScore = $candidateScore; $bestIndex = $i }
+        }
+
+        if ($bestIndex -lt 0 -or $bestScore -lt 0.8) {
+            return [pscustomobject]@{ Aligned = $false; Tracks = @(); MissingNote = $null }
+        }
+
+        [void]$usedDiscogsIndices.Add($bestIndex)
+        $aligned.Add($DiscogsTracks[$bestIndex])
+    }
+
+    $missing = @(for ($i = 0; $i -lt $DiscogsTracks.Count; $i++) {
+            if (-not $usedDiscogsIndices.Contains($i)) {
+                "$($DiscogsTracks[$i].position) $($DiscogsTracks[$i].title)".Trim()
+            }
+        })
+    $missingNote = if ($missing.Count -gt 0) { "missing on source: $($missing -join ', ')" } else { $null }
+
+    return [pscustomobject]@{ Aligned = $true; Tracks = @($aligned); MissingNote = $missingNote }
 }
 
 # --- Track naming and tagging ---------------------------------------------------
@@ -381,13 +573,13 @@ function New-ReshelfProposedTrackSet {
             $continuous++
 
             if ($useDiscogsTitles) {
-                $rawTitle = $DiscogsTracks[$continuous - 1].title
+                $rawTitle = Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$continuous - 1].title
             }
             elseif ($track.existingTags.title) {
-                $rawTitle = $track.existingTags.title
+                $rawTitle = ConvertTo-ReshelfTitleCase -Text $track.existingTags.title
             }
             else {
-                $rawTitle = (ConvertFrom-ReshelfTrackFileName -FileName $track.originalFileName).Title
+                $rawTitle = ConvertTo-ReshelfTitleCase -Text (ConvertFrom-ReshelfTrackFileName -FileName $track.originalFileName).Title
             }
 
             $titleSan = ConvertTo-SafeFileName -Name $rawTitle -Context 'track file name'
@@ -815,7 +1007,7 @@ function New-ReshelfProposedRelease {
     }
 
     $match = Resolve-ReshelfDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
-        -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+        -SourceTrackCount $Release.tracks.Count -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 
     if ($match.ErrorNote) {
         $notes.Add($match.ErrorNote)
@@ -835,11 +1027,23 @@ function New-ReshelfProposedRelease {
 
     $discogsTracks = @()
     if ($match.Status -eq 'matched') {
-        $discogsTracks = @($match.Detail.tracklist | Where-Object { $_.position -and $_.position.Trim() -ne '' })
-        if ($discogsTracks.Count -ne $Release.tracks.Count) {
+        $rawDiscogsTracks = @($match.Detail.tracklist | Where-Object { $_.position -and $_.position.Trim() -ne '' })
+        if ($rawDiscogsTracks.Count -eq $Release.tracks.Count) {
+            $discogsTracks = $rawDiscogsTracks
+        }
+        else {
+            $alignment = Resolve-ReshelfDiscogsTrackAlignment -SourceTracks $Release.tracks -DiscogsTracks $rawDiscogsTracks
             $requiresReview = $true
-            $notes.Add("Discogs tracklist has $($discogsTracks.Count) tracks but source has $($Release.tracks.Count); falling back to source titles.")
-            $discogsTracks = @()
+            if ($alignment.Aligned) {
+                $discogsTracks = $alignment.Tracks
+                $note = "Discogs tracklist has $($rawDiscogsTracks.Count) tracks but source has $($Release.tracks.Count); aligned by title."
+                if ($alignment.MissingNote) { $note = "$note $($alignment.MissingNote)." }
+                $notes.Add($note)
+            }
+            else {
+                $notes.Add("Discogs tracklist has $($rawDiscogsTracks.Count) tracks but source has $($Release.tracks.Count); falling back to source titles.")
+                $discogsTracks = @()
+            }
         }
     }
 
