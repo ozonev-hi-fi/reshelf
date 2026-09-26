@@ -1,5 +1,112 @@
 # Step 12 — Build Order and Milestones
 
+> ## ⚠️ TEMPORARY HANDOFF NOTE (2026-09-26) — delete this whole block once all
+> ## milestones below pass and the collection has actually been reviewed/applied
+>
+> This block exists only to resume a conversation that ran out of context.
+> Delete it (and nothing else in this file) once milestones 6–8 are done for
+> real. If you are Claude picking this up fresh with no other context: read
+> this block, then say to the user something like *"Picking up where we left
+> off — please review session `2026-09-26-0003` in the UI
+> (`pwsh scripts/Reshelf.ps1 ui start`) — check the Lossy tracker tab and the
+> Unrecognized section too, and try editing Artist/Album/Year to see the
+> folder name update live. Tell me what you find and I'll continue with M6
+> (apply) and M7 (idempotency/upgrade) once you're happy with this session."*
+> Do not re-derive any of the below from scratch — it's all already done and
+> committed on `develop` (working tree was clean as of this note).
+>
+> **Where things stand:**
+>
+> - Real source root for milestones 3–8: `D:\MusicToOrganize\Electro`
+>   (portable drive — pass `-SourceRoot` explicitly each time, it is *not*
+>   saved as `defaultSourceRoot`). 296 files, 6.17 GB, 15 top-level folders —
+>   verify unchanged (file count + size) before/after any apply run.
+> - Target root stays `D:\Tagger\Target` (already has 9 real applied releases
+>   from earlier testing: Die Krupps ×6, John 5, Santa Hates You, ZZ-Top-style
+>   fixtures are separate/unrelated — those are from the Pester fixture tree,
+>   not this real data).
+> - **Milestones 0–2**: confirmed, see Status table below (unchanged, done
+>   long before this session).
+> - **Milestone 3 (recognize) + Milestone 4 (propose)**: done against the real
+>   sample, iterated twice on real bugs found, then a third time after a large
+>   UI-feedback round. Current, up-to-date session: **`2026-09-26-0003`**
+>   (matched 23/27, needsReview 8, 0 unrecognized). Two earlier sessions
+>   (`2026-09-26-0001`, `-0002`) are stale/superseded — ignore them, don't
+>   re-review them, they predate bug fixes.
+> - **Milestone 5 (UI round-trip)**: NOT YET DONE by the user. This is the
+>   very next step — the user was asked to open `2026-09-26-0003` in the UI,
+>   resolve real ambiguous/not-found releases, try the new folder-name live
+>   preview, check the Unrecognized panel (should show 0 entries — `edbl` is
+>   now recognized, not unrecognized) and the new Lossy tracker tab, Save,
+>   reload, confirm it round-trips. **Waiting on the user's findings from
+>   this before doing anything else.**
+> - **Milestones 6 (apply) and 7 (idempotency/upgrade)**: not started yet.
+>   Do these only after the user confirms milestone 5 is good. See the
+>   "Sequence" section below for the exact runbook (M6/M7 haven't changed).
+>   Reminder for M7's upgrade-test: transcode one small FLAC release (e.g.
+>   `Axion\The Conquest of Space`) to mp3 in the scratchpad, apply the mp3
+>   copy first, then the real FLAC folder, confirm the ledger flips to
+>   `upgraded` — **then delete the scratchpad mp3 copy** (per earlier user
+>   instruction, don't forget this cleanup).
+> - **Milestone 8**: ongoing by design, not a one-time gate.
+>
+> **What was fixed this round** (all committed on `develop`, all tests green —
+> 497 Pester + 42 Playwright — at commit `f20274e`; commits in order:
+> `c18bd35`, `ddcc3f2`, `26a67d0`, `38e176a`, `5b1250c`, `f23b744`, `f20274e`):
+>
+> 1. Lossy-tracking `targetPath` went stale after first sighting — fixed,
+>    now refreshed on every sighting and corrected to the real committed path
+>    after apply.
+> 2. Recognition: a release folder repeating its own artist folder's name
+>    (e.g. "DANCE WITH THE DEAD - Blackout" inside artist folder "Dance with
+>    the dead") failed Discogs search outright — now stripped
+>    (`artist-name-prefix-stripped`).
+> 3. Recognition: a `release-without-artist-suspected` folder (e.g. `edbl`)
+>    whose tracks agree on tags is now promoted to a real release instead of
+>    staying invisible in `unrecognized[]`.
+> 4. Discogs search: title noise (parenthetical catalog/edition text, trailing
+>    edition words) made real releases return zero search results — now tried
+>    both raw and cleaned.
+> 5. Discogs match: multiple same-scoring candidates (single vs. album vs.
+>    promo) picked the first one by search order, sometimes wrong — now picks
+>    by real tracklist-count match, falling back to Album-format preference.
+> 6. A Discogs tracklist-count mismatch always fell back to source titles
+>    entirely — now tries title-similarity alignment first (handles "source
+>    is missing one bonus track" correctly).
+> 7. Casing: Discogs's own casing always wins; only the no-match fallback
+>    path gets automatic Title Case now (previously nothing did this, or it
+>    was inconsistent).
+> 8. Zero-width/invisible Unicode characters from Discogs text (a real one:
+>    hidden characters around a dash in an album title) are now stripped
+>    before use in names/tags.
+> 9. A lossless re-import of an already-lossy-tracked release, under a
+>    *different* folder name than the original lossy import, was completely
+>    missed by the ledger (different `stableKey`) — now detected by
+>    normalized artist+year+fuzzy-album match, surfaced as
+>    `previously-lossy-different-location` / `previously-lossy-target-missing`,
+>    never auto-touches the old folder ("keep both, only warn").
+> 10. New `Reshelf.ps1 lossy remove`/`lossy export` CLI commands.
+> 11. UI: session id now shown (small label, not the main status text);
+>     editing Artist/Album/Year now live-updates the Artist Folder/Release
+>     Folder fields and the before/after table; table-cell inputs are full
+>     width; a new **Unrecognized** sidebar section with a generated
+>     `overrides.json` entry ready to copy; a new **Lossy tracker** tab
+>     (view/edit/delete/export, CSV+JSON). Two incidental bugs found and
+>     fixed along the way: a PowerShell array-serialization bug that could
+>     silently break `/api/sessions`/`/api/lossy` on a single-row result, and
+>     a CSS specificity bug where `hidden` silently did nothing on an element
+>     that also had its own `display` rule.
+> 12. New `plan/13-bandcamp-fallback.md` — a Bandcamp-as-fallback-source
+>     feature request, **not implemented**, written up as research questions
+>     only (no public API, ToS unclear, data quality inconsistent per the
+>     real examples that prompted it).
+>
+> All of the above have Pester and/or Playwright tests. Docs updated:
+> `plan/05`, `plan/06`, `plan/07`, `plan/09`, `plan/00-overview.md`,
+> `plan/13` (new).
+>
+> > ⚠️ End of temporary handoff note.
+
 ## Purpose / scope
 
 A concrete, incremental order to actually build and test this, so value and
@@ -14,7 +121,7 @@ new design — every item below points back to the step file that defines it.
 | 0 | Scaffolding spike | **Confirmed** — the real `Integration`-tagged tests (`tests/Reshelf.TagLibSharp.Integration.Tests.ps1`) load the real `TagLibSharp.dll` via `Add-Type` and call a real `ffmpeg`, both reading and writing tags/cover art, and pass (see [11](11-testing-and-verification-strategy.md)). |
 | 1 | Discogs access + caching/throttling spike | **Confirmed** — see below. |
 | 2 | Schemas + settings | **Confirmed** — `tests/Reshelf.Schemas.Tests.ps1` and `tests/Reshelf.Settings.Tests.ps1` pass against real schema files and a real `Reshelf.Settings.psm1`. |
-| 3–8 | Real-sample milestones | **Blocked** — need `E:\Electro` (the `defaultSourceRoot` in `.data/settings.json`) mounted; it was not available while this status was last checked. A runbook for each is below, ready to run once the drive is connected. |
+| 3–8 | Real-sample milestones | **In progress** — real source is `D:\MusicToOrganize\Electro` (portable drive, pass `-SourceRoot` explicitly). Milestones 3 (recognize) and 4 (propose) done, see the ⚠️ TEMPORARY HANDOFF NOTE above for the current session id and exact status; milestone 5 (UI round-trip) is waiting on the user; 6–8 not started. Delete this row's detail once the handoff note above is deleted and replace with a normal confirmed/done summary. |
 
 ### Milestone 1 — confirmed
 
