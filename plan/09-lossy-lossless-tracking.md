@@ -45,6 +45,30 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
   `pending-upgrade` and the newly recognized source for the same
   `stableKey` is lossless → sets `lossyLossless.action = "replace-existing"`
   in `proposal.json`.
+- **Step 6**, when nothing at all is found by `stableKey` (no target-index
+  entry, no valid apply-log entry — the release would otherwise be plain
+  `create-new`) and the source is lossless, also checks the ledger by
+  *name*: a normalized `artist` + `year` match, with the `album` compared
+  via the same noise-stripping `Get-ReshelfDiscogsSearchTitleVariants` uses
+  for search (`Test-ReshelfSameLossyRelease`), against every still-pending
+  entry. `stableKey` is derived from *this run's* recognized/proposed names,
+  so a source folder renamed between imports (real case, plan/12 milestone
+  3: an old mp3 import recognized as "Forwards Special Edition", a later
+  flac import matching Discogs's own "Forwards") gets a different
+  `stableKey` and would otherwise silently miss its own ledger row entirely.
+  When found:
+  - the old target folder still has lossy audio files in it →
+    `lossyLossless.action = "previously-lossy-different-location"`;
+  - the old target folder is gone (deleted, or `targetRoot` isn't the real
+    collection) → `lossyLossless.action = "previously-lossy-target-missing"`.
+
+  Either way `targetAction` is **not** changed (the release still proceeds
+  as `create-new` at its own proposed path) and the old entry's `status`
+  stays `pending-upgrade` — deliberately "keep both, only warn": apply never
+  touches or deletes anything at a path outside this run's own proposed
+  target, so reconciling the two copies (or marking the old one `ignored`/
+  `upgraded` by hand) is left to the user, e.g. via the [editing UI](07-editing-ui-module.md)'s
+  lossy tracker tab.
 - **Step 8**, after successfully applying a `replace-existing` release,
   updates that entry to `status: "upgraded"`, `upgradedUtc = now`. After
   successfully applying any other lossy release (`action: "log-for-upgrade"`),
@@ -62,6 +86,12 @@ later, per manifesto §6. Touched by both [06](06-edit-proposal-module.md)
   release the user has decided not to chase a lossless copy of.
 - `Reshelf.ps1 lossy mark-upgraded <stableKey>` — manual override, for cases
   handled outside the normal pipeline.
+- `Reshelf.ps1 lossy remove <stableKey>` — permanently deletes the entry
+  (`Remove-ReshelfLossyTrackingEntry`), unlike `ignore`, which keeps a record
+  of the deliberate decision. For a mistaken/duplicate row, or one the user
+  no longer wants tracked at all.
+- `Reshelf.ps1 lossy export -Path <file> [-Format csv|json] [-Status ...]` —
+  writes the (optionally filtered) ledger out for use outside the tool.
 
 ## Decisions & rationale
 

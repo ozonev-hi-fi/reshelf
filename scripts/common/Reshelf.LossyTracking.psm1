@@ -202,5 +202,37 @@ function Set-ReshelfLossyTrackingIgnored {
     return $ledger
 }
 
+function Remove-ReshelfLossyTrackingEntry {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [string]$DataHome
+    )
+
+    if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
+
+    $ledger = @(Get-ReshelfLossyTrackingLedger -DataHome $DataHome)
+    $existing = $ledger | Where-Object { $_.stableKey -eq $StableKey } | Select-Object -First 1
+
+    if (-not $existing) {
+        Write-Warning "No lossy-tracking entry found for stable key '$StableKey' - nothing to remove."
+        return $ledger
+    }
+
+    # Unlike Set-ReshelfLossyTrackingIgnored (a deliberate "I know, I don't care" record that stays
+    # in the ledger), this permanently drops the row - for a mistaken entry, a duplicate, or one the
+    # user no longer wants tracked at all (plan/09's "ignored" and outright deletion are both
+    # supported, for different reasons).
+    $ledger = @($ledger | Where-Object { $_.stableKey -ne $StableKey })
+
+    $ledgerPath = Get-ReshelfLossyTrackingLedgerPath -DataHome $DataHome
+    Set-ReshelfJsonFile -Path $ledgerPath -InputObject $ledger -SchemaName lossy-tracking -Depth 10 | Out-Null
+
+    return $ledger
+}
+
 Export-ModuleMember -Function Get-ReshelfLossyTrackingLedger, Get-ReshelfLossyTrackingEntry, Add-ReshelfLossyTrackingEntry, `
-    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingTargetPath, Set-ReshelfLossyTrackingIgnored
+    Set-ReshelfLossyTrackingUpgraded, Set-ReshelfLossyTrackingTargetPath, Set-ReshelfLossyTrackingIgnored, Remove-ReshelfLossyTrackingEntry

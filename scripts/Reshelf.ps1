@@ -24,7 +24,10 @@ param(
     [string]$Status,
     [int]$Port,
     [switch]$IncludeUnresolved,
-    [switch]$WhatIf
+    [switch]$WhatIf,
+    [ValidateSet('csv', 'json')]
+    [string]$Format = 'csv',
+    [string]$Path
 )
 
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Common.psm1') -Force
@@ -177,7 +180,27 @@ switch ($Command) {
                 if (-not $stableKey) { throw "'lossy mark-upgraded' requires a stable key." }
                 Set-ReshelfLossyTrackingUpgraded -StableKey $stableKey | Out-Null
             }
-            default { throw "Unknown 'lossy' subcommand '$SubCommand'. Use list, ignore, or mark-upgraded." }
+            'remove' {
+                $stableKey = $SessionId
+                if (-not $stableKey) { throw "'lossy remove' requires a stable key." }
+                Remove-ReshelfLossyTrackingEntry -StableKey $stableKey | Out-Null
+            }
+            'export' {
+                if (-not $Path) { throw "'lossy export' requires -Path <file> (the output file path)." }
+
+                $ledger = @(Get-ReshelfLossyTrackingLedger)
+                if ($Status) { $ledger = @($ledger | Where-Object { $_.status -eq $Status }) }
+
+                if ($Format -eq 'json') {
+                    $ledger | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $Path -Encoding utf8
+                }
+                else {
+                    $ledger | Select-Object stableKey, artist, album, year, format, status, targetPath, firstDetectedUtc, lastCheckedUtc, upgradedUtc, notes |
+                        Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding utf8
+                }
+                "Exported $($ledger.Count) entries to $Path"
+            }
+            default { throw "Unknown 'lossy' subcommand '$SubCommand'. Use list, ignore, mark-upgraded, remove, or export." }
         }
     }
     # No 'default' branch here: $Command's own [ValidateSet] above already rejects any value not

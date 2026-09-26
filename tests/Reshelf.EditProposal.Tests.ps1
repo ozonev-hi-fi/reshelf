@@ -442,6 +442,26 @@ Describe 'Resolve-ReshelfDiscogsTrackAlignment (private)' {
     }
 }
 
+Describe 'Test-ReshelfSameLossyRelease (private)' {
+    It 'matches when the old name is a noisier version of the new one (real "Forwards Special Edition" case)' {
+        InModuleScope Reshelf.EditProposal {
+            Test-ReshelfSameLossyRelease -OldAlbum 'Forwards Special Edition' -NewAlbum 'Forwards' | Should -Be $true
+        }
+    }
+
+    It 'matches identical names' {
+        InModuleScope Reshelf.EditProposal {
+            Test-ReshelfSameLossyRelease -OldAlbum 'Some Album' -NewAlbum 'Some Album' | Should -Be $true
+        }
+    }
+
+    It 'does not match genuinely unrelated names' {
+        InModuleScope Reshelf.EditProposal {
+            Test-ReshelfSameLossyRelease -OldAlbum 'Some Album' -NewAlbum 'A Totally Different Album' | Should -Be $false
+        }
+    }
+}
+
 Describe 'Resolve-ReshelfDiscogsMatch (private)' {
     BeforeEach {
         $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -1304,6 +1324,88 @@ Describe 'Invoke-ReshelfEditProposal' {
 
             $entry = Get-TestLossyTrackingEntry -StableKey $stableKey -DataHome $script:dataHome
             $entry.status | Should -Be 'ignored'
+        }
+
+        It 'flags previously-lossy-different-location when a lossless re-import matches a pending-upgrade ledger entry by name, not stableKey, and the old lossy folder still exists' {
+            # Real case (plan/12 milestone 3, UI review feedback): "The Egg\2006 Forwards Special
+            # Edition" (mp3) was already tracked, then re-imported from a differently-named source
+            # folder "The Egg\2006 Forwards" (lossless) - a different stableKey (derived from the
+            # recognized folder name), but unmistakably the same release once you compare
+            # artist/album/year.
+            $oldLossyPath = Join-Path $script:targetRoot 'The Egg' '2006 Forwards Special Edition'
+            New-TestAudioFile -Path (Join-Path $oldLossyPath '01 Track.mp3') -Content 'old-lossy' | Out-Null
+            $oldStableKey = Get-TestStableKey -Artist 'The Egg' -Album 'Forwards Special Edition' -Year 2006
+            Add-TestLossyTrackingEntry -StableKey $oldStableKey -Artist 'The Egg' -Album 'Forwards Special Edition' -Year 2006 `
+                -TargetPath $oldLossyPath -Format 'mp3' -DataHome $script:dataHome
+
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'The Egg' '2006 Forwards' '01 Track.flac') -Content 'new-lossless'
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1))
+            $newStableKey = Get-TestStableKey -Artist 'The Egg' -Album 'Forwards' -Year 2006
+            $release = New-TestRelease -StableKey $newStableKey -RecognizedTitle 'Forwards' -RecognizedYear 2006 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'The Egg'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.targetAction | Should -Be 'create-new'
+            $releaseResult.lossyLossless.action | Should -Be 'previously-lossy-different-location'
+            $releaseResult.lossyLossless.previousLossy.targetPath | Should -Be $oldLossyPath
+            $releaseResult.lossyLossless.previousLossy.targetExists | Should -Be $true
+            $releaseResult.humanReview.required | Should -Be $true
+
+            # Apply must never touch the old folder on its own - it's out of scope for this run
+            # entirely (a different stableKey, a different proposed target path).
+            Test-Path -LiteralPath $oldLossyPath | Should -Be $true
+            (Get-TestLossyTrackingEntry -StableKey $oldStableKey -DataHome $script:dataHome).status | Should -Be 'pending-upgrade'
+        }
+
+        It 'flags previously-lossy-target-missing when the ledger''s old target folder no longer exists' {
+            $oldStableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album (Deluxe Edition)' -Year 2010
+            Add-TestLossyTrackingEntry -StableKey $oldStableKey -Artist 'Some Band' -Album 'Some Album (Deluxe Edition)' -Year 2010 `
+                -TargetPath (Join-Path $script:targetRoot 'Some Band' 'Deleted Folder') -Format 'mp3' -DataHome $script:dataHome
+
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010) `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.lossyLossless.action | Should -Be 'previously-lossy-target-missing'
+            $releaseResult.lossyLossless.previousLossy.targetExists | Should -Be $false
+            $releaseResult.humanReview.required | Should -Be $true
+        }
+
+        It 'does not flag previously-lossy when the ledger entry is already ignored' {
+            $oldStableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album (Deluxe Edition)' -Year 2010
+            Add-TestLossyTrackingEntry -StableKey $oldStableKey -Artist 'Some Band' -Album 'Some Album (Deluxe Edition)' -Year 2010 `
+                -TargetPath (Join-Path $script:targetRoot 'Some Band' 'Old Folder') -Format 'mp3' -DataHome $script:dataHome
+            $ledgerPath = Join-Path $script:dataHome 'lossy-tracking.json'
+            $ledger = Get-Content -LiteralPath $ledgerPath -Raw | ConvertFrom-Json
+            $ledger[0].status = 'ignored'
+            Set-Content -LiteralPath $ledgerPath -Value (ConvertTo-Json -InputObject @($ledger) -Depth 10)
+
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac')
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010) `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.lossyLossless.action | Should -Be 'none'
         }
     }
 

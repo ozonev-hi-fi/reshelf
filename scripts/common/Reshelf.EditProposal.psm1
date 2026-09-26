@@ -724,6 +724,80 @@ function New-ReshelfCoverArtProposal {
 
 # --- Target comparison -------------------------------------------------------------
 
+function Test-ReshelfSameLossyRelease {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$OldAlbum,
+
+        [Parameter(Mandatory)]
+        [string]$NewAlbum
+    )
+
+    # An exact normalized match is too strict for this: the whole reason a lossless re-import can
+    # miss its own ledger row is that the two album *names* genuinely differ (e.g. an older lossy
+    # import's messy folder-derived name "Forwards Special Edition" vs. a later lossless import's
+    # Discogs-matched "Forwards") - the same noise Get-ReshelfDiscogsSearchTitleVariants already
+    # models for search, reused here instead of inventing a second, separate fuzzy-match heuristic.
+    $oldVariants = @((Get-ReshelfDiscogsSearchTitleVariants -Title $OldAlbum).Titles | ForEach-Object { ConvertTo-ReshelfNormalizedText -Text $_ })
+    $newVariants = @((Get-ReshelfDiscogsSearchTitleVariants -Title $NewAlbum).Titles | ForEach-Object { ConvertTo-ReshelfNormalizedText -Text $_ })
+
+    foreach ($oldVariant in $oldVariants) {
+        if ($newVariants -contains $oldVariant) { return $true }
+    }
+    return $false
+}
+
+function Find-ReshelfPreviousLossyEntry {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$StableKey,
+
+        [Parameter(Mandatory)]
+        [string]$Artist,
+
+        [Parameter(Mandatory)]
+        [string]$Album,
+
+        [Parameter(Mandatory)]
+        [int]$Year,
+
+        [string]$DataHome
+    )
+
+    $entry = Get-ReshelfLossyTrackingEntry -StableKey $StableKey -DataHome $DataHome
+
+    if (-not $entry -or $entry.status -ne 'pending-upgrade') {
+        # A lossless re-import can land under a different stableKey than the lossy import the
+        # ledger already knows about - stableKey is derived from *this run's* recognized/proposed
+        # names, and a source folder renamed between imports (real case: "Forwards Special Edition"
+        # vs. Discogs's own "Forwards") changes it. Fall back to a normalized artist|album|year
+        # match against every still-pending ledger row before concluding there's nothing to warn
+        # about.
+        $normalizedArtist = ConvertTo-ReshelfNormalizedText -Text $Artist
+        $entry = Get-ReshelfLossyTrackingLedger -DataHome $DataHome | Where-Object {
+            $_.status -eq 'pending-upgrade' -and $_.year -eq $Year -and
+            (ConvertTo-ReshelfNormalizedText -Text $_.artist) -eq $normalizedArtist -and
+            (Test-ReshelfSameLossyRelease -OldAlbum $_.album -NewAlbum $Album)
+        } | Select-Object -First 1
+    }
+
+    if (-not $entry) { return $null }
+
+    $targetExists = (Test-Path -LiteralPath $entry.targetPath -PathType Container) -and `
+        (@(Get-ReshelfAudioFilesInFolder -Path $entry.targetPath -Recurse).Count -gt 0)
+
+    return [pscustomobject]@{
+        TargetPath       = $entry.targetPath
+        Format           = $entry.format
+        FirstDetectedUtc = $entry.firstDetectedUtc
+        TargetExists     = $targetExists
+    }
+}
+
 function Build-ReshelfTargetIndex {
     [CmdletBinding()]
     [OutputType([System.Collections.Generic.Dictionary[string, object]])]
@@ -865,6 +939,16 @@ function Resolve-ReshelfTargetComparison {
         }
     }
 
+    # Only worth asking when there's otherwise nothing at this stableKey (the direct
+    # stableKey-matched path below - update-existing/skip-existing-identical/conflict - already
+    # covers a real upgrade at the *same* location) and the source itself is lossless (a lossy
+    # release re-imported under a new name isn't "the upgrade" of anything).
+    $previousLossyInfo = $null
+    if ($sourceIsLossless -and $null -eq $baseline -and -not $appliedEntryMatchesSource) {
+        $previousLossyInfo = Find-ReshelfPreviousLossyEntry -StableKey $StableKey -Artist $Names.Artist -Album $Names.Album `
+            -Year $Names.Year -DataHome $DataHome
+    }
+
     if ($appliedEntryMatchesSource) {
         $targetAction = 'skip-existing-identical'
     }
@@ -888,6 +972,29 @@ function Resolve-ReshelfTargetComparison {
     }
     elseif ($sourceIsLossy) {
         $lossyLossless = [pscustomobject]@{ isLossy = $true; action = 'log-for-upgrade' }
+    }
+    elseif ($previousLossyInfo) {
+        # "Keep both, only warn" (see plan/09): the old lossy copy sits at a different path than
+        # this run's own proposed target, so apply must never touch or delete it automatically -
+        # only surface it for the user to reconcile by hand.
+        $action = if ($previousLossyInfo.TargetExists) { 'previously-lossy-different-location' } else { 'previously-lossy-target-missing' }
+        $lossyLossless = [pscustomobject]@{
+            isLossy       = $false
+            action        = $action
+            previousLossy = [pscustomobject]@{
+                targetPath       = $previousLossyInfo.TargetPath
+                format           = $previousLossyInfo.Format
+                firstDetectedUtc = $previousLossyInfo.FirstDetectedUtc
+                targetExists     = $previousLossyInfo.TargetExists
+            }
+        }
+        $previousLossyNote = if ($previousLossyInfo.TargetExists) {
+            "Previously imported as $($previousLossyInfo.Format) at '$($previousLossyInfo.TargetPath)' (first seen $($previousLossyInfo.FirstDetectedUtc)) - that folder still exists and will be kept as-is; remove it yourself if you don't want both."
+        }
+        else {
+            "You previously had this release as $($previousLossyInfo.Format) at '$($previousLossyInfo.TargetPath)' (first seen $($previousLossyInfo.FirstDetectedUtc)) - that folder is not in the target now, so keep this in mind when managing your real collection."
+        }
+        $forcedReviewNote = if ($forcedReviewNote) { "$forcedReviewNote; $previousLossyNote" } else { $previousLossyNote }
     }
     else {
         $lossyLossless = [pscustomobject]@{ isLossy = $false; action = 'none' }

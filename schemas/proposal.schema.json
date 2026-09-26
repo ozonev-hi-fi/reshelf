@@ -167,7 +167,27 @@
           "required": ["isLossy", "action"],
           "properties": {
             "isLossy": { "type": "boolean" },
-            "action": { "type": "string", "enum": ["none", "log-for-upgrade", "replace-existing"] }
+            "action": {
+              "type": "string",
+              "enum": [
+                "none",
+                "log-for-upgrade",
+                "replace-existing",
+                "previously-lossy-different-location",
+                "previously-lossy-target-missing"
+              ]
+            },
+            "previousLossy": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["targetPath", "format", "firstDetectedUtc", "targetExists"],
+              "properties": {
+                "targetPath": { "type": "string", "minLength": 1 },
+                "format": { "type": "string", "minLength": 1 },
+                "firstDetectedUtc": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$" },
+                "targetExists": { "type": "boolean" }
+              }
+            }
           }
         },
         "targetAction": {
