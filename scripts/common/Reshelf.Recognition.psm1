@@ -473,6 +473,42 @@ function Get-ReshelfAudioTags {
     }
 }
 
+function Resolve-ReshelfArtistAlbumFromTags {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    # Real-world case (plan/12 milestone 3): a folder with audio files directly inside it and no
+    # artist wrapper (e.g. "edbl" containing "edbl - edbl minibeats, vol.1 - 01 ....flac") was always
+    # routed to unrecognized[], even when every track agrees on its own artist/album tags - dropping
+    # a folder that's clearly a real release just because its *name* doesn't parse. Only promoted
+    # when every track agrees (a mixed-tags folder is genuinely ambiguous and stays unrecognized, per
+    # plan/10's "nothing ambiguous is auto-guessed").
+    $audioFiles = Get-ReshelfAudioFilesInFolder -Path $Path
+    if ($audioFiles.Count -eq 0) { return $null }
+
+    $artist = $null
+    $album = $null
+    foreach ($file in $audioFiles) {
+        $tags = Get-ReshelfAudioTags -Path $file.FullName
+        if (-not $tags.Artist -or -not $tags.Album) { return $null }
+
+        if ($null -eq $artist) {
+            $artist = $tags.Artist
+            $album = $tags.Album
+        }
+        elseif ((ConvertTo-ReshelfNormalizedText -Text $tags.Artist) -ne (ConvertTo-ReshelfNormalizedText -Text $artist) -or `
+            (ConvertTo-ReshelfNormalizedText -Text $tags.Album) -ne (ConvertTo-ReshelfNormalizedText -Text $album)) {
+            return $null
+        }
+    }
+
+    return [pscustomobject]@{ Artist = $artist; Album = $album }
+}
+
 # --- Overrides -----------------------------------------------------------------
 
 function Get-ReshelfOverridesFileHash {
@@ -974,6 +1010,14 @@ function Invoke-ReshelfFolderWalk {
                             Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
                             continue
                         }
+                    }
+                    $tagInfo = Resolve-ReshelfArtistAlbumFromTags -Path $child.FullName
+                    if ($tagInfo) {
+                        $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $tagInfo.Artist -FolderNameOverride $tagInfo.Album
+                        $release.needsReview = $true
+                        $release.reviewReasons = @($release.reviewReasons) + 'artist-and-album-from-tags'
+                        Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $tagInfo.Artist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                        continue
                     }
                     $childNames = @((Get-ChildItem -LiteralPath $child.FullName -ErrorAction SilentlyContinue).Name)
                     $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $child.FullName -Reason 'release-without-artist-suspected' -Children $childNames))

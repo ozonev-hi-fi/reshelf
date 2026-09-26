@@ -618,6 +618,55 @@ Describe 'Invoke-ReshelfRecognition' {
         $someArtist | Should -Not -BeNullOrEmpty
     }
 
+    It 'promotes a release-without-artist folder into a recognized release when every track agrees on artist/album tags (real-world "edbl" case)' {
+        # Real case (plan/12 milestone 3): a folder with no artist wrapper and no " - " in its own
+        # name, but every track's tags agree - must not be dropped to unrecognized[] just because the
+        # folder *name* can't be parsed.
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'edbl' '01 Track One.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'edbl' '02 Track Two.flac') -Force | Out-Null
+
+        Mock -ModuleName Reshelf.Recognition Get-ReshelfAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            return @{
+                Artist = 'edbl'; Album = 'minibeats, vol.1'; Title = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format = 'flac'; IsLossless = $true; DurationSeconds = 200; EmbeddedCoverPath = $null
+            }
+        }
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-24' -DataHome $dataHome
+
+        ($result.unrecognized.reason) | Should -Not -Contain 'release-without-artist-suspected'
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'edbl' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedTitle | Should -Be 'minibeats, vol.1'
+        $release.tracks.Count | Should -Be 2
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'artist-and-album-from-tags'
+    }
+
+    It 'leaves a release-without-artist folder unrecognized when tracks disagree on artist/album tags' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Mixed' '01 Track One.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Mixed' '02 Track Two.flac') -Force | Out-Null
+
+        Mock -ModuleName Reshelf.Recognition Get-ReshelfAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            $isFirst = $Path -like '*01 Track One*'
+            return @{
+                Artist = if ($isFirst) { 'Artist A' } else { 'Artist B' }; Album = 'Some Album'
+                Title = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format = 'flac'; IsLossless = $true; DurationSeconds = 200; EmbeddedCoverPath = $null
+            }
+        }
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-25' -DataHome $dataHome
+
+        ($result.unrecognized.reason) | Should -Contain 'release-without-artist-suspected'
+        ($result.artists.recognizedName) | Should -Not -Contain 'Artist A'
+    }
+
     It 'splits a flat "Artist - Album" release folder (no artist wrapper) into a review-flagged release' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-18' -DataHome $dataHome
 
