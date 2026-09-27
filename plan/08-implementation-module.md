@@ -81,6 +81,16 @@ what hasn't been reviewed yet," not "override an explicit rejection".
    whole release, `Move-Item` the staged folder from
    `.reshelf-staging\<stableKey>` to its real final path under `targetRoot`.
    The source is left untouched — nothing is ever deleted from it.
+   If the final path already exists, it is deleted and replaced **only** when
+   `targetAction` is `update-existing` or `conflict` (a conflict gets here
+   only after a human approved it — plan/10: never *silently* overwritten).
+   Any other action fails the release with `target folder '<path>' already
+   exists but the proposal says '<action>'; re-run propose`, and the folder
+   is not touched. `Move-ReshelfStagedReleaseToTarget` checks this itself,
+   right before the delete, instead of trusting step 6. Real case, plan/12
+   milestone 7: a key-mismatch bug in [06](06-edit-proposal-module.md) proposed
+   `create-new` for a folder that existed, and the old unconditional delete
+   would have replaced it with no ledger update.
 9. **Update `lossy-tracking.json`** per `lossyLossless.action`
    ([09](09-lossy-lossless-tracking.md)).
 10. **Append to `apply-log.json`**: `{ stableKey, appliedAtUtc, status,

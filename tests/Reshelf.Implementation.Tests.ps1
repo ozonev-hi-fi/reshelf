@@ -1296,6 +1296,34 @@ Describe 'Invoke-ReshelfImplementation' {
         (Get-Content -LiteralPath $existingTargetFile -Raw) | Should -Be 'new-source-content'
     }
 
+    It 'fails a create-new release whose target folder already exists, leaving that folder untouched (plan/12 milestone 7)' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'new-source-content'
+        $existingTargetFile = New-TestAudioFile -Path (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.mp3') -Content 'existing-lossy-content'
+
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac'
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60708' -ArtistFolderName 'Some Band' -ReleaseFolderName '2010 Some Album' `
+            -Year 2010 -Album 'Some Album' -SourceFolderPath (Split-Path $t1) -Tracks @($track) `
+            -TargetAction 'create-new' -HumanReviewResolved $true
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+        $result.Failed | Should -Be 1
+        $result.Applied | Should -Be 0
+        (Get-Content -LiteralPath $existingTargetFile -Raw) | Should -Be 'existing-lossy-content'
+        Test-Path -LiteralPath (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.flac') | Should -Be $false
+        $logEntry = InModuleScope Reshelf.Implementation -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $dataHome
+        }
+        $logEntry.status | Should -Be 'failed'
+        $logEntry.errorMessage | Should -Match "already exists but the proposal says 'create-new'"
+    }
+
     It 'never applies a rejected release, even with -IncludeUnresolved' {
         # A rejection is a deliberate, permanent "never apply this" decision (e.g. one of two
         # different physical pressings of the same album) - unlike a merely unresolved release,

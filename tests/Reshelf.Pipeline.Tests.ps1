@@ -296,3 +296,77 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         Assert-Golden -Name 'target-layout.txt' -Actual (Get-TargetLayout -Root $script:targetRoot)
     }
 }
+
+# Real case (plan/12 milestone 7): the source folder "PULSAR OLYMP - 94Shine" gives a stableKey
+# that differs from the key of the Discogs-corrected target folder "Pulsar Olymp\2015 94 Shine", so
+# the lossless re-import never found the lossy folder it should replace.
+Describe 'Full pipeline: lossy release applied first, then its lossless upgrade' {
+    BeforeAll {
+        Mock -ModuleName Reshelf.Recognition Get-ReshelfAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
+            return @{ Artist = $null; Album = $null; Title = $null; Format = $ext; IsLossless = ($ext -eq 'flac')
+                DurationSeconds = 200; EmbeddedCoverPath = $null }
+        }
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search') {
+                return [pscustomobject]@{ results = @([pscustomobject]@{ id = 4242; type = 'release'; title = 'Some Band - Some Album'; year = '2010'; format = @('CD', 'Album') }) }
+            }
+            return [pscustomobject]@{
+                id = 4242; title = 'Some Album'; year = 2010; country = 'DE'
+                artists   = @([pscustomobject]@{ name = 'Some Band'; id = 1 })
+                formats   = @([pscustomobject]@{ name = 'CD'; qty = '1'; descriptions = @('Album') })
+                images    = @()
+                tracklist = @([pscustomobject]@{ position = '1'; title = 'Track One'; duration = '' })
+            }
+        }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfFfmpegResize { Set-Content -LiteralPath $OutputPath -Value 'resized' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Invoke-ReshelfCoverDownload { Set-Content -LiteralPath $OutputPath -Value 'downloaded' -NoNewline }
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags { }
+
+        function Invoke-PipelineRun {
+            param([Parameter(Mandatory)] [string]$SourceRoot)
+            $session = New-ReshelfSession -SourceRoot $SourceRoot -DataHome $script:dataHome
+            Invoke-ReshelfRecognition -SourceRoot $SourceRoot -SessionId $session.sessionId -DataHome $script:dataHome | Out-Null
+            $proposal = Invoke-ReshelfEditProposal -SessionId $session.sessionId -TargetRoot $script:targetRoot -DataHome $script:dataHome `
+                -RecognitionPath (Join-Path $script:dataHome 'sessions' $session.sessionId 'recognition.json')
+            $apply = Invoke-ReshelfImplementation -SessionId $session.sessionId -TargetRoot $script:targetRoot -CopyMode copy -FfmpegPath 'ffmpeg.exe' `
+                -DataHome $script:dataHome -IncludeUnresolved -ProposalPath (Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json')
+            return [pscustomobject]@{ Release = $proposal.artists[0].releases[0]; Apply = $apply }
+        }
+    }
+
+    BeforeEach {
+        $script:dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $script:targetRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $script:lossyRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $script:losslessRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        foreach ($root in @($script:lossyRoot, $script:losslessRoot)) {
+            New-Item -ItemType Directory -Path (Join-Path $root 'SOME BAND - SomeAlbum') -Force | Out-Null
+        }
+        Set-Content -LiteralPath (Join-Path $script:lossyRoot 'SOME BAND - SomeAlbum' '01 - Track One.mp3') -Value 'lossy' -NoNewline
+        Set-Content -LiteralPath (Join-Path $script:losslessRoot 'SOME BAND - SomeAlbum' '01 - Track One.flac') -Value 'lossless' -NoNewline
+    }
+
+    It 'replaces the lossy target folder with the lossless release and marks the ledger entry upgraded' {
+        $lossy = Invoke-PipelineRun -SourceRoot $script:lossyRoot
+        $lossy.Release.lossyLossless.action | Should -Be 'log-for-upgrade'
+        $lossy.Apply.Applied | Should -Be 1
+        $targetPath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+        Test-Path -LiteralPath (Join-Path $targetPath '01 Track One.mp3') | Should -Be $true
+        $stableKey = $lossy.Release.stableKey
+        (InModuleScope Reshelf.EditProposal -Parameters @{ k = $stableKey; d = $script:dataHome } { param($k, $d) Get-ReshelfLossyTrackingEntry -StableKey $k -DataHome $d }).status |
+            Should -Be 'pending-upgrade'
+
+        $lossless = Invoke-PipelineRun -SourceRoot $script:losslessRoot
+
+        $lossless.Release.stableKey | Should -Be $stableKey
+        $lossless.Release.targetAction | Should -Be 'update-existing'
+        $lossless.Release.lossyLossless.action | Should -Be 'replace-existing'
+        $lossless.Apply.Applied | Should -Be 1
+        $lossless.Apply.Failed | Should -Be 0
+        @(Get-ChildItem -LiteralPath $targetPath -File).Name | Should -Be @('01 Track One.flac')
+        (InModuleScope Reshelf.EditProposal -Parameters @{ k = $stableKey; d = $script:dataHome } { param($k, $d) Get-ReshelfLossyTrackingEntry -StableKey $k -DataHome $d }).status |
+            Should -Be 'upgraded'
+    }
+}

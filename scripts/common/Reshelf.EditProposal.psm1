@@ -1005,14 +1005,31 @@ function Resolve-ReshelfTargetComparison {
         # this release's real stableKey (computed with Year = $null) - that recomputed index can't
         # be used to find this release's own applied entry.
         $applyLogEntry = Get-ReshelfApplyLogEntry -StableKey $StableKey -DataHome $DataHome
-        if ((Test-ReshelfAppliedEntryValid -Entry $applyLogEntry -TargetRoot $TargetRoot) -and `
-                ($applyLogEntry.sourceFileSetHash -eq $sourceHash)) {
+        $applyLogEntryValid = Test-ReshelfAppliedEntryValid -Entry $applyLogEntry -TargetRoot $TargetRoot
+        if ($applyLogEntryValid -and ($applyLogEntry.sourceFileSetHash -eq $sourceHash)) {
             $appliedEntryMatchesSource = $true
         }
 
-        $entry = Test-ReshelfTargetReleaseExists -TargetIndex $TargetIndex -StableKey $StableKey
-        if ($entry) {
-            $targetFiles = @(Get-ReshelfAudioFilesInFolder -Path $entry.Path -Recurse)
+        # The existing target folder is looked up strongest link first. $TargetIndex alone isn't
+        # enough for the same reason as above: it keys a folder by its *target* name, while
+        # $StableKey comes from the *source* folder's names - they differ whenever Discogs corrected
+        # them (real case, plan/12 milestone 7: source "PULSAR OLYMP - 94Shine" vs. target
+        # "Pulsar Olymp\2015 94 Shine"), which hid an existing lossy folder and broke the upgrade.
+        $existingPath = $null
+        if ($applyLogEntryValid) {
+            $existingPath = $applyLogEntry.targetPath
+        }
+        elseif ((Test-Path -LiteralPath $ProposedTargetPath -PathType Container) -and `
+                @(Get-ReshelfAudioFilesInFolder -Path $ProposedTargetPath -Recurse).Count -gt 0) {
+            $existingPath = $ProposedTargetPath
+        }
+        else {
+            $indexEntry = Test-ReshelfTargetReleaseExists -TargetIndex $TargetIndex -StableKey $StableKey
+            if ($indexEntry) { $existingPath = $indexEntry.Path }
+        }
+
+        if ($existingPath) {
+            $targetFiles = @(Get-ReshelfAudioFilesInFolder -Path $existingPath -Recurse)
             $targetHash = Get-ReshelfFileSetHash -FilePaths $targetFiles.FullName
             $targetIsLossless = $targetFiles.Count -gt 0
             foreach ($file in $targetFiles) {
@@ -1021,7 +1038,7 @@ function Resolve-ReshelfTargetComparison {
                     break
                 }
             }
-            $baseline = [pscustomobject]@{ Hash = $targetHash; IsLossless = $targetIsLossless }
+            $baseline = [pscustomobject]@{ Hash = $targetHash; IsLossless = $targetIsLossless; Path = $existingPath }
         }
     }
 
@@ -1043,6 +1060,24 @@ function Resolve-ReshelfTargetComparison {
     }
     elseif ($baseline.Hash -eq $sourceHash) {
         $targetAction = 'skip-existing-identical'
+    }
+    elseif ($sourceIsLossless -and -not $baseline.IsLossless -and $baseline.Path -and
+        -not [string]::Equals($baseline.Path.TrimEnd('\', '/'), $ProposedTargetPath.TrimEnd('\', '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
+        # The lossy copy lives under an older name (e.g. edited in the UI before its apply) - apply
+        # replaces only the *proposed* path, so it would leave that folder behind. Same "keep both,
+        # only warn" rule as a ledger match found by name (plan/09).
+        $targetAction = 'create-new'
+        $previousLossyInfo = Find-ReshelfPreviousLossyEntry -StableKey $StableKey -Artist $Names.Artist -Album $Names.Album `
+            -Year $Names.Year -DataHome $DataHome
+        if (-not $previousLossyInfo -or -not [string]::Equals($previousLossyInfo.TargetPath, $baseline.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $firstFile = @(Get-ReshelfAudioFilesInFolder -Path $baseline.Path -Recurse) | Select-Object -First 1
+            $previousLossyInfo = [pscustomobject]@{
+                TargetPath       = $baseline.Path
+                Format           = if ($firstFile) { $firstFile.Extension.TrimStart('.').ToLowerInvariant() } else { 'unknown' }
+                FirstDetectedUtc = (Get-Item -LiteralPath $baseline.Path).CreationTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ')
+                TargetExists     = $true
+            }
+        }
     }
     elseif ($sourceIsLossless -and -not $baseline.IsLossless) {
         $targetAction = 'update-existing'

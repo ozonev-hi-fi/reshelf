@@ -1463,6 +1463,73 @@ Describe 'Invoke-ReshelfEditProposal' {
             $releaseResult.lossyLossless.action | Should -Be 'replace-existing'
         }
 
+        It 'proposes update-existing/replace-existing via the apply-log when the source stableKey differs from the target folder''s own key (plan/12 milestone 7)' {
+            # Real case: source folder "PULSAR OLYMP - 94Shine" gives a stableKey that
+            # Build-ReshelfTargetIndex never recomputes from the target folder "Pulsar Olymp\2015 94 Shine".
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'SOME BAND - SomeAlbum' '01 Track.flac') -Content 'lossless-content'
+            $targetReleasePath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album'
+            New-TestAudioFile -Path (Join-Path $targetReleasePath '01 Track.mp3') -Content 'lossy-content' | Out-Null
+
+            $stableKey = Get-TestStableKey -Artist 'SOME BAND' -Album 'SomeAlbum' -Year $null
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1 -Format 'flac' -IsLossless $true))
+            $release = New-TestRelease -StableKey $stableKey -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+            Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $targetReleasePath -SourceFileSetHash 'hash-of-the-earlier-mp3-source'
+            Add-TestLossyTrackingEntry -StableKey $stableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010 `
+                -TargetPath $targetReleasePath -Format 'mp3' -DataHome $script:dataHome
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.targetAction | Should -Be 'update-existing'
+            $releaseResult.lossyLossless.action | Should -Be 'replace-existing'
+        }
+
+        It 'proposes update-existing/replace-existing when a lossy folder sits at the proposed path, even with no apply-log entry and a different stableKey' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'SOME BAND - SomeAlbum' '01 Track.flac') -Content 'lossless-content'
+            New-TestAudioFile -Path (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.mp3') -Content 'lossy-content' | Out-Null
+
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1 -Format 'flac' -IsLossless $true))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'SOME BAND' -Album 'SomeAlbum' -Year $null) `
+                -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.targetAction | Should -Be 'update-existing'
+            $releaseResult.lossyLossless.action | Should -Be 'replace-existing'
+        }
+
+        It 'only warns (previously-lossy-different-location) when the applied lossy folder is under an older name than the proposed path' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'lossless-content'
+            $oldPath = Join-Path $script:targetRoot 'Some Band' '2010 Some Album (Old Name)'
+            New-TestAudioFile -Path (Join-Path $oldPath '01 Track.mp3') -Content 'lossy-content' | Out-Null
+
+            $stableKey = Get-TestStableKey -Artist 'Some Band' -Album 'Some Album' -Year 2010
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 Track.flac' -DetectedTrackNumberInDisc 1 -Format 'flac' -IsLossless $true))
+            $release = New-TestRelease -StableKey $stableKey -RecognizedTitle 'Some Album' -RecognizedYear 2010 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Some Band'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+            Add-TestApplyLogEntry -StableKey $stableKey -TargetPath $oldPath -SourceFileSetHash 'hash-of-the-earlier-mp3-source'
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.targetAction | Should -Be 'create-new'
+            $releaseResult.lossyLossless.action | Should -Be 'previously-lossy-different-location'
+            $releaseResult.lossyLossless.previousLossy.targetPath | Should -Be $oldPath
+            $releaseResult.lossyLossless.previousLossy.format | Should -Be 'mp3'
+            $releaseResult.humanReview.required | Should -Be $true
+            # The fallback previousLossy (no ledger row) must still satisfy the schema's required fields.
+            Test-ProposalDocumentJson -Path (Join-Path $script:dataHome 'sessions' 'test-session' 'proposal.json') | Should -Be $true
+        }
+
         It 'proposes conflict when the target differs from the source and it is not a lossy-to-lossless upgrade' {
             $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'source-content'
             New-TestAudioFile -Path (Join-Path $script:targetRoot 'Some Band' '2010 Some Album' '01 Track.flac') -Content 'different-target-content' | Out-Null

@@ -43,8 +43,34 @@
 >   [07](07-editing-ui-module.md) "Live track file-name preview"). The saved
 >   session is not re-derived automatically. Retyping one Track value on
 >   that release refreshes all its file names; then Save.
-> - **Milestones 6 (apply) and 7 (idempotency/upgrade)**: not started yet.
->   Next, once the Aoki file names are refreshed and saved. See the
+> - **Milestone 6 (apply)**: done 2026-09-27 on `2026-09-26-0003` into
+>   `D:\Tagger\Target`, at commit `ccaece1`. `-WhatIf` first, then real:
+>   Applied 23, Skipped 4 (not approved: Pivot – Make Me Love You, Pulsar
+>   Olymp – 94 Shine, Straplocked & Ray Gun Hero – 1900 Stalemate, Wuneny –
+>   Whatever Singularity), Failed 0. Verified: file counts per release match
+>   the proposal, Aoki tags read back correctly (Track 2–8, cover embedded),
+>   7 lossy entries point to the new folders, staging cleaned up, source
+>   unchanged (296 files / 6,625,982,416 bytes).
+> - **Milestone 7 (idempotency/upgrade)**: in progress.
+>   - Part 1 (re-run unchanged) passed: session `2026-09-27-0001` →
+>     23 `skip-existing-identical` + the 4 unapproved as `create-new`; a
+>     `-WhatIf -IncludeUnresolved` dry run skipped the 23 by the identical
+>     check; the real apply was Applied 0 / Skipped 27, target byte-identical.
+>   - Part 2 (upgrade): Axion no longer works (its FLAC is already applied),
+>     so **Pulsar Olymp – 94 Shine** is used instead. mp3 copy at
+>     `<scratchpad>\pulsar-mp3-src` (**delete it when done**), session
+>     `2026-09-27-0002` applied → ledger `pending-upgrade`. The FLAC session
+>     `2026-09-27-0003` first proposed `create-new` +
+>     `previously-lossy-different-location` for the *same* folder: a real bug
+>     (source vs. target `stableKey` mismatch), and apply would have deleted
+>     the mp3 folder with no ledger update. Both fixed (plan/06 target lookup,
+>     plan/08 delete guard). After re-running propose it shows
+>     `update-existing` / `replace-existing`. Remaining steps: the user
+>     approves Pulsar in `2026-09-27-0003`, apply, check the ledger says
+>     `upgraded` and the target holds FLAC only, then delete the scratchpad
+>     copy.
+>
+>   See the
 >   "Sequence" section below for the exact runbook (M6/M7 haven't changed).
 >   Reminder for M7's upgrade-test: transcode one small FLAC release (e.g.
 >   `Axion\The Conquest of Space`) to mp3 in the scratchpad, apply the mp3

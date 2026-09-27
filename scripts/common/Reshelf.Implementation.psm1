@@ -754,7 +754,10 @@ function Move-ReshelfStagedReleaseToTarget {
         [string]$StagingPath,
 
         [Parameter(Mandatory)]
-        [string]$FinalPath
+        [string]$FinalPath,
+
+        [Parameter(Mandatory)]
+        [string]$TargetAction
     )
 
     if ($PSCmdlet.ShouldProcess($FinalPath, "Move staged release from '$StagingPath'")) {
@@ -763,10 +766,15 @@ function Move-ReshelfStagedReleaseToTarget {
             New-Item -ItemType Directory -Path (ConvertTo-ReshelfLongPath -Path $parentDir) -Force | Out-Null
         }
 
-        # A pre-existing final folder only happens for the update-existing/replace-existing case -
-        # targetAction already decided back in Step 6 this is a clean replace, never a conflict -
-        # so removing it here is safe. Move-Item onto an existing folder would otherwise fail.
+        # Only a release Step 6 knew had an existing folder may replace one: update-existing, or a
+        # conflict a human approved (plan/10: never *silently* overwritten). Checked here, right
+        # before the delete, instead of trusting Step 6: a wrong targetAction there (real case,
+        # plan/12 milestone 7: 'create-new' for a folder that existed) must fail the release, not
+        # destroy whatever is already in the target.
         if (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $FinalPath)) {
+            if ($TargetAction -notin @('update-existing', 'conflict')) {
+                throw "target folder '$FinalPath' already exists but the proposal says '$TargetAction'; re-run propose"
+            }
             Remove-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $FinalPath) -Recurse -Force
         }
 
@@ -872,7 +880,8 @@ function Invoke-ReshelfImplementation {
 
             if ($stagingResult.Success) {
                 if ($PSCmdlet.ShouldProcess($stagingResult.TargetPath, 'Commit staged release to target')) {
-                    Move-ReshelfStagedReleaseToTarget -StagingPath $stagingReleasePath -FinalPath $stagingResult.TargetPath | Out-Null
+                    Move-ReshelfStagedReleaseToTarget -StagingPath $stagingReleasePath -FinalPath $stagingResult.TargetPath `
+                        -TargetAction $release.targetAction | Out-Null
                 }
 
                 # Source files are always read-only to Reshelf: nothing here ever deletes or modifies

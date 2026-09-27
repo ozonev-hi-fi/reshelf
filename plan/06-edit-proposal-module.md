@@ -155,10 +155,30 @@ independent of the Discogs match:
   and unchanged" check — necessary because Implementation renames every
   target file and rewrites its tags, so a target file set's name|size hash
   can never equal the source's again after a real apply.
-- Otherwise, falling back to the target-folder hash comparison:
+- Otherwise, falling back to the target-folder hash comparison. The existing
+  folder is found in this order, first match wins:
+  1. the valid apply-log entry's `targetPath` for this `stableKey` (same
+     source release, strongest link);
+  2. the proposed target path itself, if it exists and has audio files;
+  3. `Build-ReshelfTargetIndex` by `stableKey`.
+
+  Steps 1–2 were added in plan/12 milestone 7. The index keys a folder by its
+  *target* name, but `stableKey` comes from the *source* folder's names, and
+  these differ whenever Discogs corrects them (real case: source
+  `PULSAR OLYMP - 94Shine` vs. target `Pulsar Olymp\2015 94 Shine`). The
+  existing lossy folder was invisible, so the FLAC re-import was proposed as
+  `create-new` into that same folder instead of an upgrade.
   - Not present → `targetAction = "create-new"`.
   - Present, and existing target is lossy while the new source is lossless →
     `lossyLossless.action = "replace-existing"`, `targetAction = "update-existing"`.
+    Exception: when the lossy folder is at a **different** path than this
+    run's proposed one (e.g. its names were edited in the UI before its own
+    apply), apply would replace only the proposed path and leave the old
+    folder behind. That case is `create-new` +
+    `"previously-lossy-different-location"` instead ("keep both, only warn",
+    below). With no ledger row, `previousLossy.format` comes from the first
+    audio file's extension and `firstDetectedUtc` from the folder's creation
+    time.
   - Present and effectively identical by file-set hash (same `stableKey`, same
     source file-set hash — see [10](10-error-handling-and-edge-cases.md)) →
     `targetAction = "skip-existing-identical"`. In practice this path only
