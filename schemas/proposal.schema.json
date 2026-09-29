@@ -110,6 +110,7 @@
           "properties": {
             "status": { "type": "string", "enum": ["matched", "ambiguous", "not-found"] },
             "selectedReleaseId": { "type": ["integer", "null"] },
+            "masterId": { "type": ["integer", "null"] },
             "candidates": {
               "type": "array",
               "items": {
@@ -135,7 +136,8 @@
             "artistFolderName": { "type": "string", "minLength": 1 },
             "releaseFolderName": { "type": "string", "minLength": 1 },
             "year": { "type": ["integer", "null"], "minimum": 1900, "maximum": 2100 },
-            "album": { "type": "string", "minLength": 1 }
+            "album": { "type": "string", "minLength": 1 },
+            "isCompilation": { "type": "boolean" }
           }
         },
         "coverArt": {
@@ -266,7 +268,8 @@
             "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
             "discNumber": { "type": "integer", "minimum": 1 },
             "track": { "type": "integer", "minimum": 1 },
-            "title": { "type": "string", "minLength": 1 }
+            "title": { "type": "string", "minLength": 1 },
+            "isCompilation": { "type": "boolean" }
           }
         }
       }

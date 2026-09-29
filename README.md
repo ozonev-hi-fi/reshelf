@@ -16,7 +16,9 @@ Target layout:
 ```
 
 Metadata rules the tool enforces:
-- `Artist` and `Album Artist` tags are always identical (the artist folder name).
+- `Artist` and `Album Artist` tags are identical by default (the artist folder name), but on a
+  Various-Artists compilation (or a similar case) each track can get its own `Artist` while
+  `Album Artist` stays the folder name — see [Compilations](#compilations) below.
 - `Disc` is always set, even for a single-disc release. `Track` restarts at 1 on each disc.
 - Featured artists appear only in the track title, never in `Artist`/`Album Artist`.
 - The embedded cover is resized to at most 600 px on the longest side.
@@ -162,6 +164,32 @@ NeedsReviewCount : 15
 > you made in the review UI. Only re-run it if you haven't reviewed yet, or you're OK losing the
 > edits.
 
+#### How Discogs matching works
+
+Discogs groups every pressing of a release (CD, vinyl, a reissue, a promo, ...) under one
+**master** — the original release as an idea, with one original year and one main tracklist. A
+release folder is matched against the master first, then against the master's own versions, not
+against a plain release search:
+
+1. Search Discogs for the **master** (by title/artist, then by every master credited to the
+   artist if that finds nothing — this is what finds a release whose Discogs title differs from
+   the folder name, e.g. "Redlight" vs a folder named "Red Light").
+2. If a master matches, pick the **version** (the concrete pressing) whose track count agrees
+   with the source rip — starting with the master's main release, then probing other versions
+   ranked by: released year matching the folder's year, an edition word from the folder name
+   (e.g. "Deluxe") appearing in the version's own title/format, CD/File over Vinyl/Cassette, not a
+   promo/test pressing, and higher Discogs "in collection" count.
+3. If the picked version is Vinyl/Cassette, a CD/File version with the same track count is
+   preferred instead — source rips are digital files, so a CD/File pressing is the closer match.
+4. The release's **Year** tag and folder name use the master's year (the original release year),
+   not the picked pressing's own year — so a 2019 reissue of a 2005 album still tags/folders as
+   2005.
+5. If the picked pressing has no cover photo on Discogs, the master's own image is used as a
+   fallback cover candidate instead of leaving the gallery empty.
+
+No master is found for some releases (promos, obscure one-offs) — those fall back to a plain
+release search, same as before.
+
 ### 3. Review in the browser
 
 ```powershell
@@ -181,11 +209,16 @@ What you'll see, top to bottom:
   - `needsReview` — flagged for review, not yet resolved.
   - `ready` — everything else (including releases nobody flagged — see note below).
 - **Before / After table** — read-only, shows the source path and every track's proposed rename.
-- **Release fields** — `Artist / Album Artist` (one combined field), `Album`, `Year`, `Release
-  Folder Name`. Note: the folder name field does **not** update automatically when you edit Album
-  or Year — edit it yourself if needed.
-- **Track table** — `Disc`, `Track`, `Title` per track. Editing Title renames the proposed file
-  (keeping the `NN ` prefix). Editing Disc/Track numbers does not change the file name prefix.
+- **Release fields** — `Album Artist`, a `Compilation (Various Artists)` checkbox, `Album`, `Year`,
+  `Release Folder Name`. Editing Artist/Album/Year live-updates the Artist Folder Name/Release
+  Folder Name preview; edit those two fields yourself afterward if you want something different.
+  Editing Album Artist only updates a track's own `Artist` when that track still matched the old
+  Album Artist value — a per-track artist you (or Discogs) already set is left alone.
+- **Track table** — `Disc`, `Track`, `Artist`, `Title` per track. `Artist` defaults to Album
+  Artist, except on a compilation, where Discogs (or the file's existing tag) may propose each
+  track's own performer. Editing Title renames the proposed file (keeping the `NN ` prefix).
+  Editing Disc/Track numbers also renumbers proposed file names accordingly. Editing Artist does
+  not affect the file name.
 - **Other files** — companion files (covers, booklets, photos, lyrics). Loose files (directly in
   the release folder) can be renamed and must start with a letter; nested files (in a subfolder)
   can only be included/excluded. Ignored files (playlists, unused `.cue` files) are shown greyed
@@ -207,6 +240,21 @@ What you'll see, top to bottom:
 > ⚠️ Never leave **Year** empty, or leave it at the placeholder value **1900**. An empty Year fails
 > validation and blocks the *entire* `apply` run, not just that one release; 1900 means the year
 > still needs fixing.
+
+#### Compilations
+
+A release recognized as Discogs' "Various" artist (or whose folder/artist name is `Various` /
+`Various Artists`) is treated as a compilation:
+- `propose` ticks the `Compilation` checkbox and tries to give each track its own `Artist`: first
+  from Discogs' own per-track credit (if the matched release has one), else from the file's
+  existing `Artist` tag. If neither is available, the track falls back to Album Artist ("Various")
+  and the release is flagged for review.
+- Album Artist stays the folder name ("Various"); only the per-track `Artist` can differ.
+- Everything is editable afterward — the Artist column, Album Artist, and the Compilation checkbox
+  itself. Editing Album Artist does not overwrite a track's own custom Artist (see the Track table
+  note above).
+- `apply` writes the Compilation flag (ID3 `TCMP` / MP4 `cpil` / Vorbis `COMPILATION`, depending on
+  format) alongside the usual tags, so players that group compilations separately do so correctly.
 
 ### 4. Mark reviewed (optional)
 
@@ -239,8 +287,8 @@ For each approved release, `apply`:
 2. Splits single-file+cue releases with ffmpeg (no re-encoding), or copies tracks as-is.
 3. Downloads/reads the chosen cover, resizes it to `coverMaxDimension` (600 px default) with
    ffmpeg.
-4. Writes tags (Artist, Album Artist, Album, Year, Disc, Track, Title) and embeds the cover with
-   TagLibSharp.
+4. Writes tags (Artist, Album Artist, Album, Year, Disc, Track, Title, Compilation) and embeds the
+   cover with TagLibSharp.
 5. Copies included companion files.
 6. Moves the staged folder into `<targetRoot>\<Artist>\<yyyy Album>\`.
 

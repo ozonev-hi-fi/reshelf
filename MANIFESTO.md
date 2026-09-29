@@ -166,11 +166,24 @@ We don't care about genres anymore. Not in folders, not in metadata.
   | 05 Fifth Track.flac   | 3           | 1     | Fifth Track  |
   | 06 Sixth Track.flac   | 3           | 2     | Sixth Track  |
 
-- **Artist** and **Album Artist** — both required, and must have the
-  **exact same value**. Reason: some players read/display these two tags
-  differently, and sometimes don't show one of them at all. Since a
-  release folder lives inside its artist's folder, both tags must match
-  the artist folder's name.
+- **Artist** and **Album Artist** — both required. By default they have
+  the **exact same value**, matching the artist folder's name. Reason:
+  some players read/display these two tags differently, and sometimes
+  don't show one of them at all. Since a release folder lives inside its
+  artist's folder, both tags must match the artist folder's name — unless
+  the case below applies.
+  - **Compilations (Various Artists) and similar cases** — Album Artist
+    still matches the artist folder's name (typically `Various`), but
+    Artist can differ per track: the metadata provider (Discogs) may
+    propose each track's own real performer (e.g. a "Various" folder
+    with tracks by "The Dubliners", "Johnny Logan", etc.), falling back
+    to the file's own existing Artist tag when Discogs has no per-track
+    credit for that one. Every Artist value, whatever its source, is
+    editable in the UI — nothing here is locked once proposed.
+  - **Compilation flag** — a release recognized as Various Artists
+    also gets a Compilation flag (written as TCMP/cpil/COMPILATION,
+    format depending), so players that group compilations separately
+    do so correctly. Visible and editable in `proposal.json` and the UI.
 - **feat. artists** — only mentioned in the track title, in both the
   filename and the `Title` tag. Never added to `Artist`/`Album Artist`.
   Reason: `Metallica` and `Metallica feat. Justin Bieber` can and will be read

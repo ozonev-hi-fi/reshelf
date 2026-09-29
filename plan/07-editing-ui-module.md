@@ -88,7 +88,12 @@ HTML with minimal JS" philosophy (§8).
 - Filters: "needs review only", "ambiguous Discogs match only".
 - Detail view per release:
   - Before/after table: source folder/file names vs. proposed names.
-  - Tag preview table (Artist, Album Artist, Year, Album, per-track Disc/Track/Title).
+  - Tag preview table (Album Artist, a Compilation checkbox, Year, Album,
+    per-track Disc/Track/Artist/Title). A track's Artist defaults to Album
+    Artist but is independently editable, and stays independent of a later
+    Album Artist edit once it's been changed away from that default (see
+    "Live folder-name preview" below) — this is what lets a Various-Artists
+    compilation carry each track's own real performer.
   - **Other files** table (`companionFiles` + `ignoredFiles`, manifesto §4.5 /
     §7.2 "we need to see them in Editing module"): one row per companion, with
     an Include checkbox and its Before/Kind. A **loose** companion (directly
@@ -110,22 +115,31 @@ HTML with minimal JS" philosophy (§8).
     user pick the correct edition/pressing.
   - Free-text `humanReview.notes` field and an "Approve" checkbox
     (`humanReview.resolved = true`).
-  - Artist / Album / Year fields, and the Artist Folder Name / Release
+  - Album Artist / Album / Year fields, and the Artist Folder Name / Release
     Folder Name fields they feed (see "Live folder-name preview" below).
 
 ### Live folder-name preview
 
-Editing Artist, Album, or Year recomputes Artist Folder Name and Release
-Folder Name from `namingTemplates` (fetched once via `GET
+Editing Album Artist, Album, or Year recomputes Artist Folder Name and
+Release Folder Name from `namingTemplates` (fetched once via `GET
 /api/naming-templates`) with the same invalid-character substitution
 `ConvertTo-SafeFileName` applies, and re-renders the before/after table's
 folder row — so what the person types is what they see the target path
 becoming, without waiting for a re-run of `propose`. Editing a folder-name
-field directly also re-renders that row. A later Artist/Album/Year edit
-always overwrites a hand-typed folder name (same as re-running `propose`
-would recompute it from scratch) — there's no separate "don't touch what I
-typed" mode. The preview doesn't reproduce `ConvertTo-SafeFileName`'s
-reserved-device-name suffixing; `propose`/Save still apply that for real.
+field directly also re-renders that row. A later Album Artist/Album/Year
+edit always overwrites a hand-typed folder name (same as re-running
+`propose` would recompute it from scratch) — there's no separate "don't
+touch what I typed" mode. The preview doesn't reproduce
+`ConvertTo-SafeFileName`'s reserved-device-name suffixing; `propose`/Save
+still apply that for real.
+
+Editing Album Artist does **not** unconditionally overwrite every track's
+own Artist tag: a track only follows the new Album Artist when its own
+Artist still equalled the *old* Album Artist value. A track whose Artist was
+already set to something else — a per-track credit `propose` filled in on a
+compilation, or one typed by hand — keeps that value. This is what makes the
+per-track Artist column (previous section) survive a later Album Artist
+edit on the same release.
 
 ### Live track file-name preview
 

@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="76" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-09-29" time="16:40:51">
+  <environment cwd="C:\develop\personal\reshelf" user="ilchenko" os-version="10.0.26200" machine-name="ILCHENKO-V" clr-version="10.0.12" user-domain="NIX" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk0\Partition4" nunit-version="2.5.8.0" />
+  <culture-info current-culture="en-US" current-uiculture="en-US" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="3.8952" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="C:\develop\personal\reshelf\tests\Reshelf.Common.Tests.ps1" executed="True" result="Success" success="True" time="3.8952" asserts="0" description="C:\develop\personal\reshelf\tests\Reshelf.Common.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Resolve-ReshelfDataHome" executed="True" result="Success" success="True" time="0.2875" asserts="0" description="Resolve-ReshelfDataHome">
+            <results>
+              <test-case description="creates and returns a writable directory" name="Resolve-ReshelfDataHome.creates and returns a writable directory" time="0.1444" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="throws when the data home path exists but is a file, not a directory" name="Resolve-ReshelfDataHome.throws when the data home path exists but is a file, not a directory" time="0.0199" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="defaults to a .data folder inside the repo when RESHELF_HOME is not set" name="Resolve-ReshelfDataHome.defaults to a .data folder inside the repo when RESHELF_HOME is not set" time="0.0453" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-ReshelfNormalizedText (private)" executed="True" result="Success" success="True" time="0.3377" asserts="0" description="ConvertTo-ReshelfNormalizedText (private)">
+            <results>
+              <test-case description="lowercases, trims, strips punctuation, and collapses whitespace" name="ConvertTo-ReshelfNormalizedText (private).lowercases, trims, strips punctuation, and collapses whitespace" time="0.04" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="treats different-case, different-punctuation input as equal" name="ConvertTo-ReshelfNormalizedText (private).treats different-case, different-punctuation input as equal" time="0.0053" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfSha256Hex" executed="True" result="Success" success="True" time="0.361" asserts="0" description="Get-ReshelfSha256Hex">
+            <results>
+              <test-case description="produces a 64-character lowercase hex string" name="Get-ReshelfSha256Hex.produces a 64-character lowercase hex string" time="0.01" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="is deterministic for the same input" name="Get-ReshelfSha256Hex.is deterministic for the same input" time="0.0036" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="produces different hashes for different input" name="Get-ReshelfSha256Hex.produces different hashes for different input" time="0.0055" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfStableKey" executed="True" result="Success" success="True" time="0.4085" asserts="0" description="Get-ReshelfStableKey">
+            <results>
+              <test-case description="produces a 16-character lowercase hex string" name="Get-ReshelfStableKey.produces a 16-character lowercase hex string" time="0.016" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="is deterministic for the same normalized input" name="Get-ReshelfStableKey.is deterministic for the same normalized input" time="0.0102" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="normalizes case and whitespace before hashing" name="Get-ReshelfStableKey.normalizes case and whitespace before hashing" time="0.0066" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="produces different keys for different years" name="Get-ReshelfStableKey.produces different keys for different years" time="0.0054" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="accepts a null year" name="Get-ReshelfStableKey.accepts a null year" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-ReshelfLongPath" executed="True" result="Success" success="True" time="0.4616" asserts="0" description="ConvertTo-ReshelfLongPath">
+            <results>
+              <test-case description="leaves a short path unchanged" name="ConvertTo-ReshelfLongPath.leaves a short path unchanged" time="0.0258" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefixes a near-limit local path with \\?\" name="ConvertTo-ReshelfLongPath.prefixes a near-limit local path with \\?\" time="0.006" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefixes a near-limit UNC path with \\?\UNC\" name="ConvertTo-ReshelfLongPath.prefixes a near-limit UNC path with \\?\UNC\" time="0.0058" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not double-prefix an already-long-form path" name="ConvertTo-ReshelfLongPath.does not double-prefix an already-long-form path" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-ReshelfCueTimestampSeconds" executed="True" result="Success" success="True" time="0.5111" asserts="0" description="ConvertTo-ReshelfCueTimestampSeconds">
+            <results>
+              <test-case description="converts MM:SS:FF (CD-audio frames, 75/sec) to total seconds" name="ConvertTo-ReshelfCueTimestampSeconds.converts MM:SS:FF (CD-audio frames, 75/sec) to total seconds" time="0.026" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="converts a zero timestamp to zero seconds" name="ConvertTo-ReshelfCueTimestampSeconds.converts a zero timestamp to zero seconds" time="0.0055" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not misread MM:SS:FF as HH:MM:SS" name="ConvertTo-ReshelfCueTimestampSeconds.does not misread MM:SS:FF as HH:MM:SS" time="0.014" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-SafeFileName" executed="True" result="Success" success="True" time="0.716" asserts="0" description="ConvertTo-SafeFileName">
+            <results>
+              <test-case description="leaves an already-safe name unchanged" name="ConvertTo-SafeFileName.leaves an already-safe name unchanged" time="0.0223" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="replaces each Windows-invalid character with an underscore" name="ConvertTo-SafeFileName.replaces each Windows-invalid character with an underscore" time="0.0387" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="strips a trailing dot" name="ConvertTo-SafeFileName.strips a trailing dot" time="0.0124" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="strips a trailing space" name="ConvertTo-SafeFileName.strips a trailing space" time="0.005" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="suffixes every reserved device name case-insensitively" name="ConvertTo-SafeFileName.suffixes every reserved device name case-insensitively" time="0.0627" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="suffixes a reserved device name that has an extension, keeping the extension" name="ConvertTo-SafeFileName.suffixes a reserved device name that has an extension, keeping the extension" time="0.0099" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not treat a reserved name as reserved when it is only part of the name" name="ConvertTo-SafeFileName.does not treat a reserved name as reserved when it is only part of the name" time="0.0277" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="records multiple substitutions for combined issues" name="ConvertTo-SafeFileName.records multiple substitutions for combined issues" time="0.0099" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="handles an empty string without throwing" name="ConvertTo-SafeFileName.handles an empty string without throwing" time="0.0073" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefixes substitution messages with the given context" name="ConvertTo-SafeFileName.prefixes substitution messages with the given context" time="0.004" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test-ReshelfLooseCompanionFileName" executed="True" result="Success" success="True" time="0.7495" asserts="0" description="Test-ReshelfLooseCompanionFileName">
+            <results>
+              <test-case description="returns true for a name starting with an ASCII letter" name="Test-ReshelfLooseCompanionFileName.returns true for a name starting with an ASCII letter" time="0.0035" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns true for a name starting with a non-ASCII (Cyrillic) letter" name="Test-ReshelfLooseCompanionFileName.returns true for a name starting with a non-ASCII (Cyrillic) letter" time="0.0038" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false for a name starting with a digit" name="Test-ReshelfLooseCompanionFileName.returns false for a name starting with a digit" time="0.0041" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false for a name starting with a symbol" name="Test-ReshelfLooseCompanionFileName.returns false for a name starting with a symbol" time="0.0083" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false for an empty string" name="Test-ReshelfLooseCompanionFileName.returns false for an empty string" time="0.0087" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfLooseCompanionFileName" executed="True" result="Success" success="True" time="1.003" asserts="0" description="Get-ReshelfLooseCompanionFileName">
+            <results>
+              <test-case description="leaves a name that already starts with a letter unchanged" name="Get-ReshelfLooseCompanionFileName.leaves a name that already starts with a letter unchanged" time="0.0237" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefixes a digit-starting name with the kind word for each known kind" name="Get-ReshelfLooseCompanionFileName.prefixes a digit-starting name with the kind word for each known kind" time="0.1236" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefixes a symbol-starting name" name="Get-ReshelfLooseCompanionFileName.prefixes a symbol-starting name" time="0.0391" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not prefix a name starting with a non-ASCII letter" name="Get-ReshelfLooseCompanionFileName.does not prefix a name starting with a non-ASCII letter" time="0.0342" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="sanitizes invalid filename characters before checking the letter rule" name="Get-ReshelfLooseCompanionFileName.sanitizes invalid filename characters before checking the letter rule" time="0.0198" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-ReshelfTruncatedSegment" executed="True" result="Success" success="True" time="1.1339" asserts="0" description="ConvertTo-ReshelfTruncatedSegment">
+            <results>
+              <test-case description="leaves the segment unchanged when it already fits" name="ConvertTo-ReshelfTruncatedSegment.leaves the segment unchanged when it already fits" time="0.0321" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="truncates only the body, keeping the prefix and suffix intact" name="ConvertTo-ReshelfTruncatedSegment.truncates only the body, keeping the prefix and suffix intact" time="0.0356" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="keeps at least one body character when the budget is smaller than prefix+suffix" name="ConvertTo-ReshelfTruncatedSegment.keeps at least one body character when the budget is smaller than prefix+suffix" time="0.0183" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not split a UTF-16 surrogate pair when the cut would land inside one" name="ConvertTo-ReshelfTruncatedSegment.does not split a UTF-16 surrogate pair when the cut would land inside one" time="0.0312" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfFileSetHash" executed="True" result="Success" success="True" time="1.3104" asserts="0" description="Get-ReshelfFileSetHash">
+            <results>
+              <test-case description="is deterministic for the same file set" name="Get-ReshelfFileSetHash.is deterministic for the same file set" time="0.0447" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="is independent of input order" name="Get-ReshelfFileSetHash.is independent of input order" time="0.0236" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="is case-insensitive on file name" name="Get-ReshelfFileSetHash.is case-insensitive on file name" time="0.0517" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="produces a different hash when file size changes" name="Get-ReshelfFileSetHash.produces a different hash when file size changes" time="0.0213" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="is deterministic for an empty file list" name="Get-ReshelfFileSetHash.is deterministic for an empty file list" time="0.0144" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Protect-ReshelfSecret / Unprotect-ReshelfSecret" executed="True" result="Success" success="True" time="1.5051" asserts="0" description="Protect-ReshelfSecret / Unprotect-ReshelfSecret">
+            <results>
+              <test-case description="round-trips plain text through DPAPI encryption" name="Protect-ReshelfSecret / Unprotect-ReshelfSecret.round-trips plain text through DPAPI encryption" time="0.1396" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="produces an encrypted string that does not contain the original plain text" name="Protect-ReshelfSecret / Unprotect-ReshelfSecret.produces an encrypted string that does not contain the original plain text" time="0.0112" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="throws for an empty string (ConvertTo-SecureString itself rejects empty plain text)" name="Protect-ReshelfSecret / Unprotect-ReshelfSecret.throws for an empty string (ConvertTo-SecureString itself rejects empty plain text)" time="0.0276" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Import-ReshelfTagLibSharp" executed="True" result="Success" success="True" time="2.4173" asserts="0" description="Import-ReshelfTagLibSharp">
+            <results>
+              <test-case description="falls back to the script-scoped DataHome (set by Set-ReshelfTagLibSharpContext) for auto-discovery" name="Import-ReshelfTagLibSharp.falls back to the script-scoped DataHome (set by Set-ReshelfTagLibSharpContext) for auto-discovery" time="0.8565" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="throws a clear error naming the resolved path when the DLL is missing there" name="Import-ReshelfTagLibSharp.throws a clear error naming the resolved path when the DLL is missing there" time="0.0397" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test-ReshelfIsAudioExtension" executed="True" result="Success" success="True" time="2.5072" asserts="0" description="Test-ReshelfIsAudioExtension">
+            <results>
+              <test-case description="returns true for a known audio extension regardless of case" name="Test-ReshelfIsAudioExtension.returns true for a known audio extension regardless of case" time="0.0133" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns true for .mpc (Musepack)" name="Test-ReshelfIsAudioExtension.returns true for .mpc (Musepack)" time="0.0273" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false for a non-audio extension" name="Test-ReshelfIsAudioExtension.returns false for a non-audio extension" time="0.0173" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false, not a binding error, for an empty extension (a file with no extension)" name="Test-ReshelfIsAudioExtension.returns false, not a binding error, for an empty extension (a file with no extension)" time="0.0141" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test-ReshelfIsLosslessFormat" executed="True" result="Success" success="True" time="2.5718" asserts="0" description="Test-ReshelfIsLosslessFormat">
+            <results>
+              <test-case description="returns true for .flac" name="Test-ReshelfIsLosslessFormat.returns true for .flac" time="0.0153" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false for .mpc (Musepack is lossy)" name="Test-ReshelfIsLosslessFormat.returns false for .mpc (Musepack is lossy)" time="0.0237" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns false, not a binding error, for an empty extension" name="Test-ReshelfIsLosslessFormat.returns false, not a binding error, for an empty extension" time="0.0126" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfAudioFilesInFolder" executed="True" result="Success" success="True" time="2.7465" asserts="0" description="Get-ReshelfAudioFilesInFolder">
+            <results>
+              <test-case description="returns only audio files, ignoring extensions like .txt/.m3u/.cue, without recursing by default" name="Get-ReshelfAudioFilesInFolder.returns only audio files, ignoring extensions like .txt/.m3u/.cue, without recursing by default" time="0.1046" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="recurses into subfolders when -Recurse is passed" name="Get-ReshelfAudioFilesInFolder.recurses into subfolders when -Recurse is passed" time="0.0298" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns an empty array, not an error, for a folder with no audio files" name="Get-ReshelfAudioFilesInFolder.returns an empty array, not an error, for a folder with no audio files" time="0.0217" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Get-ReshelfRelativePath" executed="True" result="Success" success="True" time="2.8378" asserts="0" description="Get-ReshelfRelativePath">
+            <results>
+              <test-case description="returns the path under the source root with forward slashes, regardless of backslash depth" name="Get-ReshelfRelativePath.returns the path under the source root with forward slashes, regardless of backslash depth" time="0.0349" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="matches the root case-insensitively" name="Get-ReshelfRelativePath.matches the root case-insensitively" time="0.0114" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="tolerates a trailing separator on the root" name="Get-ReshelfRelativePath.tolerates a trailing separator on the root" time="0.0081" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns the path unchanged when it does not start with the given root" name="Get-ReshelfRelativePath.returns the path unchanged when it does not start with the given root" time="0.01" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns an empty string for a path identical to the root" name="Get-ReshelfRelativePath.returns an empty string for a path identical to the root" time="0.0133" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="ConvertTo-ReshelfTitleCase" executed="True" result="Success" success="True" time="2.9402" asserts="0" description="ConvertTo-ReshelfTitleCase">
+            <results>
+              <test-case description="capitalizes the first letter of every whitespace-separated word" name="ConvertTo-ReshelfTitleCase.capitalizes the first letter of every whitespace-separated word" time="0.0481" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="capitalizes an all-lowercase single word (real &quot;edbl&quot; case)" name="ConvertTo-ReshelfTitleCase.capitalizes an all-lowercase single word (real &quot;edbl&quot; case)" time="0.0148" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="leaves interior/existing capitalization untouched, e.g. an already-capitalized abbreviation" name="ConvertTo-ReshelfTitleCase.leaves interior/existing capitalization untouched, e.g. an already-capitalized abbreviation" time="0.013" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns an empty string unchanged" name="ConvertTo-ReshelfTitleCase.returns an empty string unchanged" time="0.0131" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Remove-ReshelfInvisibleCharacters" executed="True" result="Success" success="True" time="2.9974" asserts="0" description="Remove-ReshelfInvisibleCharacters">
+            <results>
+              <test-case description="strips a zero-width space (real Discogs &quot;B-Sides&quot; case)" name="Remove-ReshelfInvisibleCharacters.strips a zero-width space (real Discogs &quot;B-Sides&quot; case)" time="0.0176" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="strips a byte-order-mark character embedded mid-string" name="Remove-ReshelfInvisibleCharacters.strips a byte-order-mark character embedded mid-string" time="0.0108" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="leaves ordinary text unchanged" name="Remove-ReshelfInvisibleCharacters.leaves ordinary text unchanged" time="0.0087" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>

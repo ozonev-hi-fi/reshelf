@@ -90,6 +90,7 @@ BeforeAll {
             [string]$Artist = 'Some Band',
             [string]$Album = 'Some Album',
             [int]$Year = 2010,
+            [bool]$IsCompilation = $false,
             [AllowNull()] $ExistingCoverArtPath = $null
         )
 
@@ -111,13 +112,14 @@ BeforeAll {
             proposedTrackNumber       = $ProposedTrackNumber
             proposedTitle             = $ProposedTitle
             tags                      = [pscustomobject]@{
-                artist      = $Artist
-                albumArtist = $Artist
-                album       = $Album
-                year        = $Year
-                discNumber  = $ProposedDiscNumber
-                track       = $ProposedTrackNumber
-                title       = $ProposedTitle
+                artist        = $Artist
+                albumArtist   = $Artist
+                album         = $Album
+                year          = $Year
+                discNumber    = $ProposedDiscNumber
+                track         = $ProposedTrackNumber
+                title         = $ProposedTitle
+                isCompilation = $IsCompilation
             }
         }
     }
@@ -845,6 +847,7 @@ Describe 'Invoke-ReshelfImplementation' {
         $script:audioTagsCalls[0].Tags.discNumber | Should -Be 1
         $script:audioTagsCalls[0].Tags.track | Should -Be 1
         $script:audioTagsCalls[0].Tags.title | Should -Be 'Track'
+        $script:audioTagsCalls[0].Tags.isCompilation | Should -Be $false
 
         $entry = Get-ReshelfApplyLogEntry -StableKey 'a1b2c3d4e5f60708' -DataHome $script:dataHome
         $entry.status | Should -Be 'applied'
@@ -852,6 +855,28 @@ Describe 'Invoke-ReshelfImplementation' {
         $entry.errorMessage | Should -BeNullOrEmpty
         $entry.truncated | Should -Be $false
         $entry.sourceFileSetHash | Should -Not -BeNullOrEmpty
+    }
+
+    It 'passes a track''s isCompilation tag through to Set-ReshelfAudioTags unchanged' {
+        $script:audioTagsCalls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Reshelf.Implementation Set-ReshelfAudioTags {
+            $script:audioTagsCalls.Add([pscustomobject]@{ Path = $Path; Tags = $Tags; CoverImagePath = $CoverImagePath })
+        }
+
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Various' '2008 A Compilation' '01 Track.flac')
+        $track = New-TestTrack -SourceFilePath $t1 -ProposedFileName '01 Track.flac' -ProposedTitle 'Track' -Artist 'Various' -Album 'A Compilation' -IsCompilation $true
+        $release = New-TestReleaseDoc -StableKey 'a1b2c3d4e5f60709' -ArtistFolderName 'Various' -ReleaseFolderName '2008 A Compilation' `
+            -Year 2008 -Album 'A Compilation' -SourceFolderPath (Split-Path $t1) -Tracks @($track)
+
+        $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+        $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+        New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+        $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+            -CopyMode copy -FfmpegPath '' -DataHome $script:dataHome
+
+        $result.Applied | Should -Be 1
+        $script:audioTagsCalls[0].Tags.isCompilation | Should -Be $true
     }
 
     It 'leaves a track''s picture tag untouched when the chosen cover is "existing (embedded)" and that track already has one' {

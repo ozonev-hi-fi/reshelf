@@ -65,6 +65,23 @@ BeforeAll {
         return [TagLib.File]::Create($Path)
     }
 
+    # IsCompilation (TCMP/cpil/COMPILATION) lives only on the format-specific tag classes, not the
+    # base TagLib.Tag Set-ReshelfAudioTags's own callers use for everything else - mirrors the same
+    # three-type lookup Set-ReshelfAudioTags does, so a test works the same for both flac and mp3.
+    # Write-Output -NoEnumerate matters here: TagLib.Ogg.XiphComment implements IEnumerable<string>
+    # (its field names) - a plain `return $formatTag` would unroll it into those strings instead of
+    # returning the tag object itself.
+    function Get-TestFormatTag {
+        param([Parameter(Mandatory)] $File)
+        foreach ($tagType in @([TagLib.TagTypes]::Id3v2, [TagLib.TagTypes]::Xiph, [TagLib.TagTypes]::Apple)) {
+            $formatTag = $File.GetTag($tagType, $false)
+            if ($formatTag) {
+                Write-Output -NoEnumerate $formatTag
+                return
+            }
+        }
+        return $null
+    }
 }
 
 Describe 'Set-ReshelfAudioTags round-trip (real TagLibSharp)' -Tag 'Integration' {
@@ -100,6 +117,49 @@ Describe 'Set-ReshelfAudioTags round-trip (real TagLibSharp)' -Tag 'Integration'
                 $file.Tag.Disc | Should -Be 1
                 $file.Tag.Track | Should -Be 2
                 $file.Tag.Title | Should -Be 'Paranoid Android'
+            }
+            finally {
+                $file.Dispose()
+            }
+        }
+
+        It 'round-trips the Compilation flag both ways' {
+            $tagsOn = [pscustomobject]@{
+                artist = 'Various'; albumArtist = 'Various'; album = 'Album'; year = 2000
+                discNumber = 1; track = 1; title = 'Title'; isCompilation = $true
+            }
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsOn -TagLibSharpPath $script:TagLibSharpPath
+            $file = Open-TagLibFile -Path $script:audioPath
+            try {
+                (Get-TestFormatTag -File $file).IsCompilation | Should -Be $true
+            }
+            finally {
+                $file.Dispose()
+            }
+
+            $tagsOff = [pscustomobject]@{
+                artist = 'Various'; albumArtist = 'Various'; album = 'Album'; year = 2000
+                discNumber = 1; track = 1; title = 'Title'; isCompilation = $false
+            }
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tagsOff -TagLibSharpPath $script:TagLibSharpPath
+            $file2 = Open-TagLibFile -Path $script:audioPath
+            try {
+                (Get-TestFormatTag -File $file2).IsCompilation | Should -Be $false
+            }
+            finally {
+                $file2.Dispose()
+            }
+        }
+
+        It 'defaults the Compilation flag to false when isCompilation is missing from tags' {
+            $tags = [pscustomobject]@{
+                artist = 'Artist'; albumArtist = 'Artist'; album = 'Album'; year = 2000
+                discNumber = 1; track = 1; title = 'Title'
+            }
+            Set-ReshelfAudioTags -Path $script:audioPath -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+            $file = Open-TagLibFile -Path $script:audioPath
+            try {
+                (Get-TestFormatTag -File $file).IsCompilation | Should -Be $false
             }
             finally {
                 $file.Dispose()

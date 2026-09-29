@@ -64,7 +64,12 @@ function New-Track {
         [Parameter(Mandatory)] [string]$Title,
         [Parameter(Mandatory)] [string]$Artist,
         [Parameter(Mandatory)] [string]$Album,
-        [Parameter(Mandatory)] [int]$Year
+        [Parameter(Mandatory)] [int]$Year,
+
+        # Per-track Artist, distinct from Album Artist - only a compilation release passes this;
+        # everyone else keeps Artist == Album Artist, same as before.
+        [string]$TrackArtist,
+        [bool]$IsCompilation = $false
     )
     [pscustomobject]@{
         sourceFilePath            = $SourceFilePath
@@ -84,13 +89,14 @@ function New-Track {
         proposedTrackNumber       = $ProposedTrackNumber
         proposedTitle             = $Title
         tags                      = [pscustomobject]@{
-            artist      = $Artist
-            albumArtist = $Artist
-            album       = $Album
-            year        = $Year
-            discNumber  = 1
-            track       = $ProposedTrackNumber
-            title       = $Title
+            artist        = if ($TrackArtist) { $TrackArtist } else { $Artist }
+            albumArtist   = $Artist
+            album         = $Album
+            year          = $Year
+            discNumber    = 1
+            track         = $ProposedTrackNumber
+            title         = $Title
+            isCompilation = $IsCompilation
         }
     }
 }
@@ -251,13 +257,49 @@ $emptyRelease = [pscustomobject]@{
     humanReview           = [pscustomobject]@{ required = $false; resolved = $true; rejected = $false; notes = '' }
 }
 
+# --- "compilation" release: Various Artists, each track its own Artist tag ---------------------
+
+$compilationAlbum = "Best Of Everywhere $suffix"
+$compilationYear = 2008
+$compilationFolder = Join-Path $releaseSourceRoot "$compilationYear $compilationAlbum"
+$c1Path = Join-Path $compilationFolder '01 Track.flac'
+$c2Path = Join-Path $compilationFolder '02 Track.flac'
+New-SilentFlac -Path $c1Path
+New-SilentFlac -Path $c2Path
+
+$compilationStableKey = New-StableKey
+$compilationRelease = [pscustomobject]@{
+    stableKey             = $compilationStableKey
+    recognizedTitle       = $compilationAlbum
+    recognizedYear        = $compilationYear
+    sourceFolderPath      = $compilationFolder
+    discFolderCount       = 1
+    tracks                = @(
+        (New-Track -SourceFilePath $c1Path -ProposedFileName '01 Track.flac' -ProposedTrackNumber 1 -Title 'One Song' -Artist 'Various' -TrackArtist 'First Act' -Album $compilationAlbum -Year $compilationYear -IsCompilation $true),
+        (New-Track -SourceFilePath $c2Path -ProposedFileName '02 Track.flac' -ProposedTrackNumber 2 -Title 'Another Song' -Artist 'Various' -TrackArtist 'Second Act' -Album $compilationAlbum -Year $compilationYear -IsCompilation $true)
+    )
+    companionFiles        = @()
+    ignoredFiles          = @()
+    cueSheet              = $null
+    recognitionConfidence = 1.0
+    recognitionFlags      = @()
+    needsReview           = $false
+    reviewReasons         = @()
+    discogsMatch          = [pscustomobject]@{ status = 'matched'; selectedReleaseId = 4001; candidates = @() }
+    proposed              = [pscustomobject]@{ artistFolderName = 'Various'; releaseFolderName = "$compilationYear $compilationAlbum"; year = $compilationYear; album = $compilationAlbum; isCompilation = $true }
+    coverArt              = [pscustomobject]@{ candidates = @(); chosenCandidateUrl = $null; targetMaxDimension = 600 }
+    lossyLossless         = [pscustomobject]@{ isLossy = $false; action = 'none' }
+    targetAction          = 'create-new'
+    humanReview           = [pscustomobject]@{ required = $false; resolved = $true; rejected = $false; notes = '' }
+}
+
 $proposalDoc = [pscustomobject]@{
     schemaVersion  = 1
     sessionId      = 'placeholder' # overwritten below with the real allocated session id
     sourceRoot     = $releaseSourceRoot
     generatedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     artists        = @(
-        [pscustomobject]@{ recognizedName = 'Aurora Fields'; sourcePaths = @($releaseSourceRoot); releases = @($richRelease, $minimalRelease, $emptyRelease) }
+        [pscustomobject]@{ recognizedName = 'Aurora Fields'; sourcePaths = @($releaseSourceRoot); releases = @($richRelease, $minimalRelease, $emptyRelease, $compilationRelease) }
     )
     unrecognized   = @()
 }
@@ -276,4 +318,5 @@ Set-ReshelfSessionStage -SessionId $session.sessionId -Stage 'reviewed' -Proposa
     rich             = [pscustomobject]@{ stableKey = $richStableKey; album = $richAlbum; year = $richYear }
     minimal          = [pscustomobject]@{ stableKey = $minimalStableKey; album = $minimalAlbum; year = $minimalYear }
     empty            = [pscustomobject]@{ stableKey = $emptyStableKey; album = $emptyAlbum; year = $emptyYear }
+    compilation      = [pscustomobject]@{ stableKey = $compilationStableKey; album = $compilationAlbum; year = $compilationYear }
 } | ConvertTo-Json -Depth 5 -Compress

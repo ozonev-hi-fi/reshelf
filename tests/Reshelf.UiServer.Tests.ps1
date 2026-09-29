@@ -206,6 +206,26 @@ Describe 'Get-ReshelfUiApiRoute' {
     It 'returns $null for GET on the lossy stable-key path (no such route)' {
         Get-ReshelfUiApiRoute -Method 'GET' -Path '/api/lossy/a1b2c3d4e5f60708' | Should -Be $null
     }
+
+    It 'routes POST /api/sessions/{id}/proposal/releases/{stableKey}/discogs-selection to SelectDiscogsCandidate' {
+        $route = Get-ReshelfUiApiRoute -Method 'POST' -Path '/api/sessions/2026-09-25-0001/proposal/releases/a1b2c3d4e5f60708/discogs-selection'
+        $route.Action | Should -Be 'SelectDiscogsCandidate'
+        $route.SessionId | Should -Be '2026-09-25-0001'
+        $route.StableKey | Should -Be 'a1b2c3d4e5f60708'
+    }
+
+    It 'returns $null for GET on the discogs-selection path (no such route)' {
+        Get-ReshelfUiApiRoute -Method 'GET' -Path '/api/sessions/2026-09-25-0001/proposal/releases/a1b2c3d4e5f60708/discogs-selection' | Should -Be $null
+    }
+
+    It 'returns $null for a discogs-selection stable key that is not 16 lowercase hex characters' {
+        Get-ReshelfUiApiRoute -Method 'POST' -Path '/api/sessions/2026-09-25-0001/proposal/releases/not-a-real-key/discogs-selection' | Should -Be $null
+    }
+
+    It 'rejects an invalid session id on the discogs-selection path' {
+        $route = Get-ReshelfUiApiRoute -Method 'POST' -Path '/api/sessions/not-a-real-session-id/proposal/releases/a1b2c3d4e5f60708/discogs-selection'
+        $route.Action | Should -Be 'BadRequest'
+    }
 }
 
 Describe 'Get-ReshelfUiSessionsSummary / Get-ReshelfUiCurrentSession' {

@@ -52,7 +52,7 @@ test.describe('editing and saving', () => {
     await gotoApp(page);
     await page.locator(`.release-row[data-stable-key="${seeded.rich.stableKey}"]`).click();
 
-    const firstTitleInput = page.locator('#track-fields-table tbody tr').first().locator('input[type="text"]');
+    const firstTitleInput = page.locator('#track-fields-table tbody tr').first().locator('input[data-field="title"]');
     await firstTitleInput.fill('Renamed Opener');
 
     const afterCell = page.locator('#before-after-table tbody tr').nth(1).locator('td').nth(1);

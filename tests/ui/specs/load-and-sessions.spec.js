@@ -10,18 +10,18 @@ test.describe('loading and switching sessions', () => {
 
     await expect(page.locator('#session-status')).toContainText(seeded.sourceFolderPath, { timeout: 10_000 });
     await expect(page.locator('#session-status')).not.toContainText(seeded.sessionId);
-    await expect(page.locator('.release-row')).toHaveCount(3);
+    await expect(page.locator('.release-row')).toHaveCount(4);
   });
 
   test('reload loads the same session again', async ({ page }) => {
     const seeded = seedSession('load-reload');
     await gotoApp(page);
-    await expect(page.locator('.release-row')).toHaveCount(3);
+    await expect(page.locator('.release-row')).toHaveCount(4);
 
     await page.reload();
 
     await expect(page.locator('#session-status')).toContainText(seeded.sourceFolderPath);
-    await expect(page.locator('.release-row')).toHaveCount(3);
+    await expect(page.locator('.release-row')).toHaveCount(4);
   });
 
   test('with 2+ sessions, the Past sessions dropdown lists both, labeled by source root + date + stage (never the raw session id)', async ({ page }) => {

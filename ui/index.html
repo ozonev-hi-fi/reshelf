@@ -83,8 +83,12 @@
       </table>
 
       <div id="release-fields">
-        <label>Artist / Album Artist
+        <label>Album Artist
           <input type="text" id="field-artist" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="field-compilation" />
+          Compilation (Various Artists)
         </label>
         <label>Album
           <input type="text" id="field-album" />
@@ -102,7 +106,7 @@
 
       <table id="track-fields-table">
         <thead>
-          <tr><th>Disc</th><th>Track</th><th>Title</th></tr>
+          <tr><th>Disc</th><th>Track</th><th>Artist</th><th>Title</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -127,6 +131,7 @@
       <div id="discogs-candidates" hidden>
         <h3>Discogs match is ambiguous - pick the correct edition</h3>
         <div id="discogs-candidates-list"></div>
+        <span id="discogs-candidate-status"></span>
       </div>
 
       <label>Notes

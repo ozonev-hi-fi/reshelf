@@ -356,6 +356,16 @@ function Set-ReshelfAudioTags {
         $file.Tag.Track = [uint32]$Tags.track
         $file.Tag.Title = $Tags.title
 
+        # IsCompilation (TCMP/cpil/COMPILATION) lives only on the format-specific tag classes, not
+        # on the base TagLib.Tag - each one is fetched (without creating it) and set when present, so
+        # both true and false are written and an old flag gets cleared too. Formats with no such tag
+        # (e.g. plain wav) are silently skipped.
+        $isCompilation = [bool]$Tags.isCompilation
+        foreach ($tagType in @([TagLib.TagTypes]::Id3v2, [TagLib.TagTypes]::Apple, [TagLib.TagTypes]::Xiph)) {
+            $formatTag = $file.GetTag($tagType, $false)
+            if ($formatTag) { $formatTag.IsCompilation = $isCompilation }
+        }
+
         if ($CoverImagePath -and (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $CoverImagePath) -PathType Leaf)) {
             # The Picture(string) constructor reads the file's bytes and auto-detects MimeType from
             # its extension (verified against the real TagLibSharp.dll: a .jpg round-trips as

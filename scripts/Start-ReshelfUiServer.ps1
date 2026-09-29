@@ -13,6 +13,13 @@ param(
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.UiServer.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.Settings.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.LossyTracking.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.EditProposal.psm1') -Force
+# Re-imported after Reshelf.EditProposal.psm1 (which nests it internally with its own -Force
+# import) - same "import it again, last" fix already relied on elsewhere in this codebase
+# (Reshelf.UiServer.psm1's own top-of-file comment, Reshelf.EditProposal.Tests.ps1's BeforeAll),
+# restoring Get-ReshelfLossyTrackingLedger/Set-ReshelfLossyTrackingStatus/etc. to this script's own
+# top-level scope for the 'ListLossy'/'UpdateLossy'/'DeleteLossy' handlers below.
+Import-Module (Join-Path $PSScriptRoot 'common' 'Reshelf.LossyTracking.psm1') -Force
 
 $resolvedUiRoot = (Resolve-Path -LiteralPath $UiRoot -ErrorAction SilentlyContinue).Path
 if (-not $resolvedUiRoot) {
@@ -131,6 +138,63 @@ function Invoke-ReshelfUiApiRequest {
                 $body = Read-ReshelfUiRequestBody -Request $Request
                 Save-ReshelfUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId -Content $body
                 Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload @{ savedAtUtc = (Get-Date).ToUniversalTime().ToString('o') }
+            }
+            catch {
+                Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message
+            }
+        }
+        'SelectDiscogsCandidate' {
+            try {
+                $body = Read-ReshelfUiRequestBody -Request $Request | ConvertFrom-Json
+                if (-not $body.releaseId) {
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message "Request body must include 'releaseId'."
+                    return
+                }
+
+                $content = Get-ReshelfUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId
+                $proposal = $content | ConvertFrom-Json
+
+                $target = $null
+                $siblings = [System.Collections.Generic.List[object]]::new()
+                foreach ($artist in $proposal.artists) {
+                    foreach ($release in $artist.releases) {
+                        if ($release.stableKey -eq $Route.StableKey) { $target = $release }
+                        else { $siblings.Add($release) }
+                    }
+                }
+                if (-not $target) {
+                    Write-ReshelfUiErrorResponse -Response $Response -StatusCode 404 -Message "No release found for stable key '$($Route.StableKey)'."
+                    return
+                }
+
+                $settings = Get-ReshelfSettings
+                # albumArtist, not artist - on a compilation a track's own artist (e.g. "The
+                # Dubliners") is not the release artist ("Various") that the new match should search
+                # relative to.
+                $fallbackArtistName = if ($target.tracks.Count -gt 0) { $target.tracks[0].tags.albumArtist } else { $target.proposed.artistFolderName }
+
+                $updated = Update-ReshelfReleaseForDiscogsSelection -Release $target -SelectedReleaseId ([int]$body.releaseId) `
+                    -SiblingReleases $siblings -ArtistName $fallbackArtistName -TargetRoot $settings.targetRoot `
+                    -ReleaseFolderTemplate $settings.namingTemplates.releaseFolder -TrackFileTemplate $settings.namingTemplates.trackFile `
+                    -TrackNumberPadWidth $settings.trackNumberPadWidth -CoverMaxDimension $settings.coverMaxDimension `
+                    -CacheTtlDays $settings.cacheTtlDays -RateLimitPerMinute $settings.rateLimitPerMinute -DataHome $DataHome
+
+                $target.tracks = $updated.tracks
+                $target.proposed = $updated.proposed
+                $target.discogsMatch = $updated.discogsMatch
+                $target.coverArt = $updated.coverArt
+                $target.lossyLossless = $updated.lossyLossless
+                $target.targetAction = $updated.targetAction
+                if ($updated.notes.Count -gt 0) {
+                    $joinedNotes = ($updated.notes -join '; ')
+                    $target.humanReview.notes = if ($target.humanReview.notes) { "$($target.humanReview.notes); $joinedNotes" } else { $joinedNotes }
+                }
+                if ($updated.requiresReview) { $target.humanReview.required = $true }
+
+                $newContent = $proposal | ConvertTo-Json -Depth 20
+                Save-ReshelfUiProposalContent -DataHome $DataHome -SessionId $Route.SessionId -Content $newContent
+
+                Write-ReshelfUiJsonResponse -Response $Response -StatusCode 200 -Payload $target
             }
             catch {
                 Write-ReshelfUiErrorResponse -Response $Response -StatusCode 400 -Message $_.Exception.Message

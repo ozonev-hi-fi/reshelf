@@ -110,11 +110,30 @@ Applies manifesto §5 rules mechanically, using Discogs data as ground truth:
   - `proposedTitle` = Discogs track title, with any feat. artist / mix /
     remix / remaster wording preserved in the title text itself.
   - `proposedFileName` = `"{NN} {proposedTitle}.{ext}"`.
-  - `tags.artist` = `tags.albumArtist` = `proposed.artistFolderName` — always
-    identical, always the plain artist name, **never** including a feat.
-    artist even if Discogs credits one on that specific track. This is a
-    hard rule from manifesto §5, applied here regardless of what Discogs's
-    per-track credits say.
+  - `tags.albumArtist` = `proposed.artistFolderName` — always the plain
+    artist name (e.g. "Various" on a compilation), never including a feat.
+    artist even if Discogs credits one on that specific track.
+  - `tags.artist` = `tags.albumArtist` by default (manifesto §5). It can
+    differ per track, in this order:
+    1. Discogs' own per-track credit for that track (`Get-ReshelfDiscogsArtistCredit`),
+       when the matched release's tracklist has one — this applies to any
+       release, not only a compilation, so a split release also gets its
+       tracks' real artists. Multiple artists are joined with Discogs' own
+       `join` text (e.g. `"A & B"`); a `feat.`/`ft.`/`featuring` join stops
+       the credit there, same feat.-exclusion rule as below.
+    2. Else, on a compilation (`Test-ReshelfIsCompilationArtist` — Discogs'
+       "Various" artist id 194, or an unmatched recognized artist/folder
+       name of "Various"/"Various Artists"), the source file's own existing
+       `Artist` tag, title-cased.
+    3. Else, on a compilation with neither of the above, `tags.albumArtist`
+       ("Various") plus a note that forces human review — silently
+       mislabeling a compilation track is worse than asking someone to look.
+    4. Otherwise (not a compilation, no Discogs per-track credit),
+       `tags.albumArtist`, same as before this feature existed.
+    A feat. artist is **never** added to `tags.artist`, whichever of the
+    above supplies it — only to the title.
+  - `tags.isCompilation` = `proposed.isCompilation` — see
+    `Test-ReshelfIsCompilationArtist` above.
   - `tags.title` = `proposedTitle` (this is where any feat. artist text
     lives).
   - `tags.year` = `proposed.year`, `tags.album` = `proposed.album` — always
@@ -215,7 +234,16 @@ independent of the Discogs match:
   players fragment a library across "Artist" and "Artist feat. X" otherwise.
   Discogs is the source of truth for *what the title/tracklist/year are*, not
   for *how the Artist tag must be constructed* — that construction rule is
-  the manifesto's own policy layered on top.
+  the manifesto's own policy layered on top. The one exception this rule
+  still enforces even on a compilation: a `feat.`/`ft.`/`featuring` join in
+  Discogs' per-track `artists[]` ends the credit there, same as everywhere
+  else.
+- **A per-track `tags.artist` (compilations, split releases) is still built
+  from Discogs' own per-track data, not invented locally**: the manifesto's
+  "Artist == Album Artist" rule was written before compilations existed as a
+  case; extending it to allow a per-track exception, sourced from Discogs
+  (or the file's own tag as a fallback), keeps "Discogs is the source of
+  truth for tracklist data" intact rather than special-casing it away.
 - **Discogs is always queried, but the cache makes a re-run cheap anyway**:
   originally planned as an explicit skip-the-query shortcut for an identical
   release; as implemented, `cacheTtlDays` already answers a repeated identical
@@ -255,7 +283,8 @@ None beyond step 2's Discogs token.
 - Given a `recognition.json` fixture and mocked Discogs responses (see
   [11](11-testing-and-verification-strategy.md)), `Invoke-EditProposal.ps1`
   produces a `proposal.json` that satisfies every manifesto §5 rule for
-  multi-disc numbering, Artist=Album Artist, feat.-in-title-only, and
-  Year/Album matching the folder name.
+  multi-disc numbering, Artist=Album Artist (except a per-track artist on a
+  compilation/split release), feat.-in-title-only, and Year/Album matching
+  the folder name.
 - A second run against an unchanged source with an already-populated target
   produces `targetAction = "skip-existing-identical"` for every release.

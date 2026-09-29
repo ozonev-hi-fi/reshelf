@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { seedSession, gotoApp } = require('../helpers');
+const { seedSession, gotoApp, mockDiscogsSelection } = require('../helpers');
 
 // The "rich" release is seeded (seed-session.ps1) with 3 companions:
 //   row 0 - nested photo (Scans/inner.jpg) - locked, include-only
@@ -146,6 +146,7 @@ test.describe('companion (other) files', () => {
 
   test('end-to-end: renaming a loose companion and excluding a nested one, then Save + apply, produces the expected target layout', async ({ page }) => {
     const { runApply } = require('../helpers');
+    await mockDiscogsSelection(page);
     const seeded = seedSession('companions-e2e-apply');
     await gotoApp(page);
     await page.locator(`.release-row[data-stable-key="${seeded.rich.stableKey}"]`).click();
@@ -174,10 +175,11 @@ test.describe('companion (other) files', () => {
     await expect(page.locator('#save-status')).toContainText('Saved');
 
     const result = runApply(seeded.sessionId);
-    // All 3 seeded releases in this session apply (only an ambiguous-AND-unresolved release is
-    // skipped by default - see plan/08 - and this test resolved+approved "rich"; "minimal" and
-    // "empty" were never ambiguous to begin with), so all 3 succeed, not just the one under test.
-    expect(result.Applied).toBe(3);
+    // All 4 seeded releases in this session apply (only an ambiguous-AND-unresolved release is
+    // skipped by default - see plan/08 - and this test resolved+approved "rich"; "minimal",
+    // "empty" and "compilation" were never ambiguous to begin with), so all 4 succeed, not just
+    // the one under test.
+    expect(result.Applied).toBe(4);
     expect(result.Failed ?? 0).toBe(0);
 
     const fs = require('fs');

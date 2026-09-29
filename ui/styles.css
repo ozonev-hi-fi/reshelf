@@ -162,6 +162,13 @@ body {
   font-size: 0.9rem;
 }
 
+/* Disc/Track are short numbers - a fixed width keeps them from taking room away from Artist/Title,
+   the two columns that actually need it. */
+#track-fields-table td:nth-child(1),
+#track-fields-table td:nth-child(2) {
+  width: 5em;
+}
+
 /* A table-cell input/select must fill the cell - the cell (not the browser's intrinsic input
    width) is what should decide how much room a long value gets. */
 #track-fields-table td input,
@@ -206,6 +213,12 @@ body {
   flex-direction: column;
   font-size: 0.85rem;
   gap: 4px;
+}
+
+#release-fields label.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 #cover-gallery {

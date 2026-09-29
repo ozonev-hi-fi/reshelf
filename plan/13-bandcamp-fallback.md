@@ -74,6 +74,12 @@ text/casing wins over a locally-derived fallback name.
 - **Same trust order as Discogs, if built**: Bandcamp would sit alongside
   Discogs as an encyclopedia source, with the same casing priority — never a
   second heuristic bolted onto the fallback (Title Case) path.
+- **Per-track artist / compilation, same shape as Discogs**: [06](06-edit-proposal-module.md)'s
+  per-track `tags.artist` and `tags.isCompilation` (Various-Artists
+  compilations, split releases) come from Discogs' own per-track `artists[]`
+  today. A Bandcamp match would need to supply the same per-track credit
+  shape (or explicitly have none) to slot into that same fallback order,
+  rather than a second, Bandcamp-only mechanism.
 
 ## Definition of done (for this step, once un-blocked)
 

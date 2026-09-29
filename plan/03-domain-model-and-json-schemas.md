@@ -111,7 +111,8 @@ Extends each release from `recognition.json` with:
     "artistFolderName": "ZZ Top",
     "releaseFolderName": "1999 XXX",
     "year": 1999,
-    "album": "XXX"
+    "album": "XXX",
+    "isCompilation": false   // optional, defaults to false when absent (older proposal.json)
   },
   "tracks": [
     {
@@ -126,7 +127,8 @@ Extends each release from `recognition.json` with:
         "year": 1999,
         "discNumber": 1,
         "track": 1,
-        "title": "Poke Chop Sandwich"
+        "title": "Poke Chop Sandwich",
+        "isCompilation": false   // optional; same value as proposed.isCompilation on every track
       }
     }
   ],
@@ -148,10 +150,18 @@ Field rules that directly encode manifesto §5:
 - `tags.track` restarts at 1 per disc, **no leading zero**.
 - `proposedFileName`'s `NN` prefix is zero-padded and continuous across discs
   (differs from `tags.track`).
-- `tags.artist == tags.albumArtist` always equal the *raw* artist name;
-  `proposed.artistFolderName` is the same text with filesystem-invalid
-  characters replaced by `_` (via `ConvertTo-SafeFileName`) — they match
-  character-for-character except where sanitization applied.
+- `tags.albumArtist` always equals the *raw* artist name (typically "Various"
+  on a compilation); `proposed.artistFolderName` is the same text with
+  filesystem-invalid characters replaced by `_` (via `ConvertTo-SafeFileName`)
+  — they match character-for-character except where sanitization applied.
+- `tags.artist` equals `tags.albumArtist` by default. On a compilation
+  (`proposed.isCompilation`/`tags.isCompilation` true — Discogs' own "Various"
+  artist, or a recognized "Various"/"Various Artists" folder/artist name with
+  no Discogs match), `tags.artist` can instead be Discogs' own per-track
+  credit, or the source file's existing Artist tag when Discogs has none for
+  that track — see [06](06-edit-proposal-module.md). This also covers a
+  split release with per-track Discogs credits, whether or not it's a
+  Various-Artists compilation.
 - feat. artists appear only in `proposedTitle` / `proposedFileName`, never in
   `tags.artist` / `tags.albumArtist`.
 - `tags.album` is the *raw* album/release title; `proposed.releaseFolderName`

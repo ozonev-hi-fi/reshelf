@@ -436,6 +436,10 @@ Describe 'Test-ReshelfIsAudioExtension' {
         Test-ReshelfIsAudioExtension -Extension '.FLAC' | Should -Be $true
     }
 
+    It 'returns true for .mpc (Musepack)' {
+        Test-ReshelfIsAudioExtension -Extension '.mpc' | Should -Be $true
+    }
+
     It 'returns false for a non-audio extension' {
         Test-ReshelfIsAudioExtension -Extension '.txt' | Should -Be $false
     }
@@ -449,6 +453,10 @@ Describe 'Test-ReshelfIsAudioExtension' {
 Describe 'Test-ReshelfIsLosslessFormat' {
     It 'returns true for .flac' {
         Test-ReshelfIsLosslessFormat -Extension '.flac' | Should -Be $true
+    }
+
+    It 'returns false for .mpc (Musepack is lossy)' {
+        Test-ReshelfIsLosslessFormat -Extension '.mpc' | Should -Be $false
     }
 
     It 'returns false, not a binding error, for an empty extension' {

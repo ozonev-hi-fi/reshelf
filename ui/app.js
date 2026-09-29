@@ -521,8 +521,12 @@ function renderBeforeAfterTable(release) {
 
 function renderReleaseFields(release) {
   const artistField = document.getElementById('field-artist');
-  artistField.value = release.tracks[0]?.tags.artist ?? release.proposed.artistFolderName;
+  artistField.value = release.tracks[0]?.tags.albumArtist ?? release.proposed.artistFolderName;
   artistField.oninput = () => onEditArtist(release, artistField.value);
+
+  const compilationField = document.getElementById('field-compilation');
+  compilationField.checked = !!release.proposed.isCompilation;
+  compilationField.onchange = () => onEditCompilation(release, compilationField.checked);
 
   const albumField = document.getElementById('field-album');
   albumField.value = release.proposed.album;
@@ -551,6 +555,7 @@ function renderTrackFieldsTable(release) {
     const discCell = document.createElement('td');
     const discInput = document.createElement('input');
     discInput.type = 'number';
+    discInput.dataset.field = 'disc';
     discInput.value = track.proposedDiscNumber;
     discInput.oninput = () => onEditTrackField(release, track, 'proposedDiscNumber', discInput.value);
     discCell.appendChild(discInput);
@@ -558,19 +563,38 @@ function renderTrackFieldsTable(release) {
     const trackCell = document.createElement('td');
     const trackInput = document.createElement('input');
     trackInput.type = 'number';
+    trackInput.dataset.field = 'track';
     trackInput.value = track.proposedTrackNumber;
     trackInput.oninput = () => onEditTrackField(release, track, 'proposedTrackNumber', trackInput.value);
     trackCell.appendChild(trackInput);
 
+    const artistCell = document.createElement('td');
+    const artistInput = document.createElement('input');
+    artistInput.type = 'text';
+    artistInput.dataset.field = 'artist';
+    artistInput.value = track.tags.artist;
+    artistInput.oninput = () => onEditTrackField(release, track, 'artist', artistInput.value);
+    // The schema requires a non-empty Artist (minLength 1) - an empty field left on blur falls
+    // back to Album Artist instead of saving a value that would only fail later, at 'apply'.
+    artistInput.onblur = () => {
+      if (!artistInput.value.trim()) {
+        artistInput.value = track.tags.albumArtist;
+        onEditTrackField(release, track, 'artist', artistInput.value);
+      }
+    };
+    artistCell.appendChild(artistInput);
+
     const titleCell = document.createElement('td');
     const titleInput = document.createElement('input');
     titleInput.type = 'text';
+    titleInput.dataset.field = 'title';
     titleInput.value = track.proposedTitle;
     titleInput.oninput = () => onEditTrackField(release, track, 'proposedTitle', titleInput.value);
     titleCell.appendChild(titleInput);
 
     row.appendChild(discCell);
     row.appendChild(trackCell);
+    row.appendChild(artistCell);
     row.appendChild(titleCell);
     tbody.appendChild(row);
   }
@@ -745,7 +769,11 @@ function renderRadioList(container, { items, name, className, isChecked, onSelec
     radio.type = 'radio';
     radio.name = name;
     radio.checked = isChecked(item);
-    radio.addEventListener('change', () => onSelect(item));
+    // 'click', not 'change' - a native radio only fires 'change' when its checked state actually
+    // flips from unchecked to checked. Re-clicking an option that's already selected (e.g. a stale
+    // selectedReleaseId saved before this recompute existed) must still re-run onSelect, so this
+    // listens for every click instead of only a transition.
+    radio.addEventListener('click', () => onSelect(item));
 
     label.appendChild(radio);
     label.appendChild(buildContent(item));
@@ -900,10 +928,22 @@ function updateProposedFolderNames(release) {
 
 function onEditArtist(release, value) {
   for (const track of release.tracks) {
-    track.tags.artist = value;
+    // A track whose own Artist still matched the old Album Artist follows the edit, same as
+    // before - but a per-track artist someone typed in, or one a compilation proposed from
+    // Discogs/file tags, is left alone instead of being overwritten with the new Album Artist.
+    const hadDefaultArtist = track.tags.artist === track.tags.albumArtist;
     track.tags.albumArtist = value;
+    if (hadDefaultArtist) track.tags.artist = value;
   }
   updateProposedFolderNames(release);
+  markDirty(release);
+}
+
+function onEditCompilation(release, checked) {
+  release.proposed.isCompilation = checked;
+  for (const track of release.tracks) {
+    track.tags.isCompilation = checked;
+  }
   markDirty(release);
 }
 
@@ -1004,6 +1044,12 @@ function onEditTrackField(release, track, field, value) {
   } else if (field === 'proposedTitle') {
     track.proposedTitle = value;
     track.tags.title = value;
+  } else if (field === 'artist') {
+    // Artist is not part of the track file-name template, so unlike the other fields this
+    // skips deriveTrackFileNames/renderBeforeAfterTable - there is nothing there to update.
+    track.tags.artist = value;
+    markDirty(release);
+    return;
   }
   deriveTrackFileNames(release);
   renderBeforeAfterTable(release);
@@ -1055,9 +1101,23 @@ async function uploadManualCover(release, file) {
   }
 }
 
-function onSelectDiscogsCandidate(release, releaseId) {
+async function onSelectDiscogsCandidate(release, releaseId) {
+  const status = document.getElementById('discogs-candidate-status');
   release.discogsMatch.selectedReleaseId = releaseId;
-  markDirty(release);
+  renderDiscogsCandidates(release);
+  status.textContent = 'Loading tracklist for this edition...';
+  try {
+    const updated = await fetchJson(
+      `/api/sessions/${state.currentSessionId}/proposal/releases/${release.stableKey}/discogs-selection`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ releaseId }) },
+    );
+    Object.assign(release, updated);
+    renderDetail();
+    renderList();
+    status.textContent = 'Updated.';
+  } catch (err) {
+    status.textContent = `Failed to load edition: ${err.message}`;
+  }
 }
 
 function onEditNotes(release, value) {

@@ -110,6 +110,15 @@ function Get-ReshelfUiApiRoute {
         }
     }
 
+    if ($Method -eq 'POST' -and $Path -match '^/api/sessions/([^/]+)/proposal/releases/([0-9a-f]{16})/discogs-selection$') {
+        $sessionId = $Matches[1]
+        $stableKey = $Matches[2]
+        if ($sessionId -notmatch $script:ReshelfUiSessionIdPattern) {
+            return [pscustomobject]@{ Action = 'BadRequest'; Message = "Invalid session id '$sessionId'." }
+        }
+        return [pscustomobject]@{ Action = 'SelectDiscogsCandidate'; SessionId = $sessionId; StableKey = $stableKey }
+    }
+
     if ($Method -eq 'GET' -and $Path -match '^/api/sessions/([^/]+)/local-file$') {
         $sessionId = $Matches[1]
         if ($sessionId -notmatch $script:ReshelfUiSessionIdPattern) {

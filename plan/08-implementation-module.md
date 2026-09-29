@@ -61,6 +61,12 @@ what hasn't been reviewed yet," not "override an explicit rejection".
    `TagLib.File.Create(...)` / set properties / `.Save()` call per staged
    track, embedding the resized cover (`TagLib.Picture`) directly into each
    file's tags. No external process, no GUI, nothing to author by hand.
+   Also writes the Compilation flag from `tags.isCompilation` (missing =
+   `false`) on whichever format-specific tag the file actually has — ID3v2
+   `TCMP`, MP4 `cpil`, or Vorbis/FLAC `COMPILATION`; this flag lives only on
+   those tag classes, not on the base `TagLib.Tag` every other field uses, so
+   it's fetched and set separately (`File.GetTag(type, create: false)`, only
+   when that tag already exists on the file).
 7. **Companion files**: `companionFiles` entries with `include == false`
    (set in the Editing UI, [07](07-editing-ui-module.md)) are skipped
    entirely — never copied, and (like every source file) never deleted from

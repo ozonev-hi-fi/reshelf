@@ -45,7 +45,8 @@
                 "year": 1993,
                 "discNumber": 1,
                 "track": 1,
-                "title": "I Still Do"
+                "title": "I Still Do",
+                "isCompilation": false
               }
             }
           ],
@@ -59,13 +60,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Cranberries",
             "releaseFolderName": "1993 Everybody Else Is Doing It",
             "year": 1993,
-            "album": "Everybody Else Is Doing It"
+            "album": "Everybody Else Is Doing It",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -127,7 +130,8 @@
                 "year": 1900,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track One"
+                "title": "Track One",
+                "isCompilation": false
               }
             },
             {
@@ -158,7 +162,8 @@
                 "year": 1900,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Track Two"
+                "title": "Track Two",
+                "isCompilation": false
               }
             }
           ],
@@ -174,13 +179,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Dance With Ghosts",
             "releaseFolderName": "1900 Requiem",
             "year": 1900,
-            "album": "Requiem"
+            "album": "Requiem",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -242,7 +249,8 @@
                 "year": 1900,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track One"
+                "title": "Track One",
+                "isCompilation": false
               }
             }
           ],
@@ -258,13 +266,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Isidor",
             "releaseFolderName": "1900 3218 (Soldier Of Fortune Edition - Artwork)",
             "year": 1900,
-            "album": "3218 (Soldier Of Fortune Edition - Artwork)"
+            "album": "3218 (Soldier Of Fortune Edition - Artwork)",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -326,7 +336,8 @@
                 "year": 1990,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track"
+                "title": "Track",
+                "isCompilation": false
               }
             }
           ],
@@ -340,13 +351,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Live Wire",
             "releaseFolderName": "1990 Live - The Tour",
             "year": 1990,
-            "album": "Live - The Tour"
+            "album": "Live - The Tour",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -408,7 +421,8 @@
                 "year": 1994,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Speak To Me"
+                "title": "Speak To Me",
+                "isCompilation": false
               }
             },
             {
@@ -439,7 +453,8 @@
                 "year": 1994,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Breathe"
+                "title": "Breathe",
+                "isCompilation": false
               }
             }
           ],
@@ -461,13 +476,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Pink Floyd",
             "releaseFolderName": "1994 Live In Concert (Bootleg)",
             "year": 1994,
-            "album": "Live In Concert (Bootleg)"
+            "album": "Live In Concert (Bootleg)",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -529,7 +546,8 @@
                 "year": 1900,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track One"
+                "title": "Track One",
+                "isCompilation": false
               }
             },
             {
@@ -560,7 +578,8 @@
                 "year": 1900,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Track Two"
+                "title": "Track Two",
+                "isCompilation": false
               }
             }
           ],
@@ -576,13 +595,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "PULSAR OLYMP",
             "releaseFolderName": "1900 94Shine",
             "year": 1900,
-            "album": "94Shine"
+            "album": "94Shine",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -644,7 +665,8 @@
                 "year": 1980,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Born Under Punches"
+                "title": "Born Under Punches",
+                "isCompilation": false
               }
             },
             {
@@ -675,7 +697,8 @@
                 "year": 1980,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Crosseyed And Painless"
+                "title": "Crosseyed And Painless",
+                "isCompilation": false
               }
             }
           ],
@@ -689,13 +712,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Talking Heads",
             "releaseFolderName": "1980 Remain In Light",
             "year": 1980,
-            "album": "Remain In Light"
+            "album": "Remain In Light",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -757,7 +782,8 @@
                 "year": 1994,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Angels"
+                "title": "Angels",
+                "isCompilation": false
               }
             }
           ],
@@ -771,13 +797,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "David Byrne",
             "releaseFolderName": "1994 David Byrne",
             "year": 1994,
-            "album": "David Byrne"
+            "album": "David Byrne",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -839,7 +867,8 @@
                 "year": 2015,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Alpha Song"
+                "title": "Alpha Song",
+                "isCompilation": false
               }
             },
             {
@@ -870,7 +899,8 @@
                 "year": 2015,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Beta Song"
+                "title": "Beta Song",
+                "isCompilation": false
               }
             }
           ],
@@ -886,13 +916,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "Unnumbered",
             "releaseFolderName": "2015 No Numbers",
             "year": 2015,
-            "album": "No Numbers"
+            "album": "No Numbers",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -957,7 +989,8 @@
                 "year": 1999,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Poke Chop Sandwich"
+                "title": "Poke Chop Sandwich",
+                "isCompilation": false
               }
             },
             {
@@ -988,7 +1021,8 @@
                 "year": 1999,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Crucifixx A Flatt"
+                "title": "Crucifixx A Flatt",
+                "isCompilation": false
               }
             }
           ],
@@ -1010,13 +1044,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "ZZ Top",
             "releaseFolderName": "1999 XXX",
             "year": 1999,
-            "album": "XXX"
+            "album": "XXX",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [
@@ -1077,7 +1113,8 @@
                 "year": 2003,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track One"
+                "title": "Track One",
+                "isCompilation": false
               }
             },
             {
@@ -1108,7 +1145,8 @@
                 "year": 2003,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Track Two"
+                "title": "Track Two",
+                "isCompilation": false
               }
             },
             {
@@ -1139,7 +1177,8 @@
                 "year": 2003,
                 "discNumber": 2,
                 "track": 1,
-                "title": "Track One"
+                "title": "Track One",
+                "isCompilation": false
               }
             },
             {
@@ -1170,7 +1209,8 @@
                 "year": 2003,
                 "discNumber": 2,
                 "track": 2,
-                "title": "Track Two"
+                "title": "Track Two",
+                "isCompilation": false
               }
             },
             {
@@ -1201,7 +1241,8 @@
                 "year": 2003,
                 "discNumber": 2,
                 "track": 3,
-                "title": "Track Three"
+                "title": "Track Three",
+                "isCompilation": false
               }
             },
             {
@@ -1232,7 +1273,8 @@
                 "year": 2003,
                 "discNumber": 3,
                 "track": 1,
-                "title": "Stray Bonus Track"
+                "title": "Stray Bonus Track",
+                "isCompilation": false
               }
             }
           ],
@@ -1263,13 +1305,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "ZZ Top",
             "releaseFolderName": "2003 Mescalero",
             "year": 2003,
-            "album": "Mescalero"
+            "album": "Mescalero",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -1323,7 +1367,8 @@
                 "year": 1994,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Song A"
+                "title": "Song A",
+                "isCompilation": false
               }
             },
             {
@@ -1354,7 +1399,8 @@
                 "year": 1994,
                 "discNumber": 1,
                 "track": 2,
-                "title": "Song B"
+                "title": "Song B",
+                "isCompilation": false
               }
             }
           ],
@@ -1368,13 +1414,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "ZZ Top",
             "releaseFolderName": "1994 One Foot In The Blues",
             "year": 1994,
-            "album": "One Foot In The Blues"
+            "album": "One Foot In The Blues",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -1428,7 +1476,8 @@
                 "year": 2005,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Track"
+                "title": "Track",
+                "isCompilation": false
               }
             }
           ],
@@ -1442,13 +1491,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "ZZ Top",
             "releaseFolderName": "2005 Live From Texas",
             "year": 2005,
-            "album": "Live From Texas"
+            "album": "Live From Texas",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],
@@ -1502,7 +1553,8 @@
                 "year": 1996,
                 "discNumber": 1,
                 "track": 1,
-                "title": "Pincushion"
+                "title": "Pincushion",
+                "isCompilation": false
               }
             }
           ],
@@ -1516,13 +1568,15 @@
           "discogsMatch": {
             "status": "not-found",
             "selectedReleaseId": null,
-            "candidates": []
+            "candidates": [],
+            "masterId": null
           },
           "proposed": {
             "artistFolderName": "ZZ Top",
             "releaseFolderName": "1996 Pincushion",
             "year": 1996,
-            "album": "Pincushion"
+            "album": "Pincushion",
+            "isCompilation": false
           },
           "coverArt": {
             "candidates": [],

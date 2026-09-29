@@ -76,3 +76,11 @@ source folder(s)
 - **Re-runs are safe by design**: every release gets a `stableKey`; re-running Recognition/Proposal/Implementation against an unchanged source skips work instead of duplicating it. Detail in [10](10-error-handling-and-edge-cases.md).
 - **Nothing ambiguous is auto-guessed**: grouping folders, band-member-as-artist folders, and low-confidence Discogs matches are always routed to human review, never silently resolved. Detail in [05](05-recognition-module.md) and [10](10-error-handling-and-edge-cases.md).
 - **Sessions are resumable**: `session.json` always says which stage a source root is at, so work can stop and continue later. Detail in [04](04-settings-module.md) and [10](10-error-handling-and-edge-cases.md).
+
+## Rough ideas
+
+This section must be cleaned up right once any/every item in the list below is reviewed and approved plan document is create.
+
+- Add to review UI section with links to founded resources: once Release is found on
+  - Discogs: provide the link to the web page with this release (if it is exactly this pressing) or to master release (if it is not possible to define which exact release or the rip of this release is in source folder). This includes the "ambiguous" section of the page
+  - Bandcamp (similar to discogs logic)

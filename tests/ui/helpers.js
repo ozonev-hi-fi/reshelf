@@ -15,8 +15,8 @@ function getState() {
 
 /**
  * Seeds one fresh session (see seed-session.ps1) and returns its {sessionId, proposalPath,
- * sourceFolderPath, rich, minimal}. Each call creates a brand new session with fresh stableKeys
- * and a fresh source folder, so tests never see another test's leftover edits.
+ * sourceFolderPath, rich, minimal, empty, compilation}. Each call creates a brand new session with
+ * fresh stableKeys and a fresh source folder, so tests never see another test's leftover edits.
  * @param {string} label - short, human-readable tag folded into the seeded folder/album names,
  *   shows up in the "Past sessions" dropdown text - pass something that identifies the caller
  *   (e.g. the spec file name) to make a failure's seeded data easy to find on disk afterward.
@@ -71,4 +71,27 @@ async function gotoApp(page, path = '/') {
   await page.goto(state.baseURL + path);
 }
 
-module.exports = { getState, seedSession, runApply, gotoApp };
+/**
+ * Intercepts the Discogs-candidate-selection endpoint (POST .../discogs-selection) and fulfills it
+ * locally instead of letting the real server call out to the live Discogs API for a release detail.
+ * This suite runs with no real network access to Discogs (see seed-session.ps1's own note on this),
+ * but the real endpoint (Update-ReshelfReleaseForDiscogsSelection) always makes a live
+ * /releases/{id} call - every seeded candidate's releaseId is a made-up small integer, not a real
+ * Discogs release, so without this it would either hang/fail on a blocked connection, or (worse, if
+ * the runner *does* have outbound access) actually fetch and apply some unrelated real release's
+ * data. Only discogsMatch flips to 'matched' here; every other field (tracks, proposed, coverArt,
+ * ...) is left out so the client keeps its existing copy - app.js merges the response with
+ * Object.assign, which never deletes a key the response omits.
+ */
+async function mockDiscogsSelection(page) {
+  await page.route('**/discogs-selection', async (route) => {
+    const body = JSON.parse(route.request().postData());
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ discogsMatch: { status: 'matched', selectedReleaseId: body.releaseId, candidates: [] } }),
+    });
+  });
+}
+
+module.exports = { getState, seedSession, runApply, gotoApp, mockDiscogsSelection };

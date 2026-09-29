@@ -1,9 +1,10 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { seedSession, gotoApp } = require('../helpers');
+const { seedSession, gotoApp, mockDiscogsSelection } = require('../helpers');
 
 test.describe('review state: Discogs match, Approve, Reject', () => {
-  test('an ambiguous release shows the Discogs candidate picker and the "ambiguous" badge; picking a candidate records the selection', async ({ page }) => {
+  test('an ambiguous release shows the Discogs candidate picker and the "ambiguous" badge; picking a candidate resolves it', async ({ page }) => {
+    await mockDiscogsSelection(page);
     const seeded = seedSession('review-ambiguous');
     await gotoApp(page);
 
@@ -20,7 +21,10 @@ test.describe('review state: Discogs match, Approve, Reject', () => {
 
     await options.nth(1).locator('input[type="radio"]').check();
     await expect(options.nth(1).locator('input[type="radio"]')).toBeChecked();
-    await expect(row).toHaveClass(/unsaved/);
+    await expect(page.locator('#discogs-candidate-status')).toHaveText('Updated.');
+    // The recompute (mocked above) flips discogsMatch.status to 'matched' - the picker section
+    // hides itself once there's no more ambiguity to resolve (app.js's renderDiscogsCandidates).
+    await expect(candidates).toBeHidden();
   });
 
   test('Approve and Reject are mutually exclusive, and the row badge reflects the current choice', async ({ page }) => {
