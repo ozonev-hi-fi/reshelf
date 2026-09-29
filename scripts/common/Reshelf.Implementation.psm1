@@ -346,7 +346,19 @@ function Set-ReshelfAudioTags {
 
     Import-ReshelfTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
-    $file = [TagLib.File]::Create((ConvertTo-ReshelfLongPath -Path $Path))
+    $longPath = ConvertTo-ReshelfLongPath -Path $Path
+
+    # Same fallback as Get-ReshelfAudioTags (Reshelf.Recognition.psm1): a leading ID3v2 tag on a
+    # .mpc file (nonstandard for Musepack, but real taggers write it) makes TagLib#'s MusePack
+    # properties reader throw CorruptFileException before it ever gets to the tag itself. Tag
+    # writing doesn't need audio properties, so ReadStyle.None (skip property parsing) is enough
+    # to open the file and still write/save the tag correctly.
+    try {
+        $file = [TagLib.File]::Create($longPath)
+    }
+    catch [TagLib.CorruptFileException] {
+        $file = [TagLib.File]::Create($longPath, [TagLib.ReadStyle]::None)
+    }
     try {
         $file.Tag.Performers = @($Tags.artist)
         $file.Tag.AlbumArtists = @($Tags.albumArtist)

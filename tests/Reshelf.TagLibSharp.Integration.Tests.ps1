@@ -302,6 +302,22 @@ Describe 'Set-ReshelfAudioTags round-trip (real TagLibSharp)' -Tag 'Integration'
             }
         }
     }
+
+    It 'writes tags to a .mpc file whose leading ID3v2 tag trips TagLib#''s MusePack properties reader' {
+        $path = Join-Path $script:workDir 'track.mpc'
+        New-TestMpcWithLeadingId3v2 -Path $path -Artist 'Old Artist' -Album 'Old Album' -Title 'Old Title'
+
+        $tags = [pscustomobject]@{
+            artist = 'Nostromo'; albumArtist = 'Nostromo'; album = 'Eyesore'
+            year = 2000; discNumber = 1; track = 1; title = 'Epitomize'
+        }
+        Set-ReshelfAudioTags -Path $path -Tags $tags -TagLibSharpPath $script:TagLibSharpPath
+
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
+        $result.Artist | Should -Be 'Nostromo'
+        $result.Album | Should -Be 'Eyesore'
+        $result.Title | Should -Be 'Epitomize'
+    }
 }
 
 Describe 'Get-ReshelfAudioTags on a real file (real TagLibSharp)' -Tag 'Integration' {
