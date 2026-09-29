@@ -707,6 +707,27 @@ function Merge-ReshelfArtistBucket {
     $bucket.releases.Add($Release)
 }
 
+function Split-ReshelfLeadingYear {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Text
+    )
+
+    # The leading-4-digits-is-a-year guess only makes sense within the schema's own recognizedYear
+    # range (1900-2100, proposal/recognition.schema.json) - without this bound, text that merely
+    # starts with a 4-digit catalog number (e.g. a split "Artist - 3218 (Edition)" folder name,
+    # real-world case) would misparse "3218" as a year and fail schema validation outright.
+    # The optional whitespace-surrounded dash/en-dash covers the manifesto section 1 source format
+    # "yyyy - Release Name"; an unspaced dash ("1999-2003 Anthology") is deliberately not a separator.
+    if ($Text -match '^(\d{4})(?:\s+[-–])?\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
+        return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $Matches[2].Trim() }
+    }
+
+    return [pscustomobject]@{ Year = $null; Title = $Text }
+}
+
 function Remove-ReshelfArtistNamePrefixFromTitle {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -752,20 +773,9 @@ function New-ReshelfReleaseRecord {
     )
 
     $leafName = if ($FolderNameOverride) { $FolderNameOverride } else { Split-Path -Leaf $Path }
-    # The leading-4-digits-is-a-year guess only makes sense within the schema's own recognizedYear
-    # range (1900-2100, proposal/recognition.schema.json) - without this bound, a folder name that
-    # merely starts with a 4-digit catalog number (e.g. a split "Artist - 3218 (Edition)" folder
-    # name, real-world case) would misparse "3218" as a year and fail schema validation outright.
-    # The optional whitespace-surrounded dash/en-dash covers the manifesto section 1 source format
-    # "yyyy - Release Name"; an unspaced dash ("1999-2003 Anthology") is deliberately not a separator.
-    if ($leafName -match '^(\d{4})(?:\s+[-–])?\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
-        $year = [int]$Matches[1]
-        $title = $Matches[2].Trim()
-    }
-    else {
-        $year = $null
-        $title = $leafName
-    }
+    $yearSplit = Split-ReshelfLeadingYear -Text $leafName
+    $year = $yearSplit.Year
+    $title = $yearSplit.Title
 
     $recognitionFlags = [System.Collections.Generic.List[string]]::new()
     $reviewReasons = [System.Collections.Generic.List[string]]::new()
@@ -775,6 +785,17 @@ function New-ReshelfReleaseRecord {
     if ($prefixStrip.WasStripped) {
         $title = $prefixStrip.Title
         $recognitionFlags.Add('artist-name-prefix-stripped')
+
+        # Real-world case (Nostromo's "Nostromo - 1998 - Argue FLAC"): the year sits between the
+        # artist-name prefix and the title, so the leading-year parse above never saw it - only
+        # after the artist prefix is gone does the remaining text start with the year.
+        if ($null -eq $year) {
+            $yearSplitAfterPrefixStrip = Split-ReshelfLeadingYear -Text $title
+            if ($null -ne $yearSplitAfterPrefixStrip.Year) {
+                $year = $yearSplitAfterPrefixStrip.Year
+                $title = $yearSplitAfterPrefixStrip.Title
+            }
+        }
     }
 
     if ((ConvertTo-ReshelfLongPath -Path $Path) -ne $Path) {

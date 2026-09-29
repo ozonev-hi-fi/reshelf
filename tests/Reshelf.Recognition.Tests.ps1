@@ -756,6 +756,20 @@ Describe 'Invoke-ReshelfRecognition' {
         $release.needsReview | Should -Be $false
     }
 
+    It 'parses the year when it sits between a repeated artist-name prefix and the title (real-world Nostromo case)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Nostromo' 'Nostromo - 1998 - Argue FLAC' '01 - Track.flac') -Force | Out-Null
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-26' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Nostromo' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedYear | Should -Be 1998
+        $release.recognizedTitle | Should -Be 'Argue FLAC'
+        $release.recognitionFlags | Should -Contain 'artist-name-prefix-stripped'
+    }
+
     It 'flags an empty artist folder (no audio anywhere) as unrecognized' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-10' -DataHome $dataHome
 
