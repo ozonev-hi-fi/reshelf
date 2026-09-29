@@ -509,6 +509,33 @@ Describe 'Invoke-ReshelfRecognition' {
         $release.reviewReasons | Should -Contain 'track-outside-disc-folder-suspected'
     }
 
+    It 'flags a release for review when a track''s audio properties could not be read' {
+        Mock -ModuleName Reshelf.Recognition Get-ReshelfAudioTags {
+            param($Path, $TagLibSharpPath, $DataHome)
+            $ext = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLowerInvariant()
+            $propertiesUnavailable = $Path -like '*Poke Chop Sandwich*'
+            return @{
+                Artist                = $null
+                Album                 = $null
+                Title                 = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+                Format                = $ext
+                IsLossless            = ($ext -in @('flac', 'wav', 'ape'))
+                DurationSeconds       = if ($propertiesUnavailable) { 0 } else { 200 }
+                EmbeddedCoverPath     = $null
+                PropertiesUnavailable = $propertiesUnavailable
+            }
+        }
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-2d' -DataHome $dataHome
+
+        $zzTop = $result.artists | Where-Object { $_.recognizedName -eq 'ZZ Top' }
+        $release = $zzTop.releases | Where-Object { $_.recognizedTitle -eq 'XXX' }
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'audio-properties-unreadable'
+        $affectedTrack = $release.tracks | Where-Object { $_.originalFileName -eq '01 - Poke Chop Sandwich.flac' }
+        $affectedTrack.durationSeconds | Should -Be 0
+    }
+
     It 'routes a playlist file inside a disc subfolder to ignoredFiles instead of dropping it' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-3c' -DataHome $dataHome
 

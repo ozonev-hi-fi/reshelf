@@ -445,7 +445,22 @@ function Get-ReshelfAudioTags {
     Import-ReshelfTagLibSharp -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
-    $file = [TagLib.File]::Create((ConvertTo-ReshelfLongPath -Path $Path))
+    $longPath = ConvertTo-ReshelfLongPath -Path $Path
+
+    # Some real-world files carry a tag TagLib#'s properties reader for their format doesn't expect
+    # (e.g. an ID3v2 tag prepended to a .mpc, which its MusePack stream-header parser can't skip) and
+    # throw TagLib.CorruptFileException only while parsing audio properties (duration, etc.) - the
+    # tags themselves are still perfectly readable. Falling back to a tag-only read (ReadStyle.None,
+    # which skips property parsing entirely) keeps that track instead of failing the whole recognize
+    # run over unrelated tracks; callers flag PropertiesUnavailable tracks for review.
+    $propertiesUnavailable = $false
+    try {
+        $file = [TagLib.File]::Create($longPath)
+    }
+    catch [TagLib.CorruptFileException] {
+        $file = [TagLib.File]::Create($longPath, [TagLib.ReadStyle]::None)
+        $propertiesUnavailable = $true
+    }
     try {
         $tag = $file.Tag
         $properties = $file.Properties
@@ -459,13 +474,14 @@ function Get-ReshelfAudioTags {
         }
 
         return @{
-            Artist            = if ($tag.FirstPerformer) { $tag.FirstPerformer } else { $null }
-            Album             = if ($tag.Album) { $tag.Album } else { $null }
-            Title             = if ($tag.Title) { $tag.Title } else { $null }
-            Format            = $extension.TrimStart('.')
-            IsLossless        = Test-ReshelfIsLosslessFormat -Extension $extension
-            DurationSeconds   = [double]$properties.Duration.TotalSeconds
-            EmbeddedCoverPath = $embeddedCoverPath
+            Artist                = if ($tag.FirstPerformer) { $tag.FirstPerformer } else { $null }
+            Album                 = if ($tag.Album) { $tag.Album } else { $null }
+            Title                 = if ($tag.Title) { $tag.Title } else { $null }
+            Format                = $extension.TrimStart('.')
+            IsLossless            = Test-ReshelfIsLosslessFormat -Extension $extension
+            DurationSeconds       = if ($propertiesUnavailable) { 0.0 } else { [double]$properties.Duration.TotalSeconds }
+            EmbeddedCoverPath     = $embeddedCoverPath
+            PropertiesUnavailable = $propertiesUnavailable
         }
     }
     finally {
@@ -776,6 +792,10 @@ function New-ReshelfReleaseRecord {
             $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
             $cueSheet = [pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName }
             $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
+            if ($audioTags.PropertiesUnavailable) {
+                $needsReview = $true
+                $reviewReasons.Add('audio-properties-unreadable')
+            }
             # ffmpeg has no ape encoder/muxer (see Invoke-ReshelfFfmpegSplit in
             # Reshelf.Implementation.psm1), so a cue split of an .ape source can never stream-copy
             # into .ape - it re-encodes to .flac instead. Naming these tracks 'flac' here keeps
@@ -839,6 +859,10 @@ function New-ReshelfReleaseRecord {
             foreach ($item in $ordered) {
                 $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
+                if ($audioTags.PropertiesUnavailable) {
+                    $needsReview = $true
+                    $reviewReasons.Add('audio-properties-unreadable')
+                }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
                         discFolder                = $null
@@ -870,6 +894,10 @@ function New-ReshelfReleaseRecord {
                 $reviewReasons.Add('per-disc-cue-not-yet-supported')
                 $audioFile = (Get-ReshelfAudioFilesInFolder -Path $discFolder.FullName)[0]
                 $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
+                if ($audioTags.PropertiesUnavailable) {
+                    $needsReview = $true
+                    $reviewReasons.Add('audio-properties-unreadable')
+                }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $audioFile.FullName
                         discFolder                = $discFolder.Name
@@ -891,6 +919,10 @@ function New-ReshelfReleaseRecord {
             foreach ($item in $ordered) {
                 $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
+                if ($audioTags.PropertiesUnavailable) {
+                    $needsReview = $true
+                    $reviewReasons.Add('audio-properties-unreadable')
+                }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
                         discFolder                = $discFolder.Name
@@ -920,6 +952,10 @@ function New-ReshelfReleaseRecord {
             foreach ($item in $ordered) {
                 $audioTags = Get-ReshelfAudioTags -Path $item.File.FullName
                 if ($item.InferredOrder) { $recognitionFlags.Add('no-track-number') }
+                if ($audioTags.PropertiesUnavailable) {
+                    $needsReview = $true
+                    $reviewReasons.Add('audio-properties-unreadable')
+                }
                 $tracks.Add([pscustomobject]@{
                         sourceFilePath            = $item.File.FullName
                         discFolder                = $null

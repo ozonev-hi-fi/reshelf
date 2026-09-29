@@ -71,6 +71,43 @@ BeforeAll {
     # Write-Output -NoEnumerate matters here: TagLib.Ogg.XiphComment implements IEnumerable<string>
     # (its field names) - a plain `return $formatTag` would unroll it into those strings instead of
     # returning the tag object itself.
+    # Real-world case (the Nostromo "Eyesore" release): some .mpc files carry an ID3v2 tag prepended
+    # to the file - nonstandard for Musepack (which normally uses APEv2), but real taggers do it.
+    # TagLib#'s MusePack.StreamHeader reader doesn't skip that leading ID3v2 tag before looking for
+    # the "MP+"/"MPCK" stream signature, so [TagLib.File]::Create throws CorruptFileException
+    # ("Data does not begin with identifier.") while parsing audio properties - even though the tag
+    # itself is perfectly valid. This builds the minimal byte shape that reproduces it: a real ID3v2
+    # header + frames, nothing else, no real Musepack stream data needed to trigger the bug.
+    function New-MiniId3v2Frame {
+        param([Parameter(Mandatory)] [string]$Id, [Parameter(Mandatory)] [string]$Text)
+        $enc = [System.Text.Encoding]::UTF8
+        $textBytes = [byte[]](@(3) + $enc.GetBytes($Text)) # leading 3 = UTF-8 encoding byte
+        $idBytes = [byte[]]$enc.GetBytes($Id)
+        $len = $textBytes.Length
+        $sizeBytes = [byte[]]@(
+            [byte](($len -shr 24) -band 0xFF), [byte](($len -shr 16) -band 0xFF),
+            [byte](($len -shr 8) -band 0xFF), [byte]($len -band 0xFF)
+        )
+        return $idBytes + $sizeBytes + [byte[]]@(0, 0) + $textBytes
+    }
+
+    function New-TestMpcWithLeadingId3v2 {
+        param(
+            [Parameter(Mandatory)] [string]$Path,
+            [string]$Artist = 'MiniArtist',
+            [string]$Album = 'MiniAlbum',
+            [string]$Title = 'MiniTitle'
+        )
+        $frames = (New-MiniId3v2Frame -Id 'TPE1' -Text $Artist) + (New-MiniId3v2Frame -Id 'TALB' -Text $Album) + (New-MiniId3v2Frame -Id 'TIT2' -Text $Title)
+        $tagSize = $frames.Length
+        $synchsafeSize = [byte[]]@(
+            [byte](($tagSize -shr 21) -band 0x7F), [byte](($tagSize -shr 14) -band 0x7F),
+            [byte](($tagSize -shr 7) -band 0x7F), [byte]($tagSize -band 0x7F)
+        )
+        $header = [byte[]]@(0x49, 0x44, 0x33, 3, 0, 0) + $synchsafeSize # "ID3", v2.3, no flags
+        [System.IO.File]::WriteAllBytes($Path, [byte[]]($header + $frames))
+    }
+
     function Get-TestFormatTag {
         param([Parameter(Mandatory)] $File)
         foreach ($tagType in @([TagLib.TagTypes]::Id3v2, [TagLib.TagTypes]::Xiph, [TagLib.TagTypes]::Apple)) {
@@ -323,6 +360,21 @@ Describe 'Get-ReshelfAudioTags on a real file (real TagLibSharp)' -Tag 'Integrat
         $result.EmbeddedCoverPath | Should -Exist
         $result.EmbeddedCoverPath | Should -BeLike (Join-Path $isolatedDataHome 'embedded-covers' '*')
         [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($result.EmbeddedCoverPath)) | Should -Be ([System.Convert]::ToBase64String($expectedBytes))
+    }
+
+    It 'falls back to a tag-only read for a .mpc file whose leading ID3v2 tag trips TagLib#''s MusePack properties reader' {
+        $path = Join-Path $script:workDir 'track.mpc'
+        New-TestMpcWithLeadingId3v2 -Path $path -Artist 'Nostromo' -Album 'Eyesore' -Title 'Epitomize'
+
+        $result = Get-ReshelfAudioTags -Path $path -TagLibSharpPath $script:TagLibSharpPath
+
+        $result.Artist | Should -Be 'Nostromo'
+        $result.Album | Should -Be 'Eyesore'
+        $result.Title | Should -Be 'Epitomize'
+        $result.Format | Should -Be 'mpc'
+        $result.IsLossless | Should -Be $false
+        $result.PropertiesUnavailable | Should -Be $true
+        $result.DurationSeconds | Should -Be 0
     }
 
     It 'returns a null EmbeddedCoverPath when the file has no embedded picture' {
