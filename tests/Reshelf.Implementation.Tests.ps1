@@ -87,6 +87,7 @@ BeforeAll {
             [bool]$IsLossless = $true,
             [AllowNull()] $CueTimestamp = $null,
             [bool]$IsCueVirtualTrack = $false,
+            [AllowNull()] [string]$DiscFolder = $null,
             [string]$Artist = 'Some Band',
             [string]$Album = 'Some Album',
             [int]$Year = 2010,
@@ -96,7 +97,7 @@ BeforeAll {
 
         [pscustomobject]@{
             sourceFilePath            = $SourceFilePath
-            discFolder                = $null
+            discFolder                = $DiscFolder
             originalFileName          = (Split-Path -Leaf $SourceFilePath)
             detectedTrackNumberInDisc = $ProposedTrackNumber
             inferredTrackOrder        = $false
@@ -134,7 +135,7 @@ BeforeAll {
             [Parameter(Mandatory)] [string]$SourceFolderPath,
             [Parameter(Mandatory)] [object[]]$Tracks,
             [object[]]$CompanionFiles = @(),
-            [object]$CueSheet = $null,
+            [object[]]$CueSheets = @(),
             [string]$DiscogsStatus = 'matched',
             [bool]$HumanReviewResolved = $true,
             [bool]$HumanReviewRequired = $false,
@@ -160,12 +161,13 @@ BeforeAll {
             stableKey             = $StableKey
             recognizedTitle       = $Album
             recognizedYear        = $Year
+            editionFolderName     = $null
             sourceFolderPath      = $SourceFolderPath
             discFolderCount       = 1
             tracks                = $Tracks
             companionFiles        = $CompanionFiles
             ignoredFiles          = @()
-            cueSheet              = $CueSheet
+            cueSheets             = @($CueSheets)
             recognitionConfidence = 1.0
             recognitionFlags      = @()
             needsReview           = $false
@@ -567,12 +569,12 @@ Describe 'Test-ReshelfReleaseNeedsApply' {
 }
 
 Describe 'ConvertFrom-ReshelfCueTrackRanges' {
-    It 'sorts by proposedTrackNumber and pairs each track''s own cueTimestamp as Start with the next track''s as End' {
+    It 'sorts by cueTimestamp (not proposedTrackNumber) and pairs each track''s own cueTimestamp as Start with the next track''s as End' {
         $t1 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '02 Second.flac' -ProposedTrackNumber 2 -CueTimestamp '00:03:00' -IsCueVirtualTrack $true
         $t2 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '01 First.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true
         $t3 = New-TestTrack -SourceFilePath (Join-Path $TestDrive 'cue.flac') -ProposedFileName '03 Third.flac' -ProposedTrackNumber 3 -CueTimestamp '00:07:30' -IsCueVirtualTrack $true
 
-        # Deliberately out of order - the function must sort by proposedTrackNumber itself.
+        # Deliberately out of order - the function must sort by cueTimestamp itself.
         $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks @($t1, $t2, $t3)
 
         $ranges.Count | Should -Be 3
@@ -585,6 +587,38 @@ Describe 'ConvertFrom-ReshelfCueTrackRanges' {
         $ranges[2].Track.proposedTrackNumber | Should -Be 3
         $ranges[2].StartTimestamp | Should -Be '7.400'
         $ranges[2].EndTimestamp | Should -BeNullOrEmpty
+    }
+
+    It 'groups by sourceFilePath instead of sorting the whole list together, for a per-disc-cue release with repeated track numbers' {
+        # Real shape of a per-disc-cue release (e.g. AC-DC "Stiff Upper Lip", CD 1/CD 2): each disc
+        # has its own source file, and proposedTrackNumber restarts at 1 on every disc - sorting
+        # globally by proposedTrackNumber would interleave the two discs' tracks and pair a disc 1
+        # track's start with a disc 2 track's start.
+        $disc1 = Join-Path $TestDrive 'disc1.flac'
+        $disc2 = Join-Path $TestDrive 'disc2.flac'
+        $d1t1 = New-TestTrack -SourceFilePath $disc1 -ProposedFileName '01 D1T1.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true -DiscFolder 'CD 1'
+        # Cue timestamps are MM:SS:FF (minutes:seconds:frames), not HH:MM:SS - '02:00:00' is 2
+        # minutes (120s), not 2 seconds.
+        $d1t2 = New-TestTrack -SourceFilePath $disc1 -ProposedFileName '02 D1T2.flac' -ProposedTrackNumber 2 -CueTimestamp '02:00:00' -IsCueVirtualTrack $true -DiscFolder 'CD 1'
+        $d2t1 = New-TestTrack -SourceFilePath $disc2 -ProposedFileName '01 D2T1.flac' -ProposedTrackNumber 1 -CueTimestamp '00:00:00' -IsCueVirtualTrack $true -DiscFolder 'CD 2'
+
+        $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks @($d1t1, $d1t2, $d2t1)
+
+        $ranges.Count | Should -Be 3
+        $disc1Ranges = @($ranges | Where-Object { $_.Track.sourceFilePath -eq $disc1 } | Sort-Object StartTimestamp)
+        $disc2Ranges = @($ranges | Where-Object { $_.Track.sourceFilePath -eq $disc2 } | Sort-Object StartTimestamp)
+        $disc1Ranges.Count | Should -Be 2
+        $disc2Ranges.Count | Should -Be 1
+
+        $disc1Ranges[0].StartTimestamp | Should -Be '0.000'
+        $disc1Ranges[0].EndTimestamp | Should -Be '120.000'
+        $disc1Ranges[1].StartTimestamp | Should -Be '120.000'
+        $disc1Ranges[1].EndTimestamp | Should -BeNullOrEmpty
+
+        # Disc 2's only track must end at $null (end of ITS OWN file), never at disc 1's first
+        # timestamp just because some disc-1 track shares the same proposedTrackNumber.
+        $disc2Ranges[0].StartTimestamp | Should -Be '0.000'
+        $disc2Ranges[0].EndTimestamp | Should -BeNullOrEmpty
     }
 
     It 'returns a single range with a null EndTimestamp for a single-track cue release' {
@@ -1414,7 +1448,35 @@ Describe 'Invoke-ReshelfImplementation' {
                     -ProposedTrackNumber 2 -ProposedTitle 'Breathe' -CueTimestamp '03:12:45' -IsCueVirtualTrack $true -Artist 'Pink Floyd' -Album 'Live In Concert' -Year 1994
 
                 return New-TestReleaseDoc -StableKey $StableKey -ArtistFolderName 'Pink Floyd' -ReleaseFolderName '1994 Live In Concert' `
-                    -Year 1994 -Album 'Live In Concert' -SourceFolderPath $script:cueReleaseDir -Tracks @($track1, $track2) -CueSheet $cueSheet
+                    -Year 1994 -Album 'Live In Concert' -SourceFolderPath $script:cueReleaseDir -Tracks @($track1, $track2) -CueSheets @($cueSheet)
+            }
+
+            function New-TestPerDiscCueRelease {
+                param([string]$StableKey = 'c2c2c2c2c2c2c2c2')
+
+                # Two discs, each its own cue image sharing no source file with the other - the real
+                # shape Reshelf.Recognition.psm1 now produces for a per-disc-cue release (e.g. AC-DC
+                # "Stiff Upper Lip", CD 1/CD 2 each with their own .flac + .cue).
+                $disc1Audio = Join-Path $script:cueReleaseDir 'CD 1' 'Disc One.flac'
+                $disc2Audio = Join-Path $script:cueReleaseDir 'CD 2' 'Disc Two.flac'
+                New-TestAudioFile -Path $disc1Audio | Out-Null
+                New-TestAudioFile -Path $disc2Audio | Out-Null
+
+                $cueSheet1 = [pscustomobject]@{ cueFilePath = Join-Path $script:cueReleaseDir 'CD 1' 'Disc One.cue'; audioFilePath = $disc1Audio }
+                $cueSheet2 = [pscustomobject]@{ cueFilePath = Join-Path $script:cueReleaseDir 'CD 2' 'Disc Two.cue'; audioFilePath = $disc2Audio }
+
+                # Deliberately the SAME proposedTrackNumber (1) on both discs' first track - the real
+                # numbering restarts per disc, and the split must still use each track's own
+                # cueTimestamp/sourceFilePath rather than a release-wide sort by proposedTrackNumber.
+                $track1 = New-TestTrack -SourceFilePath $disc1Audio -ProposedFileName '01 Disc One Track One.flac' `
+                    -ProposedTrackNumber 1 -ProposedDiscNumber 1 -ProposedTitle 'Disc One Track One' -CueTimestamp '00:00:00' -IsCueVirtualTrack $true -DiscFolder 'CD 1' -Artist 'Some Band' -Album 'Two Discs' -Year 2001
+                $track2 = New-TestTrack -SourceFilePath $disc1Audio -ProposedFileName '02 Disc One Track Two.flac' `
+                    -ProposedTrackNumber 2 -ProposedDiscNumber 1 -ProposedTitle 'Disc One Track Two' -CueTimestamp '00:02:00' -IsCueVirtualTrack $true -DiscFolder 'CD 1' -Artist 'Some Band' -Album 'Two Discs' -Year 2001
+                $track3 = New-TestTrack -SourceFilePath $disc2Audio -ProposedFileName '01 Disc Two Track One.flac' `
+                    -ProposedTrackNumber 1 -ProposedDiscNumber 2 -ProposedTitle 'Disc Two Track One' -CueTimestamp '00:00:00' -IsCueVirtualTrack $true -DiscFolder 'CD 2' -Artist 'Some Band' -Album 'Two Discs' -Year 2001
+
+                return New-TestReleaseDoc -StableKey $StableKey -ArtistFolderName 'Some Band' -ReleaseFolderName '2001 Two Discs' `
+                    -Year 2001 -Album 'Two Discs' -SourceFolderPath $script:cueReleaseDir -Tracks @($track1, $track2, $track3) -CueSheets @($cueSheet1, $cueSheet2)
             }
         }
 
@@ -1472,6 +1534,29 @@ Describe 'Invoke-ReshelfImplementation' {
             $result.Failed | Should -Be 1
             Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.cue') | Should -Be $true
             Test-Path -LiteralPath (Join-Path $script:cueReleaseDir 'Live In Concert.flac') | Should -Be $true
+        }
+
+        It 'splits a per-disc-cue release from each disc''s own source file, not one shared source' {
+            $release = New-TestPerDiscCueRelease
+            $session = New-TestSession -SourceRoot $script:sourceRoot -DataHome $script:dataHome
+            $proposalPath = Join-Path $script:dataHome 'sessions' $session.sessionId 'proposal.json'
+            New-TestProposalFile -Path $proposalPath -Document (New-TestProposalDocument -SessionId $session.sessionId -SourceRoot $script:sourceRoot -Releases @($release))
+
+            $result = Invoke-ReshelfImplementation -SessionId $session.sessionId -ProposalPath $proposalPath -TargetRoot $script:targetRoot `
+                -CopyMode copy -FfmpegPath 'ffmpeg.exe' -DataHome $script:dataHome
+
+            $result.Applied | Should -Be 1
+            $script:splitCalls.Count | Should -Be 3
+
+            $disc1Call = $script:splitCalls | Where-Object { $_.Output -like '*Disc One Track One*' }
+            $disc2Call = $script:splitCalls | Where-Object { $_.Output -like '*Disc Two Track One*' }
+            $disc1Call | Should -Not -BeNullOrEmpty
+            $disc2Call | Should -Not -BeNullOrEmpty
+
+            $finalReleasePath = Join-Path $script:targetRoot 'Some Band' '2001 Two Discs'
+            Test-Path -LiteralPath (Join-Path $finalReleasePath '01 Disc One Track One.flac') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path $finalReleasePath '02 Disc One Track Two.flac') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path $finalReleasePath '01 Disc Two Track One.flac') | Should -Be $true
         }
     }
 

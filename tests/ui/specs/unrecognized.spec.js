@@ -11,7 +11,7 @@ function addUnrecognizedEntry(seeded, entry) {
 }
 
 test.describe('unrecognized folders', () => {
-  test('a release-without-artist folder shows up in the sidebar and offers a ready "artist" override', async ({ page }) => {
+  test('a release-without-artist folder shows up in the sidebar with its path, reason and children', async ({ page }) => {
     const seeded = seedSession('unrecognized-artist');
     const entryPath = `${seeded.sourceFolderPath}\\edbl`;
     addUnrecognizedEntry(seeded, {
@@ -31,46 +31,21 @@ test.describe('unrecognized folders', () => {
     await expect(page.locator('#unrecognized-path')).toHaveText(entryPath);
     await expect(page.locator('#unrecognized-reason')).toHaveText('release-without-artist-suspected');
     await expect(page.locator('#unrecognized-children li')).toHaveCount(2);
-
-    // Kind defaults to "artist" for this reason, with the artist name pre-filled from the folder.
-    await expect(page.locator('#unrecognized-override-kind')).toHaveValue('artist');
-    const json = JSON.parse(await page.locator('#unrecognized-override-json').textContent());
-    expect(json.kind).toBe('artist');
-    expect(json.artistName).toBe('edbl');
-    expect(json.relativePath).toBe('edbl');
   });
 
-  test('a grouping-folder-suspected entry defaults to kind "grouping" with no artist name field', async ({ page }) => {
-    const seeded = seedSession('unrecognized-grouping');
+  test('a no-audio-files entry shows up in the sidebar the same way', async ({ page }) => {
+    const seeded = seedSession('unrecognized-no-audio');
     addUnrecognizedEntry(seeded, {
-      path: `${seeded.sourceFolderPath}\\Some Collective`,
-      reason: 'grouping-folder-suspected',
-      children: ['Member One', 'Member Two'],
+      path: `${seeded.sourceFolderPath}\\Empty Folder`,
+      reason: 'no-audio-files',
+      children: [],
     });
 
     await gotoApp(page);
-    await page.locator('.release-row').filter({ hasText: 'Some Collective' }).click();
+    await page.locator('.release-row').filter({ hasText: 'Empty Folder' }).click();
 
-    await expect(page.locator('#unrecognized-override-kind')).toHaveValue('grouping');
-    await expect(page.locator('#unrecognized-artist-name-field')).toBeHidden();
-    const json = JSON.parse(await page.locator('#unrecognized-override-json').textContent());
-    expect(json.kind).toBe('grouping');
-    expect(json.artistName).toBeNull();
-  });
-
-  test('changing the kind dropdown updates the generated JSON live', async ({ page }) => {
-    const seeded = seedSession('unrecognized-change-kind');
-    addUnrecognizedEntry(seeded, {
-      path: `${seeded.sourceFolderPath}\\Mystery Folder`,
-      reason: 'release-without-artist-suspected',
-      children: ['track.flac'],
-    });
-
-    await gotoApp(page);
-    await page.locator('.release-row').filter({ hasText: 'Mystery Folder' }).click();
-
-    await page.locator('#unrecognized-override-kind').selectOption('category');
-    const json = JSON.parse(await page.locator('#unrecognized-override-json').textContent());
-    expect(json.kind).toBe('category');
+    await expect(page.locator('#unrecognized-panel')).toBeVisible();
+    await expect(page.locator('#unrecognized-reason')).toHaveText('no-audio-files');
+    await expect(page.locator('#unrecognized-children li')).toHaveCount(0);
   });
 });

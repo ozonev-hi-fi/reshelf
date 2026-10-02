@@ -109,7 +109,7 @@ function Get-DiscogsCacheKey {
 function Remove-DiscogsExpiredCache {
     # The cache in Invoke-DiscogsRequest below is a RE-RUN cache, not an archive: it exists to
     # avoid re-querying and re-throttling on a retry after a failed 'propose', or across repeated
-    # 'propose' runs while tuning overrides.json (plan/12 milestone 3) - not to look up the same
+    # 'propose' runs while reviewing a session (plan/12 milestone 3) - not to look up the same
     # release again months later. A stale entry that's never re-queried was previously left on
     # disk forever (only overwritten if the exact same request happened again); this deletes it
     # for real instead, so the cache folder doesn't grow without bound across the tool's life.

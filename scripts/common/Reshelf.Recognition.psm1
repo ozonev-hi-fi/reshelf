@@ -93,6 +93,48 @@ function Test-IsCategorySubfolder {
     return [bool]($CategoryNames | Where-Object { $_ -ieq $Name })
 }
 
+function Test-IsAlbumWrapperFolder {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    # Real-world case (plan/12-ish): a release folder name ("yyyy - Title") sometimes wraps one or
+    # more "edition" subfolders instead of holding tracks directly - e.g.
+    # "AC-DC\1975 - T.N.T. (Australian Release)\1989 Australia Albert 465262 2\<tracks>". The leaf
+    # name still reads as a release (a leading year), but Test-IsReleaseFolder itself requires audio
+    # directly in the folder or in a *disc*-named subfolder, so this needs its own check.
+    $leafName = Split-Path -Leaf $Path
+    $yearSplit = Split-ReshelfLeadingYear -Text $leafName
+    if ($null -eq $yearSplit.Year) {
+        return $false
+    }
+
+    if ((Get-ReshelfAudioFilesInFolder -Path $Path).Count -gt 0) {
+        return $false
+    }
+
+    $subfolders = @(Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue)
+    $releaseSubfolders = @($subfolders | Where-Object { Test-IsReleaseFolder -Path $_.FullName })
+    if ($releaseSubfolders.Count -eq 0) {
+        return $false
+    }
+
+    # Every subfolder that has audio anywhere below it must itself be a release folder - otherwise
+    # there's an unknown layer of nesting still hiding below (e.g. a genuine band-member folder),
+    # and this shouldn't silently swallow it as if it were just another edition.
+    foreach ($sub in $subfolders) {
+        if ($releaseSubfolders -contains $sub) { continue }
+        if ((Get-ReshelfAudioFilesInFolder -Path $sub.FullName -Recurse).Count -gt 0) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Test-IsGroupingFolder {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -115,6 +157,7 @@ function Test-IsGroupingFolder {
         if (Test-IsReleaseFolder -Path $sub.FullName) { return $false }
         if (Test-IsDiscFolder -Name $sub.Name) { return $false }
         if (Test-IsCategorySubfolder -Name $sub.Name) { return $false }
+        if (Test-IsAlbumWrapperFolder -Path $sub.FullName) { return $false }
     }
 
     return $true
@@ -311,6 +354,90 @@ function ConvertFrom-ReshelfCueSheet {
     return @($tracks | Sort-Object Number)
 }
 
+function New-ReshelfCueVirtualTracks {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileInfo]$AudioFile,
+
+        [Parameter(Mandatory)]
+        [System.IO.FileInfo]$CueFile,
+
+        # The disc subfolder this cue/audio pair lives in, for a per-disc-cue release ("CD 1", "CD
+        # 2", ...) - $null for a whole-release cue with no disc subfolders.
+        [string]$DiscFolderName
+    )
+
+    $tracks = [System.Collections.Generic.List[object]]::new()
+    $reviewReasons = [System.Collections.Generic.List[string]]::new()
+    $needsReview = $false
+
+    $audioTags = Get-ReshelfAudioTags -Path $AudioFile.FullName
+    if ($audioTags.PropertiesUnavailable) {
+        $needsReview = $true
+        $reviewReasons.Add('audio-properties-unreadable')
+    }
+    # ffmpeg has no ape encoder/muxer (see Invoke-ReshelfFfmpegSplit in Reshelf.Implementation.psm1),
+    # so a cue split of an .ape source can never stream-copy into .ape - it re-encodes to .flac
+    # instead. Naming these tracks 'flac' here keeps proposedFileName (Reshelf.EditProposal.psm1) in
+    # sync with what the split actually produces. Still fully lossless - isLossless below is untouched.
+    $cueSplitFormat = if ($audioTags.Format -eq 'ape') { 'flac' } else { $audioTags.Format }
+    $cueTracks = ConvertFrom-ReshelfCueSheet -CueFilePath $CueFile.FullName
+
+    if ($null -eq $cueTracks) {
+        $needsReview = $true
+        $reviewReasons.Add('unparseable-cue-sheet')
+        $tracks.Add([pscustomobject]@{
+                sourceFilePath            = $AudioFile.FullName
+                discFolder                = $DiscFolderName
+                originalFileName          = $AudioFile.Name
+                detectedTrackNumberInDisc = 1
+                inferredTrackOrder        = $true
+                existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
+                existingCoverArtPath      = $audioTags.EmbeddedCoverPath
+                format                    = $cueSplitFormat
+                isLossless                = $audioTags.IsLossless
+                durationSeconds           = $audioTags.DurationSeconds
+                cueTimestamp              = '00:00:00'
+                isCueVirtualTrack         = $true
+            })
+    }
+    else {
+        # Each cue track's own duration is the gap to the next track's start (or, for the last
+        # track, the gap to the whole file's end) - a flat copy of the whole-file duration onto
+        # every track (as this used to do) is wrong for every track but the first.
+        # ConvertFrom-ReshelfCueSheet already returns tracks sorted by Number.
+        $cueTracksSorted = @($cueTracks)
+        for ($i = 0; $i -lt $cueTracksSorted.Count; $i++) {
+            $cueTrack = $cueTracksSorted[$i]
+            $startSeconds = ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTrack.Timestamp
+            $endSeconds = if ($i -lt ($cueTracksSorted.Count - 1)) {
+                ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTracksSorted[$i + 1].Timestamp
+            }
+            else {
+                $audioTags.DurationSeconds
+            }
+            $tracks.Add([pscustomobject]@{
+                    sourceFilePath            = $AudioFile.FullName
+                    discFolder                = $DiscFolderName
+                    originalFileName          = $AudioFile.Name
+                    detectedTrackNumberInDisc = $cueTrack.Number
+                    inferredTrackOrder        = $false
+                    existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $cueTrack.Title }
+                    existingCoverArtPath      = $audioTags.EmbeddedCoverPath
+                    format                    = $cueSplitFormat
+                    isLossless                = $audioTags.IsLossless
+                    durationSeconds           = [Math]::Round(($endSeconds - $startSeconds), 3)
+                    cueTimestamp              = $cueTrack.Timestamp
+                    isCueVirtualTrack         = $true
+                })
+        }
+    }
+
+    return [pscustomobject]@{ Tracks = @($tracks); ReviewReasons = @($reviewReasons); NeedsReview = $needsReview }
+}
+
 # --- Companion files ----------------------------------------------------------
 
 function Resolve-ReshelfCompanionKind {
@@ -350,11 +477,12 @@ function Get-ReshelfCompanionFiles {
         [Parameter(Mandatory)]
         [string]$Path,
 
-        # The cue sheet actually used to split this release's tracks (see Test-IsCueSheetRelease
-        # above), if any. That one file is superseded by the split and must stay silently excluded
-        # here - it's neither a companion nor something to flag. Any *other* .cue sitting in the
-        # folder is not used for anything, so it must not just vanish; it's routed to Ignored below.
-        [string]$CueSheetPath
+        # The cue sheet(s) actually used to split this release's tracks (see Test-IsCueSheetRelease
+        # above) - one per disc for a per-disc-cue release, or a single entry for a whole-release cue.
+        # Those files are superseded by the split and must stay silently excluded here - they're
+        # neither companions nor something to flag. Any *other* .cue sitting in the folder is not
+        # used for anything, so it must not just vanish; it's routed to Ignored below.
+        [string[]]$CueSheetPaths = @()
     )
 
     $companions = [System.Collections.Generic.List[object]]::new()
@@ -369,7 +497,7 @@ function Get-ReshelfCompanionFiles {
         $ext = $file.Extension.ToLowerInvariant()
         if (Test-ReshelfIsAudioExtension -Extension $ext) { continue }
         if ($ext -eq '.cue') {
-            if ($CueSheetPath -and $file.FullName -eq $CueSheetPath) { continue }
+            if ($CueSheetPaths -contains $file.FullName) { continue }
             $ignored.Add([pscustomobject]@{ sourcePath = $file.FullName; reason = 'cue-sheet-not-used' })
             continue
         }
@@ -525,67 +653,6 @@ function Resolve-ReshelfArtistAlbumFromTags {
     return [pscustomobject]@{ Artist = $artist; Album = $album }
 }
 
-# --- Overrides -----------------------------------------------------------------
-
-function Get-ReshelfOverridesFileHash {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$SourceRoot
-    )
-
-    $normalized = $SourceRoot.TrimEnd('\', '/').ToLowerInvariant()
-    return Get-ReshelfSha256Hex -Text $normalized
-}
-
-function Get-ReshelfOverrides {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$SourceRoot,
-
-        [string]$DataHome,
-
-        [string]$OverridesPath
-    )
-
-    if (-not $OverridesPath) {
-        if (-not $DataHome) { $DataHome = Resolve-ReshelfDataHome }
-        $hash = Get-ReshelfOverridesFileHash -SourceRoot $SourceRoot
-        $OverridesPath = Join-Path $DataHome 'overrides' "$hash.json"
-    }
-
-    if (-not (Test-Path -LiteralPath $OverridesPath -PathType Leaf)) {
-        return [pscustomobject]@{ schemaVersion = 1; sourceRoot = $SourceRoot; entries = @() }
-    }
-
-    if (-not (Test-ReshelfJson -SchemaName overrides -Path $OverridesPath)) {
-        throw "Overrides file at '$OverridesPath' does not match the overrides schema."
-    }
-
-    return Get-Content -LiteralPath $OverridesPath -Raw | ConvertFrom-Json
-}
-
-function Resolve-ReshelfFolderOverride {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [object]$Overrides,
-
-        [Parameter(Mandatory)]
-        [string]$RelativePath
-    )
-
-    $normalized = ($RelativePath -replace '\\', '/').ToLowerInvariant()
-
-    return @($Overrides.entries) | Where-Object {
-        (($_.relativePath -replace '\\', '/').ToLowerInvariant()) -eq $normalized
-    } | Select-Object -First 1
-}
-
-# Get-ReshelfRelativePath itself now lives in Reshelf.Common.psm1 (shared with
-# Reshelf.Implementation.psm1's companion-path resolution) - already imported above.
-
 # --- Orchestration ---------------------------------------------------------------
 
 function Resolve-ReshelfFolderKind {
@@ -597,26 +664,8 @@ function Resolve-ReshelfFolderKind {
         [Parameter(Mandatory)]
         [string]$Context,
 
-        [string]$ArtistName,
-
-        [Parameter(Mandatory)]
-        [object]$Overrides,
-
-        [Parameter(Mandatory)]
-        [string]$SourceRoot
+        [string]$ArtistName
     )
-
-    $relativePath = Get-ReshelfRelativePath -SourceRoot $SourceRoot -Path $Path
-    $override = Resolve-ReshelfFolderOverride -Overrides $Overrides -RelativePath $relativePath
-
-    if ($override) {
-        switch ($override.kind) {
-            'grouping' { return [pscustomobject]@{ Kind = 'grouping'; IsOverrideResolved = $true } }
-            'category' { return [pscustomobject]@{ Kind = 'category'; ParentArtistName = $override.parentArtistName } }
-            'band-member' { return [pscustomobject]@{ Kind = 'band-member'; ArtistNameOverride = $override.artistName } }
-            'artist' { return [pscustomobject]@{ Kind = 'release'; OverrideArtistName = $override.artistName } }
-        }
-    }
 
     $leafName = Split-Path -Leaf $Path
     $inArtistLikeBody = $Context -in @('ArtistBody', 'CategoryBody', 'BandMemberBody')
@@ -629,12 +678,16 @@ function Resolve-ReshelfFolderKind {
         return [pscustomobject]@{ Kind = 'release' }
     }
 
+    if (Test-IsAlbumWrapperFolder -Path $Path) {
+        return [pscustomobject]@{ Kind = 'album-wrapper' }
+    }
+
     if ($inArtistLikeBody -and $ArtistName -and (Test-IsBandMemberFolder -Path $Path -ParentArtistName $ArtistName)) {
         return [pscustomobject]@{ Kind = 'band-member' }
     }
 
     if (Test-IsGroupingFolder -Path $Path) {
-        return [pscustomobject]@{ Kind = 'grouping'; IsOverrideResolved = $false }
+        return [pscustomobject]@{ Kind = 'grouping' }
     }
 
     $hasAnyAudio = (Get-ReshelfAudioFilesInFolder -Path $Path -Recurse).Count -gt 0
@@ -672,6 +725,27 @@ function New-ReshelfUnrecognizedEntry {
     )
 
     return [pscustomobject]@{ path = $Path; reason = $Reason; children = @($Children) }
+}
+
+function Add-ReshelfInheritedReviewReasons {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Release,
+
+        # Review reasons that apply to this release because of something an ancestor folder in the
+        # walk already decided (e.g. 'grouping-folder-auto-resolved' - every release found below a
+        # grouping folder is auto-classified rather than human-confirmed, so it still needs a look).
+        [string[]]$InheritedReviewReasons = @()
+    )
+
+    if ($InheritedReviewReasons.Count -gt 0) {
+        $Release.needsReview = $true
+        $Release.reviewReasons = @(@($Release.reviewReasons) + $InheritedReviewReasons | Select-Object -Unique)
+    }
+
+    return $Release
 }
 
 function Merge-ReshelfArtistBucket {
@@ -747,14 +821,24 @@ function Remove-ReshelfArtistNamePrefixFromTitle {
     # with just "Blackout" returns real matches - so this is a deterministic, non-ambiguous cleanup,
     # not a guess that belongs in reviewReasons/needsReview like New-ReshelfReleaseRecord's other
     # splitting heuristics.
-    $pattern = '^\s*' + [regex]::Escape($ArtistName) + '\s*[-:–—]\s*'
+    # Real-world case (Aerosmith "Aerosmith (1973) - Aerosmith [USA CK 32005]"): the year can also sit
+    # in parentheses/brackets between the artist name and the separator.
+    $pattern = '^\s*' + [regex]::Escape($ArtistName) + '\s*(?:[\(\[]\s*(?<year>\d{4})\s*[\)\]]\s*)?[-:–—]\s*'
     $match = [regex]::Match($Title, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
     if ($match.Success -and $match.Length -lt $Title.Length) {
-        return [pscustomobject]@{ Title = $Title.Substring($match.Length); WasStripped = $true }
+        $year = $null
+        if ($match.Groups['year'].Success) {
+            $year = [int]$match.Groups['year'].Value
+            # Same bound as Split-ReshelfLeadingYear - a 4-digit catalog number is not a year.
+            if ($year -lt 1900 -or $year -gt 2100) {
+                return [pscustomobject]@{ Title = $Title; WasStripped = $false; Year = $null }
+            }
+        }
+        return [pscustomobject]@{ Title = $Title.Substring($match.Length); WasStripped = $true; Year = $year }
     }
 
-    return [pscustomobject]@{ Title = $Title; WasStripped = $false }
+    return [pscustomobject]@{ Title = $Title; WasStripped = $false; Year = $null }
 }
 
 function New-ReshelfReleaseRecord {
@@ -768,8 +852,21 @@ function New-ReshelfReleaseRecord {
 
         # When set, used instead of $Path's own leaf name for year/title parsing - needed when the
         # caller already stripped an artist-name prefix off the real on-disk folder name (see
-        # Invoke-ReshelfFolderWalk's 'release' branch) and the real $Path can't reflect that.
-        [string]$FolderNameOverride
+        # Invoke-ReshelfFolderWalk's 'release' branch) and the real $Path can't reflect that. Also
+        # used by the 'album-wrapper' branch, where $Path is the edition subfolder but title/year
+        # must come from the album folder's own name instead.
+        [string]$FolderNameOverride,
+
+        # Set by the 'album-wrapper' branch when $Path is an edition/pressing subfolder nested
+        # inside an album folder (e.g. "1989 Australia Albert 465262 2" inside
+        # "1975 - T.N.T. (Australian Release)") - stored as-is, never parsed for year/title.
+        [string]$EditionFolderName,
+
+        # Set by the 'album-wrapper' branch only when an album folder holds more than one edition
+        # subfolder - folds the edition folder name into the stableKey's album text so each edition
+        # gets a distinct key (recognizedTitle/recognizedYear alone would collide, since they all
+        # come from the same album folder name).
+        [string]$StableKeyDisambiguator
     )
 
     $leafName = if ($FolderNameOverride) { $FolderNameOverride } else { Split-Path -Leaf $Path }
@@ -785,6 +882,10 @@ function New-ReshelfReleaseRecord {
     if ($prefixStrip.WasStripped) {
         $title = $prefixStrip.Title
         $recognitionFlags.Add('artist-name-prefix-stripped')
+
+        if ($null -eq $year -and $null -ne $prefixStrip.Year) {
+            $year = $prefixStrip.Year
+        }
 
         # Real-world case (Nostromo's "Nostromo - 1998 - Argue FLAC"): the year sits between the
         # artist-name prefix and the title, so the leading-year parse above never saw it - only
@@ -804,76 +905,18 @@ function New-ReshelfReleaseRecord {
 
     $discFolders = Get-ReshelfDiscFolders -Path $Path
     $tracks = [System.Collections.Generic.List[object]]::new()
-    $cueSheet = $null
+    $cueSheets = [System.Collections.Generic.List[object]]::new()
 
     if ($discFolders.Count -eq 0) {
         if (Test-IsCueSheetRelease -Path $Path) {
             $audioFile = (Get-ReshelfAudioFilesInFolder -Path $Path)[0]
             $cueFilesHere = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
             $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
-            $cueSheet = [pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName }
-            $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
-            if ($audioTags.PropertiesUnavailable) {
-                $needsReview = $true
-                $reviewReasons.Add('audio-properties-unreadable')
-            }
-            # ffmpeg has no ape encoder/muxer (see Invoke-ReshelfFfmpegSplit in
-            # Reshelf.Implementation.psm1), so a cue split of an .ape source can never stream-copy
-            # into .ape - it re-encodes to .flac instead. Naming these tracks 'flac' here keeps
-            # proposedFileName (Reshelf.EditProposal.psm1) in sync with what the split actually
-            # produces. Still fully lossless - isLossless below is untouched.
-            $cueSplitFormat = if ($audioTags.Format -eq 'ape') { 'flac' } else { $audioTags.Format }
-            $cueTracks = ConvertFrom-ReshelfCueSheet -CueFilePath $cueFile.FullName
-
-            if ($null -eq $cueTracks) {
-                $needsReview = $true
-                $reviewReasons.Add('unparseable-cue-sheet')
-                $tracks.Add([pscustomobject]@{
-                        sourceFilePath            = $audioFile.FullName
-                        discFolder                = $null
-                        originalFileName          = $audioFile.Name
-                        detectedTrackNumberInDisc = 1
-                        inferredTrackOrder        = $true
-                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
-                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
-                        format                    = $cueSplitFormat
-                        isLossless                = $audioTags.IsLossless
-                        durationSeconds           = $audioTags.DurationSeconds
-                        cueTimestamp              = '00:00:00'
-                        isCueVirtualTrack         = $true
-                    })
-            }
-            else {
-                # Each cue track's own duration is the gap to the next track's start (or, for the
-                # last track, the gap to the whole file's end) - a flat copy of the whole-file
-                # duration onto every track (as this used to do) is wrong for every track but the
-                # first. ConvertFrom-ReshelfCueSheet already returns tracks sorted by Number.
-                $cueTracksSorted = @($cueTracks)
-                for ($i = 0; $i -lt $cueTracksSorted.Count; $i++) {
-                    $cueTrack = $cueTracksSorted[$i]
-                    $startSeconds = ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTrack.Timestamp
-                    $endSeconds = if ($i -lt ($cueTracksSorted.Count - 1)) {
-                        ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $cueTracksSorted[$i + 1].Timestamp
-                    }
-                    else {
-                        $audioTags.DurationSeconds
-                    }
-                    $tracks.Add([pscustomobject]@{
-                            sourceFilePath            = $audioFile.FullName
-                            discFolder                = $null
-                            originalFileName          = $audioFile.Name
-                            detectedTrackNumberInDisc = $cueTrack.Number
-                            inferredTrackOrder        = $false
-                            existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $cueTrack.Title }
-                            existingCoverArtPath      = $audioTags.EmbeddedCoverPath
-                            format                    = $cueSplitFormat
-                            isLossless                = $audioTags.IsLossless
-                            durationSeconds           = [Math]::Round(($endSeconds - $startSeconds), 3)
-                            cueTimestamp              = $cueTrack.Timestamp
-                            isCueVirtualTrack         = $true
-                        })
-                }
-            }
+            $cueSheets.Add([pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName })
+            $cueResult = New-ReshelfCueVirtualTracks -AudioFile $audioFile -CueFile $cueFile -DiscFolderName $null
+            $tracks.AddRange([object[]]$cueResult.Tracks)
+            if ($cueResult.NeedsReview) { $needsReview = $true }
+            foreach ($reason in $cueResult.ReviewReasons) { $reviewReasons.Add($reason) }
         }
         else {
             $ordered = Get-ReshelfTrackOrder -AudioFiles (Get-ReshelfAudioFilesInFolder -Path $Path)
@@ -911,28 +954,14 @@ function New-ReshelfReleaseRecord {
     else {
         foreach ($discFolder in $discFolders) {
             if (Test-IsCueSheetRelease -Path $discFolder.FullName) {
-                $needsReview = $true
-                $reviewReasons.Add('per-disc-cue-not-yet-supported')
                 $audioFile = (Get-ReshelfAudioFilesInFolder -Path $discFolder.FullName)[0]
-                $audioTags = Get-ReshelfAudioTags -Path $audioFile.FullName
-                if ($audioTags.PropertiesUnavailable) {
-                    $needsReview = $true
-                    $reviewReasons.Add('audio-properties-unreadable')
-                }
-                $tracks.Add([pscustomobject]@{
-                        sourceFilePath            = $audioFile.FullName
-                        discFolder                = $discFolder.Name
-                        originalFileName          = $audioFile.Name
-                        detectedTrackNumberInDisc = 1
-                        inferredTrackOrder        = $true
-                        existingTags              = [pscustomobject]@{ artist = $audioTags.Artist; album = $audioTags.Album; title = $audioTags.Title }
-                        existingCoverArtPath      = $audioTags.EmbeddedCoverPath
-                        format                    = $audioTags.Format
-                        isLossless                = $audioTags.IsLossless
-                        durationSeconds           = $audioTags.DurationSeconds
-                        cueTimestamp              = $null
-                        isCueVirtualTrack         = $false
-                    })
+                $cueFilesHere = @(Get-ChildItem -LiteralPath $discFolder.FullName -File -Filter '*.cue' -ErrorAction SilentlyContinue)
+                $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
+                $cueSheets.Add([pscustomobject]@{ cueFilePath = $cueFile.FullName; audioFilePath = $audioFile.FullName })
+                $cueResult = New-ReshelfCueVirtualTracks -AudioFile $audioFile -CueFile $cueFile -DiscFolderName $discFolder.Name
+                $tracks.AddRange([object[]]$cueResult.Tracks)
+                if ($cueResult.NeedsReview) { $needsReview = $true }
+                foreach ($reason in $cueResult.ReviewReasons) { $reviewReasons.Add($reason) }
                 continue
             }
 
@@ -995,22 +1024,25 @@ function New-ReshelfReleaseRecord {
         }
     }
 
-    $companions = Get-ReshelfCompanionFiles -Path $Path -CueSheetPath $cueSheet.cueFilePath
+    $companions = Get-ReshelfCompanionFiles -Path $Path -CueSheetPaths @($cueSheets.cueFilePath)
 
     $confidence = 1.0
     if ($recognitionFlags.Count -gt 0) { $confidence = 0.8 }
     if ($needsReview) { $confidence = 0.5 }
 
+    $stableKeyAlbum = if ($StableKeyDisambiguator) { "$title [$StableKeyDisambiguator]" } else { $title }
+
     return [pscustomobject]@{
-        stableKey              = Get-ReshelfStableKey -Artist $ArtistName -Album $title -Year $year
+        stableKey              = Get-ReshelfStableKey -Artist $ArtistName -Album $stableKeyAlbum -Year $year
         recognizedTitle        = $title
         recognizedYear         = $year
+        editionFolderName      = if ($EditionFolderName) { $EditionFolderName } else { $null }
         sourceFolderPath       = $Path
         discFolderCount        = [Math]::Max(1, $discFolders.Count)
         tracks                 = @($tracks)
         companionFiles         = @($companions.Companions)
         ignoredFiles           = @($companions.Ignored)
-        cueSheet               = $cueSheet
+        cueSheets              = @($cueSheets)
         recognitionConfidence  = $confidence
         recognitionFlags       = @($recognitionFlags | Select-Object -Unique)
         needsReview            = $needsReview
@@ -1030,33 +1062,32 @@ function Invoke-ReshelfFolderWalk {
         [string]$ArtistName,
 
         [Parameter(Mandatory)]
-        [object]$Overrides,
-
-        [Parameter(Mandatory)]
-        [string]$SourceRoot,
-
-        [Parameter(Mandatory)]
         [AllowEmptyCollection()]
         [System.Collections.Generic.Dictionary[string, object]]$ArtistsMap,
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [System.Collections.Generic.List[object]]$UnrecognizedList
+        [System.Collections.Generic.List[object]]$UnrecognizedList,
+
+        # Review reasons every release found below here must carry, because an ancestor folder in
+        # this same walk was already auto-classified rather than human-confirmed (currently just a
+        # grouping folder - see the 'grouping' case below).
+        [string[]]$InheritedReviewReasons = @()
     )
 
     $children = @(Get-ChildItem -LiteralPath $Dir -Directory -ErrorAction SilentlyContinue)
 
     foreach ($child in $children) {
-        $kind = Resolve-ReshelfFolderKind -Path $child.FullName -Context $Context -ArtistName $ArtistName -Overrides $Overrides -SourceRoot $SourceRoot
+        $kind = Resolve-ReshelfFolderKind -Path $child.FullName -Context $Context -ArtistName $ArtistName
 
         switch ($kind.Kind) {
             'release' {
-                $targetArtist = if ($ArtistName) { $ArtistName } elseif ($kind.OverrideArtistName) { $kind.OverrideArtistName } else { $null }
+                $targetArtist = $ArtistName
                 if (-not $targetArtist) {
-                    # No artist context and no override - see if the folder name itself is a flat
-                    # "Artist - Album" pairing (e.g. "PULSAR OLYMP - 94Shine") before giving up. A
-                    # guessed split is never silently trusted: it always forces human review (see
-                    # plan/10's "nothing ambiguous is auto-guessed" principle).
+                    # No artist context - see if the folder name itself is a flat "Artist - Album"
+                    # pairing (e.g. "PULSAR OLYMP - 94Shine") before giving up. A guessed split is
+                    # never silently trusted: it always forces human review (see plan/10's "nothing
+                    # ambiguous is auto-guessed" principle).
                     if ($child.Name -match '^(.+?)\s+-\s+(.+)$') {
                         $splitArtist = $Matches[1].Trim()
                         $splitFolderName = $Matches[2].Trim()
@@ -1064,6 +1095,7 @@ function Invoke-ReshelfFolderWalk {
                             $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $splitArtist -FolderNameOverride $splitFolderName
                             $release.needsReview = $true
                             $release.reviewReasons = @($release.reviewReasons) + 'artist-name-split-from-folder-name'
+                            $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
                             Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
                             continue
                         }
@@ -1073,6 +1105,7 @@ function Invoke-ReshelfFolderWalk {
                         $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $tagInfo.Artist -FolderNameOverride $tagInfo.Album
                         $release.needsReview = $true
                         $release.reviewReasons = @($release.reviewReasons) + 'artist-and-album-from-tags'
+                        $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
                         Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $tagInfo.Artist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
                         continue
                     }
@@ -1081,32 +1114,92 @@ function Invoke-ReshelfFolderWalk {
                     continue
                 }
                 $release = New-ReshelfReleaseRecord -Path $child.FullName -ArtistName $targetArtist
+                $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
                 Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $targetArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+            }
+            'album-wrapper' {
+                # A release folder ("yyyy - Title") that wraps one or more edition/pressing
+                # subfolders instead of holding tracks directly - e.g.
+                # "AC-DC\1975 - T.N.T. (Australian Release)\1989 Australia Albert 465262 2\<tracks>".
+                # Title/year always come from this album folder's own name, never the edition
+                # folder's - see Test-IsAlbumWrapperFolder above.
+                $albumFolderName = $child.Name
+                $editionFolders = @(Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue |
+                        Where-Object { Test-IsReleaseFolder -Path $_.FullName })
+                $hasMultipleEditions = $editionFolders.Count -gt 1
+                $hasLooseFiles = @(Get-ChildItem -LiteralPath $child.FullName -File -ErrorAction SilentlyContinue).Count -gt 0
+
+                foreach ($editionFolder in $editionFolders) {
+                    $disambiguator = if ($hasMultipleEditions) { $editionFolder.Name } else { $null }
+                    $extraReviewReasons = [System.Collections.Generic.List[string]]::new()
+                    if ($hasMultipleEditions) { $extraReviewReasons.Add('multiple-editions-in-album-folder') }
+                    if ($hasLooseFiles) { $extraReviewReasons.Add('album-folder-has-loose-files') }
+
+                    $targetArtist = $ArtistName
+                    if (-not $targetArtist) {
+                        # Same no-artist fallback as the 'release' case above, but splitting the
+                        # ALBUM folder's own name (not the edition folder's).
+                        if ($albumFolderName -match '^(.+?)\s+-\s+(.+)$') {
+                            $splitArtist = $Matches[1].Trim()
+                            $splitFolderName = $Matches[2].Trim()
+                            if ($splitArtist -and $splitFolderName) {
+                                $release = New-ReshelfReleaseRecord -Path $editionFolder.FullName -ArtistName $splitArtist `
+                                    -FolderNameOverride $splitFolderName -EditionFolderName $editionFolder.Name -StableKeyDisambiguator $disambiguator
+                                $release.needsReview = $true
+                                $release.reviewReasons = @($release.reviewReasons) + 'artist-name-split-from-folder-name' + @($extraReviewReasons)
+                                $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
+                                Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $splitArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                                continue
+                            }
+                        }
+                        $tagInfo = Resolve-ReshelfArtistAlbumFromTags -Path $editionFolder.FullName
+                        if ($tagInfo) {
+                            $release = New-ReshelfReleaseRecord -Path $editionFolder.FullName -ArtistName $tagInfo.Artist `
+                                -FolderNameOverride $tagInfo.Album -EditionFolderName $editionFolder.Name -StableKeyDisambiguator $disambiguator
+                            $release.needsReview = $true
+                            $release.reviewReasons = @($release.reviewReasons) + 'artist-and-album-from-tags' + @($extraReviewReasons)
+                            $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
+                            Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $tagInfo.Artist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                            continue
+                        }
+                        $childNames = @((Get-ChildItem -LiteralPath $editionFolder.FullName -ErrorAction SilentlyContinue).Name)
+                        $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $editionFolder.FullName -Reason 'release-without-artist-suspected' -Children $childNames))
+                        continue
+                    }
+
+                    $release = New-ReshelfReleaseRecord -Path $editionFolder.FullName -ArtistName $targetArtist `
+                        -FolderNameOverride $albumFolderName -EditionFolderName $editionFolder.Name -StableKeyDisambiguator $disambiguator
+                    if ($extraReviewReasons.Count -gt 0) {
+                        $release.needsReview = $true
+                        $release.reviewReasons = @($release.reviewReasons) + @($extraReviewReasons)
+                    }
+                    $release = Add-ReshelfInheritedReviewReasons -Release $release -InheritedReviewReasons $InheritedReviewReasons
+                    Merge-ReshelfArtistBucket -ArtistsMap $ArtistsMap -ArtistName $targetArtist -ReleaseFolderParent (Split-Path -Parent $child.FullName) -Release $release
+                }
             }
             'category' {
                 $parentArtist = if ($kind.ParentArtistName) { $kind.ParentArtistName } else { $ArtistName }
-                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'CategoryBody' -ArtistName $parentArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'CategoryBody' -ArtistName $parentArtist -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList -InheritedReviewReasons $InheritedReviewReasons
             }
             'band-member' {
-                $newArtist = if ($kind.ArtistNameOverride) { $kind.ArtistNameOverride } else { $child.Name }
-                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'BandMemberBody' -ArtistName $newArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context 'BandMemberBody' -ArtistName $child.Name -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList -InheritedReviewReasons $InheritedReviewReasons
             }
             'grouping' {
-                if ($kind.IsOverrideResolved) {
-                    $grandchildren = @(Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue)
-                    foreach ($grandchild in $grandchildren) {
-                        Invoke-ReshelfFolderWalk -Dir $grandchild.FullName -Context 'ArtistBody' -ArtistName $grandchild.Name -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
-                    }
-                }
-                else {
-                    $childNames = @((Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue).Name)
-                    $UnrecognizedList.Add((New-ReshelfUnrecognizedEntry -Path $child.FullName -Reason 'grouping-folder-suspected' -Children $childNames))
+                # Not an override escape hatch anymore - every grouping folder is walked, with each
+                # subfolder treated as its own artist. Nothing ambiguous is auto-guessed silently
+                # though (plan/10): every release found this way is flagged for a human to confirm,
+                # since there's no name-based check that the subfolders really are distinct artists.
+                $grandchildren = @(Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue)
+                foreach ($grandchild in $grandchildren) {
+                    Invoke-ReshelfFolderWalk -Dir $grandchild.FullName -Context 'ArtistBody' -ArtistName $grandchild.Name `
+                        -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList `
+                        -InheritedReviewReasons (@($InheritedReviewReasons) + 'grouping-folder-auto-resolved')
                 }
             }
             'pass-through' {
                 $nextArtist = if ($kind.NewArtistName) { $kind.NewArtistName } else { $ArtistName }
                 $nextContext = if ($Context -eq 'Root') { 'ArtistBody' } else { $Context }
-                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context $nextContext -ArtistName $nextArtist -Overrides $Overrides -SourceRoot $SourceRoot -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList
+                Invoke-ReshelfFolderWalk -Dir $child.FullName -Context $nextContext -ArtistName $nextArtist -ArtistsMap $ArtistsMap -UnrecognizedList $UnrecognizedList -InheritedReviewReasons $InheritedReviewReasons
             }
             'unrecognized' {
                 $childNames = @((Get-ChildItem -LiteralPath $child.FullName -ErrorAction SilentlyContinue).Name)
@@ -1164,8 +1257,6 @@ function Invoke-ReshelfRecognition {
 
         [string]$DataHome,
 
-        [string]$OverridesPath,
-
         [string]$TagLibSharpPath
     )
 
@@ -1178,15 +1269,11 @@ function Invoke-ReshelfRecognition {
 
     Set-ReshelfTagLibSharpContext -TagLibSharpPath $TagLibSharpPath -DataHome $DataHome
 
-    $overridesParams = @{ SourceRoot = $resolvedSourceRoot }
-    if ($OverridesPath) { $overridesParams['OverridesPath'] = $OverridesPath } else { $overridesParams['DataHome'] = $DataHome }
-    $overrides = Get-ReshelfOverrides @overridesParams
-
     $artistsMap = [System.Collections.Generic.Dictionary[string, object]]::new()
     $unrecognizedList = [System.Collections.Generic.List[object]]::new()
 
     Invoke-ReshelfFolderWalk -Dir $resolvedSourceRoot -Context 'Root' -ArtistName $null `
-        -Overrides $overrides -SourceRoot $resolvedSourceRoot -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
+        -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
 
     $document = New-ReshelfRecognitionDocument -SessionId $SessionId -SourceRoot $resolvedSourceRoot -ArtistsMap $artistsMap -UnrecognizedList $unrecognizedList
 

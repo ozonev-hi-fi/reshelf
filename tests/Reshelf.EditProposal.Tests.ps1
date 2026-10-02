@@ -218,12 +218,13 @@ BeforeAll {
             stableKey             = $StableKey
             recognizedTitle       = $RecognizedTitle
             recognizedYear        = $RecognizedYear
+            editionFolderName     = $null
             sourceFolderPath      = $SourceFolderPath
             discFolderCount       = $DiscFolderCount
             tracks                = $Tracks
             companionFiles        = $CompanionFiles
             ignoredFiles          = @()
-            cueSheet              = $null
+            cueSheets             = @()
             recognitionConfidence = 1.0
             recognitionFlags      = @()
             needsReview           = $NeedsReview
@@ -348,6 +349,37 @@ Describe 'Get-ReshelfDiscogsCandidateScore (private)' {
             $candidate = [pscustomobject]@{ title = 'Grails - Redlight'; year = '2004'; format = @('CD', 'Album') }
             $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Grails' -ExpectedTitle 'Red Light' -ExpectedYear 2004 -Candidate $candidate
             $score | Should -BeGreaterOrEqual 0.85
+        }
+    }
+
+    It 'scores an exact-title compilation below the same album, but still at the threshold' {
+        InModuleScope Reshelf.EditProposal {
+            $album = [pscustomobject]@{ title = 'Some Band - Greatest Hits'; year = '2001'; format = @('CD', 'Album') }
+            $compilation = [pscustomobject]@{ title = 'Some Band - Greatest Hits'; year = '2001'; format = @('CD', 'Compilation') }
+            $albumScore = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Band' -ExpectedTitle 'Greatest Hits' -ExpectedYear $null -Candidate $album
+            $compilationScore = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Band' -ExpectedTitle 'Greatest Hits' -ExpectedYear $null -Candidate $compilation
+            $compilationScore | Should -BeLessThan $albumScore
+            $compilationScore | Should -BeGreaterOrEqual 0.85
+        }
+    }
+
+    It 'scores a fuzzy-title compilation below the threshold (real Aerosmith "Classic Aerosmith" case)' {
+        InModuleScope Reshelf.EditProposal {
+            $candidate = [pscustomobject]@{ title = 'Aerosmith - Classic Aerosmith'; year = '2000'; format = @('CD', 'Compilation', 'Remastered') }
+            $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Aerosmith' -ExpectedTitle 'Aerosmith' -ExpectedYear 1973 -Candidate $candidate
+            $score | Should -BeLessThan 0.85
+        }
+    }
+
+    It 'penalizes Box Set and Unofficial Release formats too' {
+        InModuleScope Reshelf.EditProposal {
+            $plain = [pscustomobject]@{ title = 'Some Band - Some Title'; year = '2001'; format = @('CD', 'Album') }
+            $plainScore = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Band' -ExpectedTitle 'Some Title' -ExpectedYear 2001 -Candidate $plain
+            foreach ($formats in @(@('CD', 'Box Set'), @('CD', 'Unofficial Release'))) {
+                $candidate = [pscustomobject]@{ title = 'Some Band - Some Title'; year = '2001'; format = $formats }
+                $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Band' -ExpectedTitle 'Some Title' -ExpectedYear 2001 -Candidate $candidate
+                $score | Should -BeLessThan $plainScore
+            }
         }
     }
 }
@@ -1288,6 +1320,30 @@ Describe 'Sort-ReshelfDiscogsVersions / Get-ReshelfDiscogsVersionRank (private)'
 
             $sorted = Sort-ReshelfDiscogsVersions -Versions $versions -FolderYear $null -EditionHints @()
             $sorted[0].id | Should -Be 2
+        }
+    }
+
+    It 'ranks Vinyl/Cassette above a rarer format (e.g. 8-Track Cartridge) even when the rarer format matches the folder year' {
+        # Real case (AC-DC "T.N.T.", master 8648): an 8-Track Cartridge version has the same
+        # released year AND the same track count as the source, but tapes of that format split
+        # tracks into "programs" to balance side lengths, so its tracklist ORDER is physically
+        # different from the standard release - previously this format fell into the same "else"
+        # bucket as CD/File-but-ranked-worse-than-Vinyl/Cassette, which was backwards: it let an
+        # 8-Track version outrank an equally-year-matched Vinyl/Cassette version and get picked
+        # first by the probe loop in Select-ReshelfDiscogsMasterVersion, silently importing the
+        # wrong track order.
+        InModuleScope Reshelf.EditProposal {
+            $versions = @(
+                [pscustomobject]@{ id = 1; title = 'X'; released = '1975'; format = 'Album, Stereo'; major_formats = @('8-Track Cartridge') }
+                [pscustomobject]@{ id = 2; title = 'X'; released = '1975'; format = 'LP, Album'; major_formats = @('Vinyl') }
+                [pscustomobject]@{ id = 3; title = 'X'; released = '1975'; format = 'Album, Stereo'; major_formats = @('Cassette') }
+            )
+
+            $sorted = Sort-ReshelfDiscogsVersions -Versions $versions -FolderYear 1975 -EditionHints @()
+            # Vinyl/Cassette (ids 2/3) must both outrank 8-Track Cartridge (id 1), regardless of
+            # which of the two ties for first.
+            $sorted[-1].id | Should -Be 1
+            @($sorted[0].id, $sorted[1].id) | Sort-Object | Should -Be @(2, 3)
         }
     }
 }

@@ -207,14 +207,22 @@ function ConvertFrom-ReshelfCueTrackRanges {
         [object[]]$Tracks
     )
 
-    $sorted = @($Tracks | Sort-Object -Property proposedTrackNumber)
+    # Grouped by sourceFilePath, not globally sorted by proposedTrackNumber - a per-disc-cue release
+    # has one source audio file per disc, and proposedTrackNumber restarts at 1 on every disc (and
+    # can be freely edited/reordered in the UI independently of the cue's own track order), so it
+    # can't be trusted to lay out a single source file's split ranges. Within a group, only the
+    # track's own cueTimestamp says where it starts.
+    $groups = @($Tracks | Group-Object -Property sourceFilePath)
 
-    $result = for ($i = 0; $i -lt $sorted.Count; $i++) {
-        $endTimestamp = if ($i -lt ($sorted.Count - 1)) { ConvertTo-ReshelfFfmpegSeconds $sorted[$i + 1].cueTimestamp } else { $null }
-        [pscustomobject]@{
-            Track          = $sorted[$i]
-            StartTimestamp = ConvertTo-ReshelfFfmpegSeconds $sorted[$i].cueTimestamp
-            EndTimestamp   = $endTimestamp
+    $result = foreach ($group in $groups) {
+        $sorted = @($group.Group | Sort-Object -Property { ConvertTo-ReshelfCueTimestampSeconds -CueTimestamp $_.cueTimestamp })
+        for ($i = 0; $i -lt $sorted.Count; $i++) {
+            $endTimestamp = if ($i -lt ($sorted.Count - 1)) { ConvertTo-ReshelfFfmpegSeconds $sorted[$i + 1].cueTimestamp } else { $null }
+            [pscustomobject]@{
+                Track          = $sorted[$i]
+                StartTimestamp = ConvertTo-ReshelfFfmpegSeconds $sorted[$i].cueTimestamp
+                EndTimestamp   = $endTimestamp
+            }
         }
     }
 
@@ -668,39 +676,48 @@ function Invoke-ReshelfReleaseStaging {
 
         $stagedTrackInfos = [System.Collections.Generic.List[object]]::new()
 
-        if ($Release.cueSheet) {
-            $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks $Release.tracks
+        # Branch per track, not per release: a per-disc-cue release can mix cue-image discs with
+        # ordinary track-file discs (Reshelf.Recognition.psm1's 'album-wrapper'/per-disc-cue case),
+        # so isCueVirtualTrack decides each track's own path rather than $Release.cueSheets as a
+        # whole. Each cue track is split from its OWN sourceFilePath - a per-disc-cue release has one
+        # source file per disc, not one shared file for the whole release.
+        $cueTracks = @($Release.tracks | Where-Object { $_.isCueVirtualTrack })
+        $normalTracks = @($Release.tracks | Where-Object { -not $_.isCueVirtualTrack })
+
+        if ($cueTracks.Count -gt 0) {
+            $cueStagedInfos = [System.Collections.Generic.List[object]]::new()
+            $ranges = ConvertFrom-ReshelfCueTrackRanges -Tracks $cueTracks
             foreach ($range in $ranges) {
                 $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$range.Track.proposedFileName]
                 if ($PSCmdlet.ShouldProcess($outputPath, 'ffmpeg split track from cue source')) {
-                    Invoke-ReshelfFfmpegSplit -SourceAudioPath $Release.cueSheet.audioFilePath -StartTimestamp $range.StartTimestamp `
+                    Invoke-ReshelfFfmpegSplit -SourceAudioPath $range.Track.sourceFilePath -StartTimestamp $range.StartTimestamp `
                         -EndTimestamp $range.EndTimestamp -OutputPath $outputPath -FfmpegPath $FfmpegPath
                 }
-                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $range.Track.tags; HasExistingCover = [bool]$range.Track.existingCoverArtPath })
+                $cueStagedInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $range.Track.tags; HasExistingCover = [bool]$range.Track.existingCoverArtPath })
             }
 
             # Defensive: the ffmpeg wrapper already throws on a non-zero exit code, so this only
             # catches the rarer case of it exiting 0 without actually producing every output file.
             if (-not $WhatIfPreference) {
-                foreach ($info in $stagedTrackInfos) {
+                foreach ($info in $cueStagedInfos) {
                     if (-not (Test-Path -LiteralPath (ConvertTo-ReshelfLongPath -Path $info.FilePath) -PathType Leaf)) {
                         throw "Cue split for release '$($Release.stableKey)' did not produce expected file '$($info.FilePath)'."
                     }
                 }
             }
+            $stagedTrackInfos.AddRange([object[]]$cueStagedInfos)
         }
-        else {
-            foreach ($track in $Release.tracks) {
-                $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$track.proposedFileName]
-                if ($PSCmdlet.ShouldProcess($outputPath, 'Copy track')) {
-                    # -ErrorAction Stop: Copy-Item's default is a non-terminating error, which would
-                    # otherwise let execution continue as if the copy succeeded - the release would
-                    # then fail two steps later at tag-writing, with a message blaming the missing
-                    # staged file instead of the real cause (the source file is gone).
-                    Copy-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-ReshelfLongPath -Path $outputPath) -Force -ErrorAction Stop
-                }
-                $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $track.tags; HasExistingCover = [bool]$track.existingCoverArtPath })
+
+        foreach ($track in $normalTracks) {
+            $outputPath = Join-Path $stagingReleasePath $truncatedLayout.TrackFileNames[$track.proposedFileName]
+            if ($PSCmdlet.ShouldProcess($outputPath, 'Copy track')) {
+                # -ErrorAction Stop: Copy-Item's default is a non-terminating error, which would
+                # otherwise let execution continue as if the copy succeeded - the release would
+                # then fail two steps later at tag-writing, with a message blaming the missing
+                # staged file instead of the real cause (the source file is gone).
+                Copy-Item -LiteralPath (ConvertTo-ReshelfLongPath -Path $track.sourceFilePath) -Destination (ConvertTo-ReshelfLongPath -Path $outputPath) -Force -ErrorAction Stop
             }
+            $stagedTrackInfos.Add([pscustomobject]@{ FilePath = $outputPath; Tags = $track.tags; HasExistingCover = [bool]$track.existingCoverArtPath })
         }
 
         $coverOutputPath = $null

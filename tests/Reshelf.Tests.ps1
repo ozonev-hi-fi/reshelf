@@ -154,13 +154,14 @@ Describe 'Reshelf.ps1 settings/session dispatch' {
         $targetRoot = Join-Path $TestDrive 'target'
         Invoke-Reshelf settings init -TargetRoot $targetRoot | Out-Null
 
+        # Forces a real recognition failure with no mocks: the source folder has an audio-looking
+        # file, so recognition reaches Get-ReshelfAudioTags, and this freshly created $dataHome has
+        # no 'lib/TagLibSharp.dll' (unlike the no-audio-files test above, which deliberately avoids
+        # any audio file to dodge this exact failure).
         $sourceRoot = Join-Path $TestDrive 'source-for-failure'
-        New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Some Artist' '2020 Some Album' '01 - Track.flac') -Force | Out-Null
 
-        $malformedOverridesPath = Join-Path $TestDrive 'malformed-overrides.json'
-        Set-Content -LiteralPath $malformedOverridesPath -Value '{"entries":"not-an-array"}'
-
-        $result = Invoke-Reshelf recognize -SourceRoot $sourceRoot -OverridesPath $malformedOverridesPath
+        $result = Invoke-Reshelf recognize -SourceRoot $sourceRoot
 
         $result.ExitCode | Should -Not -Be 0
         $output = $result.Output -join "`n"

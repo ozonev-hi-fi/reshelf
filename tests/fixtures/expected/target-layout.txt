@@ -8,6 +8,9 @@ Dance With Ghosts/1900 Requiem/02 Track Two.flac
 David Byrne/
 David Byrne/1994 David Byrne/
 David Byrne/1994 David Byrne/01 Angels.flac
+Godspeed You! Black Emperor/
+Godspeed You! Black Emperor/1997 F#A# Infinity/
+Godspeed You! Black Emperor/1997 F#A# Infinity/01 Nervous Youth Culture.flac
 Isidor/
 Isidor/1900 3218 (Soldier Of Fortune Edition - Artwork)/
 Isidor/1900 3218 (Soldier Of Fortune Edition - Artwork)/01 Track One.flac
@@ -22,6 +25,9 @@ PULSAR OLYMP/
 PULSAR OLYMP/1900 94Shine/
 PULSAR OLYMP/1900 94Shine/01 Track One.flac
 PULSAR OLYMP/1900 94Shine/02 Track Two.flac
+Silver Mountain Zion/
+Silver Mountain Zion/2000 He Has Left Us Alone/
+Silver Mountain Zion/2000 He Has Left Us Alone/01 Broken Chords.flac
 Talking Heads/
 Talking Heads/1980 Remain In Light/
 Talking Heads/1980 Remain In Light/01 Born Under Punches.flac
@@ -30,6 +36,23 @@ Unnumbered/
 Unnumbered/2015 No Numbers/
 Unnumbered/2015 No Numbers/01 Alpha Song.flac
 Unnumbered/2015 No Numbers/02 Beta Song.flac
+Wrapper Band/
+Wrapper Band/1975 Wrapped Album (Special Edition)/
+Wrapper Band/1975 Wrapped Album (Special Edition)/01 Track One.flac
+Wrapper Band/1975 Wrapped Album (Special Edition)/02 Track Two.flac
+Wrapper Band/1975 Wrapped Album (Special Edition)/scans/
+Wrapper Band/1975 Wrapped Album (Special Edition)/scans/back.jpg
+Wrapper Band/1990 Loose Files Album/
+Wrapper Band/1990 Loose Files Album/01 Track One.flac
+Wrapper Band/2000 Per Disc Cue Album/
+Wrapper Band/2000 Per Disc Cue Album/01 Disc One Track One.flac
+Wrapper Band/2000 Per Disc Cue Album/02 Disc One Track Two.flac
+Wrapper Band/2000 Per Disc Cue Album/03 Disc Two Track One.flac
+Wrapper Band/2001 Mixed Disc Album/
+Wrapper Band/2001 Mixed Disc Album/01 Disc One Track One.flac
+Wrapper Band/2001 Mixed Disc Album/02 Disc One Track Two.flac
+Wrapper Band/2001 Mixed Disc Album/03 Track One.flac
+Wrapper Band/2001 Mixed Disc Album/04 Track Two.flac
 ZZ Top/
 ZZ Top/1994 One Foot In The Blues/
 ZZ Top/1994 One Foot In The Blues/01 Song A.flac

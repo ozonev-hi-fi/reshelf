@@ -19,7 +19,6 @@ param(
     [switch]$Force,
     [string]$SourceRoot,
     [switch]$SaveAsDefault,
-    [string]$OverridesPath,
     [ValidateSet('pending-upgrade', 'upgraded', 'ignored')]
     [string]$Status,
     [int]$Port,
@@ -88,7 +87,7 @@ switch ($Command) {
 
         $session = New-ReshelfSession -SourceRoot $resolvedSourceRoot
         try {
-            $result = Invoke-ReshelfRecognition -SourceRoot $resolvedSourceRoot -SessionId $session.sessionId -OverridesPath $OverridesPath -TagLibSharpPath $settings.taglibSharpPath
+            $result = Invoke-ReshelfRecognition -SourceRoot $resolvedSourceRoot -SessionId $session.sessionId -TagLibSharpPath $settings.taglibSharpPath
         }
         catch {
             throw "Recognition failed for session '$($session.sessionId)': $($_.Exception.Message) The session was created but has no recognition.json - fix the issue and run 'Reshelf.ps1 recognize -SourceRoot $resolvedSourceRoot' again (this starts a new session)."

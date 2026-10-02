@@ -8,7 +8,6 @@ BeforeAll {
     Import-Module "$PSScriptRoot/../scripts/common/Reshelf.Recognition.psm1" -Force
 
     $script:FixturesDir = (Resolve-Path "$PSScriptRoot/fixtures/sample-source-tree").Path
-    $script:OverridesDir = (Resolve-Path "$PSScriptRoot/fixtures/overrides").Path
 }
 
 Describe 'Test-IsReleaseFolder (private)' {
@@ -67,6 +66,78 @@ Describe 'Test-IsGroupingFolder (private)' {
         InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
             param($fixturesDir)
             Test-IsGroupingFolder -Path (Join-Path $fixturesDir 'Empty Artist') | Should -Be $false
+        }
+    }
+
+    It 'does not treat an artist folder whose children are all album-wrapper folders as a grouping folder' {
+        # Real-world case (AC-DC): every child of the artist folder is a "yyyy - Title" wrapper
+        # around an edition subfolder, not a release folder itself - without the album-wrapper check,
+        # Test-IsGroupingFolder would wrongly claim this folder (no direct release-shaped child, >=2
+        # subfolders) and stop the walk from ever descending into it.
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsGroupingFolder -Path (Join-Path $fixturesDir 'Wrapper Band') | Should -Be $false
+        }
+    }
+}
+
+Describe 'Test-IsAlbumWrapperFolder (private)' {
+    It 'recognizes a "yyyy - Title" folder that wraps a single edition subfolder' {
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsAlbumWrapperFolder -Path (Join-Path $fixturesDir 'Wrapper Band\1975 - Wrapped Album (Special Edition)') | Should -Be $true
+        }
+    }
+
+    It 'recognizes a "yyyy - Title" folder that wraps more than one edition subfolder' {
+        # Built under $TestDrive, not the shared fixture tree - two editions of the same album/year
+        # necessarily propose the same target folder name downstream, which the full pipeline fixture
+        # tree (Reshelf.Pipeline.Tests.ps1) can't resolve without a human picking one; this test only
+        # cares about the predicate itself.
+        InModuleScope Reshelf.Recognition {
+            $wrapperDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) '1980 - Multi Edition Album'
+            New-Item -ItemType File -Path (Join-Path $wrapperDir '1988 Germany Label 1' '01 - Track One.flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $wrapperDir '1992 Australia Label 2' '01 - Track One.flac') -Force | Out-Null
+
+            Test-IsAlbumWrapperFolder -Path $wrapperDir | Should -Be $true
+        }
+    }
+
+    It 'recognizes a "yyyy - Title" folder whose single edition subfolder itself has disc subfolders' {
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsAlbumWrapperFolder -Path (Join-Path $fixturesDir 'Wrapper Band\2000 - Per Disc Cue Album') | Should -Be $true
+        }
+    }
+
+    It 'rejects a normal release folder with tracks directly inside it' {
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsAlbumWrapperFolder -Path (Join-Path $fixturesDir 'ZZ Top\1999 XXX') | Should -Be $false
+        }
+    }
+
+    It 'rejects a folder whose name has no leading year' {
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsAlbumWrapperFolder -Path (Join-Path $fixturesDir 'ZZ Top') | Should -Be $false
+        }
+    }
+
+    It 'rejects a "yyyy - Title" folder with a subfolder that hides audio below an unknown extra layer of nesting' {
+        # A guard case, not a real-world fixture: one subfolder ("1970 Real Edition") is a genuine
+        # edition, but the other ("Bonus Nested") has audio two levels further down without itself
+        # being a release folder - this must not be silently swallowed as if it were just another
+        # edition. Built under $TestDrive, not the shared fixture tree, since it exists purely to
+        # exercise this one guard and would otherwise also need a Test-IsBandMemberFolder-shaped
+        # explanation for why it doesn't become a bogus artist during a full recognition run.
+        InModuleScope Reshelf.Recognition {
+            $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $wrapperDir = Join-Path $sourceRoot '1965 - Partial Wrapper'
+            New-Item -ItemType File -Path (Join-Path $wrapperDir '1970 Real Edition' '01 - Track.flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $wrapperDir 'Bonus Nested' 'Deeper' '01 - Track.flac') -Force | Out-Null
+
+            Test-IsAlbumWrapperFolder -Path $wrapperDir | Should -Be $false
         }
     }
 }
@@ -155,6 +226,34 @@ Describe 'Remove-ReshelfArtistNamePrefixFromTitle (private)' {
             $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'DANCE WITH THE DEAD - Blackout' -ArtistName 'Dance with the dead'
             $result.Title | Should -Be 'Blackout'
             $result.WasStripped | Should -Be $true
+            $result.Year | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'strips a parenthesized year between the artist name and the separator, and returns it (real Aerosmith case)' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Aerosmith (1973) - Aerosmith [USA CK 32005]' -ArtistName 'Aerosmith'
+            $result.Title | Should -Be 'Aerosmith [USA CK 32005]'
+            $result.WasStripped | Should -Be $true
+            $result.Year | Should -Be 1973
+        }
+    }
+
+    It 'strips a bracketed year between the artist name and the separator' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Aerosmith [1977] - Draw the Line' -ArtistName 'Aerosmith'
+            $result.Title | Should -Be 'Draw the Line'
+            $result.WasStripped | Should -Be $true
+            $result.Year | Should -Be 1977
+        }
+    }
+
+    It 'leaves the title untouched when the 4-digit group is outside the year range' {
+        InModuleScope Reshelf.Recognition {
+            $result = Remove-ReshelfArtistNamePrefixFromTitle -Title 'Some Band (3218) - X' -ArtistName 'Some Band'
+            $result.Title | Should -Be 'Some Band (3218) - X'
+            $result.WasStripped | Should -Be $false
+            $result.Year | Should -BeNullOrEmpty
         }
     }
 
@@ -354,13 +453,13 @@ Describe 'Get-ReshelfCompanionFiles (private)' {
             # This fixture is a single-file + .cue release - passing the real cue sheet path (as
             # Invoke-ReshelfRecognition itself does) keeps the used cue file excluded here, so only
             # the playlist shows up as ignored.
-            $result = Get-ReshelfCompanionFiles -Path $releaseDir -CueSheetPath (Join-Path $releaseDir 'Live In Concert.cue')
+            $result = Get-ReshelfCompanionFiles -Path $releaseDir -CueSheetPaths @((Join-Path $releaseDir 'Live In Concert.cue'))
             $result.Ignored.Count | Should -Be 1
             $result.Ignored[0].reason | Should -Be 'playlist-file'
         }
     }
 
-    It 'routes an unused .cue file to ignored with reason cue-sheet-not-used when no CueSheetPath is given' {
+    It 'routes an unused .cue file to ignored with reason cue-sheet-not-used when no CueSheetPaths is given' {
         InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
             param($fixturesDir)
             $releaseDir = Join-Path $fixturesDir 'Pink Floyd\1994 Live In Concert (Bootleg)'
@@ -396,50 +495,6 @@ Describe 'Get-ReshelfCompanionFiles (private)' {
             $result.Companions.Count | Should -Be 1
             $result.Companions[0].kind | Should -Be 'other'
             $result.Companions[0].placement | Should -Be 'loose'
-        }
-    }
-}
-
-Describe 'Get-ReshelfOverrides / Resolve-ReshelfFolderOverride (private)' {
-    It 'returns an empty entries list when no overrides file exists' {
-        InModuleScope Reshelf.Recognition {
-            $dataHome = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-            $result = Get-ReshelfOverrides -SourceRoot 'D:\does-not-matter' -DataHome $dataHome
-            $result.entries.Count | Should -Be 0
-        }
-    }
-
-    It 'throws a clear error for a malformed overrides file' {
-        InModuleScope Reshelf.Recognition {
-            $path = Join-Path $TestDrive 'malformed-overrides.json'
-            Set-Content -LiteralPath $path -Value '{"entries":"not-an-array"}'
-            { Get-ReshelfOverrides -SourceRoot 'D:\x' -OverridesPath $path } | Should -Throw '*does not match*'
-        }
-    }
-
-    It 'reads each of the 4 override kinds from a real overrides file' {
-        InModuleScope Reshelf.Recognition -Parameters @{ overridesDir = $script:OverridesDir } {
-            param($overridesDir)
-            $overrides = Get-ReshelfOverrides -SourceRoot 'D:\downloads\incoming' -OverridesPath (Join-Path $overridesDir '..\schema-examples\overrides-example.json')
-            $overrides.entries.Count | Should -Be 4
-            ($overrides.entries.kind | Sort-Object -Unique) | Should -Be @('artist', 'band-member', 'category', 'grouping')
-        }
-    }
-
-    It 'matches a relative path case-insensitively regardless of slash direction' {
-        InModuleScope Reshelf.Recognition {
-            $overrides = [pscustomobject]@{
-                entries = @([pscustomobject]@{ relativePath = 'Talking Heads/EPs'; kind = 'category' })
-            }
-            $match = Resolve-ReshelfFolderOverride -Overrides $overrides -RelativePath 'talking heads\EPS'
-            $match | Should -Not -BeNullOrEmpty
-        }
-    }
-
-    It 'returns $null when no entry matches the relative path' {
-        InModuleScope Reshelf.Recognition {
-            $overrides = [pscustomobject]@{ entries = @() }
-            Resolve-ReshelfFolderOverride -Overrides $overrides -RelativePath 'anything' | Should -BeNullOrEmpty
         }
     }
 }
@@ -618,31 +673,23 @@ Describe 'Invoke-ReshelfRecognition' {
         $davidByrne.releases.Count | Should -Be 1
     }
 
-    It 'flags a grouping folder as unrecognized by default, without descending into it' {
+    It 'walks a grouping folder automatically, treating each subfolder as its own artist flagged for review' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-6' -DataHome $dataHome
 
-        $entry = $result.unrecognized | Where-Object { $_.reason -eq 'grouping-folder-suspected' }
-        $entry | Should -Not -BeNullOrEmpty
-        ($result.artists.recognizedName) | Should -Not -Contain 'Godspeed You! Black Emperor'
-    }
-
-    It 'resolves a grouping folder into separate artists when an override is supplied' {
-        $overridesPath = Join-Path $OverridesDir 'grouping-override.json'
-        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-7' -DataHome $dataHome -OverridesPath $overridesPath
-
         ($result.unrecognized.reason) | Should -Not -Contain 'grouping-folder-suspected'
-        ($result.artists.recognizedName) | Should -Contain 'Godspeed You! Black Emperor'
-        ($result.artists.recognizedName) | Should -Contain 'Silver Mountain Zion'
+        $gybe = $result.artists | Where-Object { $_.recognizedName -eq 'Godspeed You! Black Emperor' }
+        $silverMountainZion = $result.artists | Where-Object { $_.recognizedName -eq 'Silver Mountain Zion' }
+        $gybe | Should -Not -BeNullOrEmpty
+        $silverMountainZion | Should -Not -BeNullOrEmpty
+        $gybe.releases | ForEach-Object {
+            $_.needsReview | Should -Be $true
+            $_.reviewReasons | Should -Contain 'grouping-folder-auto-resolved'
+        }
     }
 
-    It 'flags a release folder with no artist wrapper, and an artist override resolves it' {
+    It 'flags a release folder with no artist wrapper as unrecognized' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-8' -DataHome $dataHome
         ($result.unrecognized.reason) | Should -Contain 'release-without-artist-suspected'
-
-        $overridesPath = Join-Path $OverridesDir 'full-override.json'
-        $resolved = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-9' -DataHome $dataHome -OverridesPath $overridesPath
-        $someArtist = $resolved.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
-        $someArtist | Should -Not -BeNullOrEmpty
     }
 
     It 'promotes a release-without-artist folder into a recognized release when every track agrees on artist/album tags (real-world "edbl" case)' {
@@ -770,6 +817,20 @@ Describe 'Invoke-ReshelfRecognition' {
         $release.recognitionFlags | Should -Contain 'artist-name-prefix-stripped'
     }
 
+    It 'parses the year when it sits in parentheses after a repeated artist-name prefix (real-world Aerosmith case)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Aerosmith' 'Aerosmith (1979) - Night In The Ruts [Austria 466720 2]' '01 - Track.flac') -Force | Out-Null
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-27' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Aerosmith' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases[0]
+        $release.recognizedYear | Should -Be 1979
+        $release.recognizedTitle | Should -Be 'Night In The Ruts [Austria 466720 2]'
+        $release.recognitionFlags | Should -Contain 'artist-name-prefix-stripped'
+    }
+
     It 'flags an empty artist folder (no audio anywhere) as unrecognized' {
         $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-10' -DataHome $dataHome
 
@@ -782,7 +843,7 @@ Describe 'Invoke-ReshelfRecognition' {
 
         $pinkFloyd = $result.artists | Where-Object { $_.recognizedName -eq 'Pink Floyd' }
         $release = $pinkFloyd.releases[0]
-        $release.cueSheet | Should -Not -BeNullOrEmpty
+        $release.cueSheets.Count | Should -Be 1
         $release.tracks.Count | Should -Be 2
         ($release.tracks.isCueVirtualTrack) | Should -Not -Contain $false
         $release.tracks[0].cueTimestamp | Should -Be '00:00:00'
@@ -841,7 +902,7 @@ FILE "Show.ape" WAVE
 
         $band = $result.artists | Where-Object { $_.recognizedName -eq 'APE Cue Band' }
         $release = $band.releases[0]
-        $release.cueSheet | Should -Not -BeNullOrEmpty
+        $release.cueSheets.Count | Should -Be 1
         $release.tracks.Count | Should -Be 2
         ($release.tracks.format) | Should -Not -Contain 'ape'
         $release.tracks[0].format | Should -Be 'flac'
@@ -890,24 +951,18 @@ FILE "Show.ape" WAVE
     }
 
     It 'merges sourcePaths when the same artist name is found under two different parents' {
+        # "Genre A"/"Genre B" are plain filler folders (1 subfolder each, so neither qualifies as a
+        # grouping folder) - each one's "Shared Artist" child is recognized as a band-member-shaped
+        # wrapper (a pure container whose own child is a release folder), so the two "Shared Artist"
+        # folders merge into one artist bucket purely from the walk's own heuristics, no override
+        # needed.
         $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path (Join-Path $sourceRoot 'Genre A\Shared Artist\1999 Album One') -Force | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $sourceRoot 'Genre B\Shared Artist\2001 Album Two') -Force | Out-Null
         New-Item -ItemType File -Path (Join-Path $sourceRoot 'Genre A\Shared Artist\1999 Album One\01 - Track.flac') -Force | Out-Null
         New-Item -ItemType File -Path (Join-Path $sourceRoot 'Genre B\Shared Artist\2001 Album Two\01 - Track.flac') -Force | Out-Null
 
-        $overridesPath = Join-Path $TestDrive 'merge-overrides.json'
-        $overridesDoc = [pscustomobject]@{
-            schemaVersion = 1
-            sourceRoot    = $sourceRoot
-            entries       = @(
-                [pscustomobject]@{ relativePath = 'Genre A'; kind = 'grouping'; parentArtistName = $null; artistName = $null; notes = '' }
-                [pscustomobject]@{ relativePath = 'Genre B'; kind = 'grouping'; parentArtistName = $null; artistName = $null; notes = '' }
-            )
-        }
-        $overridesDoc | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $overridesPath -Encoding utf8
-
-        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-16' -DataHome $dataHome -OverridesPath $overridesPath
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-16' -DataHome $dataHome
 
         $sharedArtist = $result.artists | Where-Object { $_.recognizedName -eq 'Shared Artist' }
         $sharedArtist | Should -Not -BeNullOrEmpty
@@ -997,10 +1052,86 @@ TRACK 02 AUDIO
 
         $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
         $release = $artist.releases[0]
-        $release.cueSheet | Should -Not -BeNullOrEmpty
-        $release.cueSheet.cueFilePath | Should -Be (Join-Path $releaseDir 'Some Album.flac.cue')
+        $release.cueSheets.Count | Should -Be 1
+        $release.cueSheets[0].cueFilePath | Should -Be (Join-Path $releaseDir 'Some Album.flac.cue')
         $release.tracks.Count | Should -Be 2
         $release.tracks[1].existingTags.title | Should -Be 'Second Track'
+    }
+
+    It 'recognizes a "yyyy - Title" album wrapper around a single edition subfolder, title/year from the album folder' {
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-26' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $artist | Should -Not -BeNullOrEmpty
+        $release = $artist.releases | Where-Object { $_.recognizedTitle -eq 'Wrapped Album (Special Edition)' }
+        $release | Should -Not -BeNullOrEmpty
+        $release.recognizedYear | Should -Be 1975
+        $release.editionFolderName | Should -Be '1989 Country Label 123'
+        $release.sourceFolderPath | Should -Be (Join-Path $FixturesDir 'Wrapper Band\1975 - Wrapped Album (Special Edition)\1989 Country Label 123')
+        $release.tracks.Count | Should -Be 2
+        $release.needsReview | Should -Be $false
+    }
+
+    It 'splits an album wrapper with two edition subfolders into two reviewed releases with distinct stableKeys' {
+        # Built under its own source root, not the shared fixture tree - see the note on the matching
+        # Test-IsAlbumWrapperFolder unit test above.
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Wrapper Band' '1980 - Multi Edition Album' '1988 Germany Label 1' '01 - Track One.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Wrapper Band' '1980 - Multi Edition Album' '1992 Australia Label 2' '01 - Track One.flac') -Force | Out-Null
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-27' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $releases = @($artist.releases | Where-Object { $_.recognizedTitle -eq 'Multi Edition Album' })
+        $releases.Count | Should -Be 2
+        ($releases.editionFolderName | Sort-Object -Unique).Count | Should -Be 2
+        ($releases.stableKey | Sort-Object -Unique).Count | Should -Be 2
+        $releases | ForEach-Object {
+            $_.needsReview | Should -Be $true
+            $_.reviewReasons | Should -Contain 'multiple-editions-in-album-folder'
+        }
+    }
+
+    It 'flags a release for review when its album wrapper folder has a loose file, and does not copy that file in' {
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-28' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $release = $artist.releases | Where-Object { $_.recognizedTitle -eq 'Loose Files Album' }
+        $release | Should -Not -BeNullOrEmpty
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'album-folder-has-loose-files'
+        ($release.companionFiles.sourcePath + $release.ignoredFiles.sourcePath) | Should -Not -Contain (Join-Path $FixturesDir 'Wrapper Band\1990 - Loose Files Album\cover.jpg')
+    }
+
+    It 'builds cueSheets per disc for a per-disc-cue release nested inside an album wrapper' {
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-29' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $release = $artist.releases | Where-Object { $_.recognizedTitle -eq 'Per Disc Cue Album' }
+        $release | Should -Not -BeNullOrEmpty
+        $release.cueSheets.Count | Should -Be 2
+        $release.discFolderCount | Should -Be 2
+        $release.tracks.Count | Should -Be 3
+        ($release.tracks.isCueVirtualTrack) | Should -Not -Contain $false
+        ($release.tracks | Where-Object { $_.discFolder -eq 'CD 1' }).Count | Should -Be 2
+        ($release.tracks | Where-Object { $_.discFolder -eq 'CD 2' }).Count | Should -Be 1
+        ($release.ignoredFiles | Where-Object { $_.reason -eq 'cue-sheet-not-used' }) | Should -BeNullOrEmpty
+        $release.reviewReasons | Should -Not -Contain 'per-disc-cue-not-yet-supported'
+    }
+
+    It 'mixes a cue-image disc with a normal numbered-track disc in the same release' {
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-30' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $release = $artist.releases | Where-Object { $_.recognizedTitle -eq 'Mixed Disc Album' }
+        $release | Should -Not -BeNullOrEmpty
+        $release.cueSheets.Count | Should -Be 1
+        $cd1Tracks = @($release.tracks | Where-Object { $_.discFolder -eq 'CD 1' })
+        $cd2Tracks = @($release.tracks | Where-Object { $_.discFolder -eq 'CD 2' })
+        $cd1Tracks.Count | Should -Be 2
+        ($cd1Tracks.isCueVirtualTrack) | Should -Not -Contain $false
+        $cd2Tracks.Count | Should -Be 2
+        ($cd2Tracks.isCueVirtualTrack) | Should -Not -Contain $true
     }
 }
 

@@ -9,8 +9,6 @@ param(
 
     [string]$DataHome,
 
-    [string]$OverridesPath,
-
     [string]$TagLibSharpPath
 )
 
@@ -18,4 +16,4 @@ Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Common.psm1') -For
 Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Json.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot '..' 'common' 'Reshelf.Recognition.psm1') -Force
 
-Invoke-ReshelfRecognition -SourceRoot $SourceRoot -SessionId $SessionId -DataHome $DataHome -OverridesPath $OverridesPath -TagLibSharpPath $TagLibSharpPath
+Invoke-ReshelfRecognition -SourceRoot $SourceRoot -SessionId $SessionId -DataHome $DataHome -TagLibSharpPath $TagLibSharpPath

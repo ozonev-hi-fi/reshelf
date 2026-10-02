@@ -1,5 +1,14 @@
 # Step 5 — Recognition Module
 
+> **Superseded (2026-10-02):** the `overrides.json` mechanism described throughout this file was
+> removed. A grouping folder is now always auto-walked (each subfolder becomes its own artist,
+> every release found this way flagged `needsReview` with reason `grouping-folder-auto-resolved`)
+> instead of needing a human-authored override to resolve it. A folder recognition still can't
+> classify goes to `unrecognized[]` with no override escape hatch — fix it by moving/renaming the
+> folder on disk and re-running `recognize`. A new heuristic, `Test-IsAlbumWrapperFolder`, was also
+> added for a `yyyy - Title` folder that wraps one or more edition/pressing subfolders instead of
+> holding tracks directly (see README's "Reference: automatic folder recognition").
+
 ## Purpose / scope
 
 Walk a source folder tree, recognize main artists / releases / tracks /

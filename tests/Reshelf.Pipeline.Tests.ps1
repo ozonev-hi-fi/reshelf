@@ -148,9 +148,10 @@ Describe 'Full pipeline: Recognition -> EditProposal -> Implementation' {
         Test-Json -LiteralPath $script:proposalPath -SchemaFile "$PSScriptRoot/../schemas/proposal.schema.json" | Should -Be $true
     }
 
-    It 'never proposes a target for a grouping folder or an empty artist folder left in unrecognized[]' {
-        ($script:proposalResult.artists.recognizedName) | Should -Not -Contain 'Godspeed You! Black Emperor'
-        ($script:proposalResult.artists.recognizedName) | Should -Not -Contain 'Silver Mountain Zion'
+    It 'walks a grouping folder into reviewed artists, but never proposes a target for an empty artist folder left in unrecognized[]' {
+        $gybe = $script:proposalResult.artists | Where-Object { $_.recognizedName -eq 'Godspeed You! Black Emperor' }
+        $gybe | Should -Not -BeNullOrEmpty
+        ($gybe.releases.humanReview.required) | Should -Not -Contain $false
         ($script:proposalResult.artists.recognizedName) | Should -Not -Contain 'Empty Artist'
     }
 

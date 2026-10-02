@@ -16,6 +16,11 @@ Import-Module (Join-Path $PSScriptRoot 'Reshelf.Implementation.psm1') -Force
 # no such field), so this stays a module constant rather than a configurable setting.
 $script:DiscogsMatchThreshold = 0.85
 
+# Subtracted from a Compilation/Box Set/Unofficial Release candidate's score. Small enough that an
+# exact-title compilation still passes the threshold; large enough that a fuzzy one (real case:
+# "Classic Aerosmith" for the 1973 album "Aerosmith") no longer wins silently.
+$script:DiscogsCompilationPenalty = 0.10
+
 # proposal.schema.json requires tags.year to be a non-nullable integer, so an unresolved year
 # (no Discogs match, no recognized year) can't be represented as null - this sentinel (the
 # schema's own minimum) is used instead and always paired with humanReview.required = true.
@@ -234,6 +239,9 @@ function Get-ReshelfDiscogsCandidateScore {
     }
 
     $score = ($artistScore * 0.5) + ($titleScore * 0.5) + $yearAdjustment
+    if ((@($Candidate.format) -join ', ') -match '(?i)\b(compilation|box set|unofficial release)\b') {
+        $score -= $script:DiscogsCompilationPenalty
+    }
     if ($score -lt 0) { $score = 0.0 }
     if ($score -gt 1) { $score = 1.0 }
     return $score
@@ -386,10 +394,16 @@ function Get-ReshelfDiscogsVersionRank {
         if ($hint -and $versionText -match [regex]::Escape($hint)) { $editionMatch = $true; break }
     }
 
+    # Real case (AC-DC "T.N.T.", master 8648): an 8-Track Cartridge version has the same track
+    # count as the source but a physically different track order (tapes split "programs" to
+    # balance side lengths) - it must rank below the common formats, not above them. CD/File is
+    # the best match for a digital rip; Vinyl/Cassette is the next most common and reliable; every
+    # other, rarer format (8-Track Cartridge, Reel-To-Reel, MiniDisc, SACD, ...) is more likely to
+    # have a nonstandard tracklist and so ranks last.
     $majorFormats = @($Version.major_formats)
     $formatRank = if ($majorFormats -contains 'CD' -or $majorFormats -contains 'File') { 0 }
-    elseif ($majorFormats -contains 'Vinyl' -or $majorFormats -contains 'Cassette') { 2 }
-    else { 1 }
+    elseif ($majorFormats -contains 'Vinyl' -or $majorFormats -contains 'Cassette') { 1 }
+    else { 2 }
 
     $unwantedRank = if ([string]$Version.format -match '(?i)\b(promo|test pressing|unofficial|acetate)\b') { 1 } else { 0 }
 
@@ -1957,12 +1971,13 @@ function New-ReshelfProposedRelease {
         stableKey             = $Release.stableKey
         recognizedTitle       = $Release.recognizedTitle
         recognizedYear        = $Release.recognizedYear
+        editionFolderName     = $Release.editionFolderName
         sourceFolderPath      = $Release.sourceFolderPath
         discFolderCount       = $Release.discFolderCount
         tracks                = $trackSet.Tracks
         companionFiles        = $companionProposal.Companions
         ignoredFiles          = $Release.ignoredFiles
-        cueSheet              = $Release.cueSheet
+        cueSheets             = $Release.cueSheets
         recognitionConfidence = $Release.recognitionConfidence
         recognitionFlags      = $Release.recognitionFlags
         needsReview           = $Release.needsReview

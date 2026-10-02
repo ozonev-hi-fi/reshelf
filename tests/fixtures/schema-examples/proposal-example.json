@@ -12,6 +12,7 @@
           "stableKey": "a1b2c3d4e5f60708",
           "recognizedTitle": "XXX",
           "recognizedYear": 1999,
+          "editionFolderName": null,
           "sourceFolderPath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX",
           "discFolderCount": 1,
           "tracks": [
@@ -47,7 +48,7 @@
             { "sourcePath": "D:\\downloads\\incoming\\ZZ Top\\1999 XXX\\cover.jpg", "kind": "cover", "placement": "loose", "include": true, "proposedFileName": "cover.jpg" }
           ],
           "ignoredFiles": [],
-          "cueSheet": null,
+          "cueSheets": [],
           "recognitionConfidence": 0.95,
           "recognitionFlags": [],
           "needsReview": false,

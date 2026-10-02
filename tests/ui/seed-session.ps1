@@ -137,6 +137,7 @@ $richRelease = [pscustomobject]@{
     stableKey             = $richStableKey
     recognizedTitle       = $richAlbum
     recognizedYear        = $richYear
+    editionFolderName     = $null
     sourceFolderPath      = $richFolder
     discFolderCount       = 1
     tracks                = @(
@@ -154,7 +155,7 @@ $richRelease = [pscustomobject]@{
         [pscustomobject]@{ sourcePath = $ignoredPlaylistPath; reason = 'playlist-file' }
         [pscustomobject]@{ sourcePath = $ignoredCuePath; reason = 'cue-sheet-not-used' }
     )
-    cueSheet              = $null
+    cueSheets             = @()
     recognitionConfidence = 1.0
     recognitionFlags      = @()
     needsReview           = $true
@@ -195,6 +196,7 @@ $minimalRelease = [pscustomobject]@{
     stableKey             = $minimalStableKey
     recognizedTitle       = $minimalAlbum
     recognizedYear        = $minimalYear
+    editionFolderName     = $null
     sourceFolderPath      = $minimalFolder
     discFolderCount       = 1
     tracks                = @(
@@ -202,7 +204,7 @@ $minimalRelease = [pscustomobject]@{
     )
     companionFiles        = @()
     ignoredFiles          = @()
-    cueSheet              = $null
+    cueSheets             = @()
     recognitionConfidence = 1.0
     recognitionFlags      = @()
     # true (not ambiguous, unlike "rich"): exercises the plain needsReview badge path in
@@ -237,6 +239,7 @@ $emptyRelease = [pscustomobject]@{
     stableKey             = $emptyStableKey
     recognizedTitle       = $emptyAlbum
     recognizedYear        = $emptyYear
+    editionFolderName     = $null
     sourceFolderPath      = $emptyFolder
     discFolderCount       = 1
     tracks                = @(
@@ -244,7 +247,7 @@ $emptyRelease = [pscustomobject]@{
     )
     companionFiles        = @()
     ignoredFiles          = @()
-    cueSheet              = $null
+    cueSheets             = @()
     recognitionConfidence = 1.0
     recognitionFlags      = @()
     needsReview           = $false
@@ -272,6 +275,7 @@ $compilationRelease = [pscustomobject]@{
     stableKey             = $compilationStableKey
     recognizedTitle       = $compilationAlbum
     recognizedYear        = $compilationYear
+    editionFolderName     = $null
     sourceFolderPath      = $compilationFolder
     discFolderCount       = 1
     tracks                = @(
@@ -280,7 +284,7 @@ $compilationRelease = [pscustomobject]@{
     )
     companionFiles        = @()
     ignoredFiles          = @()
-    cueSheet              = $null
+    cueSheets             = @()
     recognitionConfidence = 1.0
     recognitionFlags      = @()
     needsReview           = $false

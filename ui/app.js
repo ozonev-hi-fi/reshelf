@@ -68,10 +68,6 @@ function wireStaticControls() {
   document.getElementById('lossy-export-csv-btn').addEventListener('click', () => exportLossyLedger('csv'));
   document.getElementById('lossy-export-json-btn').addEventListener('click', () => exportLossyLedger('json'));
 
-  document.getElementById('unrecognized-override-kind').addEventListener('change', renderUnrecognizedOverrideJson);
-  document.getElementById('unrecognized-override-artist-name').addEventListener('input', renderUnrecognizedOverrideJson);
-  document.getElementById('unrecognized-copy-btn').addEventListener('click', onCopyUnrecognizedOverride);
-
   const coverModal = document.getElementById('cover-modal');
   document.getElementById('cover-modal-close').addEventListener('click', () => coverModal.close());
   coverModal.addEventListener('click', (e) => {
@@ -354,21 +350,6 @@ function selectUnrecognized(index) {
   renderUnrecognizedDetail(state.proposal.unrecognized[index]);
 }
 
-// Mirrors Get-ReshelfRelativePath (Reshelf.Common.psm1) closely enough for building an
-// overrides.json relativePath from the source root and this entry's absolute path.
-function getSourceRootRelativePath(sourceRoot, absolutePath) {
-  const root = sourceRoot.replace(/[\\/]+$/, '');
-  if (absolutePath.toLowerCase().startsWith(root.toLowerCase())) {
-    return absolutePath.slice(root.length).replace(/^[\\/]+/, '');
-  }
-  return absolutePath;
-}
-
-function guessOverrideKind(reason) {
-  if (reason === 'grouping-folder-suspected') return 'grouping';
-  return 'artist';
-}
-
 function renderUnrecognizedDetail(entry) {
   const panel = document.getElementById('unrecognized-panel');
   panel.hidden = false;
@@ -383,44 +364,6 @@ function renderUnrecognizedDetail(entry) {
     const li = document.createElement('li');
     li.textContent = child;
     list.appendChild(li);
-  }
-
-  const kindSelect = document.getElementById('unrecognized-override-kind');
-  kindSelect.value = guessOverrideKind(entry.reason);
-  const artistNameInput = document.getElementById('unrecognized-override-artist-name');
-  artistNameInput.value = document.getElementById('unrecognized-title').textContent;
-
-  renderUnrecognizedOverrideJson();
-}
-
-function renderUnrecognizedOverrideJson() {
-  const entry = state.proposal?.unrecognized?.[state.selectedUnrecognizedIndex];
-  if (!entry) return;
-
-  const kind = document.getElementById('unrecognized-override-kind').value;
-  const artistName = document.getElementById('unrecognized-override-artist-name').value;
-  const needsArtistName = kind === 'artist' || kind === 'band-member';
-
-  const override = {
-    relativePath: getSourceRootRelativePath(state.proposal.sourceRoot, entry.path),
-    kind,
-    parentArtistName: null,
-    artistName: needsArtistName ? (artistName || null) : null,
-    notes: '',
-  };
-
-  document.getElementById('unrecognized-artist-name-field').hidden = !needsArtistName;
-  document.getElementById('unrecognized-override-json').textContent = JSON.stringify(override, null, 2);
-}
-
-async function onCopyUnrecognizedOverride() {
-  const status = document.getElementById('unrecognized-copy-status');
-  const text = document.getElementById('unrecognized-override-json').textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    status.textContent = 'Copied.';
-  } catch (err) {
-    status.textContent = `Could not copy automatically: ${err.message}`;
   }
 }
 

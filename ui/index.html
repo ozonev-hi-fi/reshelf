@@ -34,9 +34,8 @@
 
     <section id="unrecognized-panel" hidden>
       <h2 id="unrecognized-title"></h2>
-      <p>Recognition could not place this folder automatically. It is not silently skipped -
-        it still needs a decision, either an <code>overrides.json</code> entry (below) or a manual
-        move.</p>
+      <p>Recognition could not place this folder automatically. Move or rename it on disk, then
+        re-run <code>Reshelf.ps1 recognize -SourceRoot &lt;path&gt;</code>.</p>
       <table id="unrecognized-fields">
         <tbody>
           <tr><th>Path</th><td id="unrecognized-path"></td></tr>
@@ -45,26 +44,6 @@
       </table>
       <h3>Files in this folder</h3>
       <ul id="unrecognized-children"></ul>
-
-      <h3>Suggested override</h3>
-      <div id="unrecognized-override-fields">
-        <label>Kind
-          <select id="unrecognized-override-kind">
-            <option value="artist">artist</option>
-            <option value="grouping">grouping</option>
-            <option value="category">category</option>
-            <option value="band-member">band-member</option>
-          </select>
-        </label>
-        <label id="unrecognized-artist-name-field">Artist name
-          <input type="text" id="unrecognized-override-artist-name" />
-        </label>
-      </div>
-      <pre id="unrecognized-override-json"></pre>
-      <button id="unrecognized-copy-btn" type="button">Copy JSON</button>
-      <span id="unrecognized-copy-status"></span>
-      <p>Add this entry to that source root's <code>overrides.json</code> (see README's "Reference:
-        overrides file"), then re-run <code>Reshelf.ps1 recognize -SourceRoot &lt;path&gt;</code>.</p>
     </section>
 
     <section id="detail-panel" hidden>

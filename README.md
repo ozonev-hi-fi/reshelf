@@ -113,7 +113,6 @@ pwsh scripts/Reshelf.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -SaveA
 
 - `-SourceRoot` — the folder to scan. If omitted, the configured `defaultSourceRoot` is used.
 - `-SaveAsDefault` — also saves this path as `defaultSourceRoot` for next time.
-- `-OverridesPath <file>` — optional; see [Overrides file](#reference-overrides-file) below.
 
 This creates a new session and writes `recognition.json`. Sample output:
 
@@ -125,10 +124,9 @@ UnrecognizedCount : 3
 ```
 
 `UnrecognizedCount` lists folders the tool couldn't confidently turn into a release — e.g. a
-"grouping" folder holding several sub-artists, or a release folder sitting directly at the source
-root with no artist folder around it. If this is non-zero, check `recognition.json`'s
-`unrecognized[]` array, and consider writing an [overrides file](#reference-overrides-file) to fix
-it, then re-run `recognize`.
+release folder sitting directly at the source root with no artist folder around it, or a folder
+with no audio anywhere below it. If this is non-zero, check `recognition.json`'s `unrecognized[]`
+array and move or rename the folder on disk, then re-run `recognize`.
 
 ### 2. Propose
 
@@ -154,11 +152,11 @@ NeedsReviewCount : 15
 - Discogs requests are rate-limited (default 55/minute) and cached (`cacheTtlDays`, default 30
   days), so a large run can pause for up to about a minute at a time on the first pass, but a
   re-run of the same source is fast. This is a **re-run cache**, not an archive: it exists for
-  retrying after a failed `propose` and for repeated `propose` runs while you tune
-  `overrides.json` (see [Reference: overrides file](#reference-overrides-file)), not for looking
-  up the same release again months later — a release you've already organized is never queried
-  again. An entry older than `cacheTtlDays`, or one that fails to parse, is physically deleted the
-  next time `propose` runs (checked once per run), so the cache folder doesn't grow without bound.
+  retrying after a failed `propose` and for repeated `propose` runs while reviewing a session, not
+  for looking up the same release again months later — a release you've already organized is never
+  queried again. An entry older than `cacheTtlDays`, or one that fails to parse, is physically
+  deleted the next time `propose` runs (checked once per run), so the cache folder doesn't grow
+  without bound.
 
 > ⚠️ Re-running `propose` on the same session **overwrites** `proposal.json`, discarding any edits
 > you made in the review UI. Only re-run it if you haven't reviewed yet, or you're OK losing the
@@ -386,65 +384,28 @@ pwsh scripts/Reshelf.ps1 settings set -Key <key> -Value <value>
 | `ffmpegPath` | `""` | Full path to ffmpeg. Empty = use `ffmpeg` from PATH. |
 | `taglibSharpPath` | `""` | Full path to `TagLibSharp.dll`. Empty = `<dataHome>\lib\TagLibSharp.dll`. |
 
-## Reference: overrides file
+## Reference: automatic folder recognition
 
-Recognition automatically handles a few common patterns:
+Recognition automatically handles a few common patterns, with no configuration needed:
 - **Category subfolders** (`EPs`, `Singles`, `Lives`, `Live`, `Compilations`, `Bootlegs`) — their
   releases are folded into the parent artist.
 - **Band-member folders** (a subfolder with a different name holding only release folders, no
   loose files) — treated as a separate artist named after the folder.
+- **Grouping folders** (a folder with no loose files whose children are themselves artist-like,
+  e.g. `Godspeeds and their projects` containing `Godspeed You! Black Emperor` and `Silver Mountain
+  Zion`) — each direct subfolder becomes its own artist. Since there's no reliable way to confirm a
+  subfolder's name really is a distinct artist, every release found this way is flagged for review
+  (`grouping-folder-auto-resolved`).
+- **Album wrapper folders** (a `yyyy - Title` folder that itself holds no tracks, but wraps one or
+  more edition/pressing subfolders instead — e.g. `AC-DC\1975 - T.N.T. (Australian Release)\1989
+  Australia Albert 465262 2\...`) — title and year always come from the album folder, not the
+  edition folder (which is recorded as `editionFolderName`). If the album folder has more than one
+  edition subfolder, each becomes its own release, flagged for review
+  (`multiple-editions-in-album-folder`).
 
-When those heuristics guess wrong, or a folder can't be classified at all (`recognition.json`'s
-`unrecognized[]`, e.g. `grouping-folder-suspected` or `release-without-artist-suspected`), write an
-overrides file and pass it with `-OverridesPath`:
-
-```powershell
-pwsh scripts/Reshelf.ps1 recognize -SourceRoot "D:\MusicToOrganize\Indie" -OverridesPath ".\my-overrides.json"
-```
-
-Example (all 5 fields on each entry are required):
-
-```json
-{
-  "schemaVersion": 1,
-  "sourceRoot": "D:\\MusicToOrganize\\Indie",
-  "entries": [
-    {
-      "relativePath": "Godspeeds and their projects",
-      "kind": "grouping",
-      "parentArtistName": null,
-      "artistName": null,
-      "notes": "Each subfolder is its own artist."
-    },
-    {
-      "relativePath": "Grimes/Albums",
-      "kind": "category",
-      "parentArtistName": "Grimes",
-      "artistName": null,
-      "notes": "Releases here belong to Grimes, not to an artist called 'Albums'."
-    },
-    {
-      "relativePath": "Talking Heads/David Byrne",
-      "kind": "band-member",
-      "parentArtistName": null,
-      "artistName": "David Byrne",
-      "notes": "Separate main artist nested for historical reasons."
-    }
-  ]
-}
-```
-
-- `relativePath` is relative to the source root (either `/` or `\` works, not case-sensitive).
-- `kind` is one of:
-  - `grouping` — each direct subfolder becomes its own artist.
-  - `category` — this folder's contents belong to `parentArtistName` (or the current artist if
-    `null`).
-  - `band-member` — treat this folder as a separate artist named `artistName` (or the folder name
-    if `null`).
-  - `artist` — treat the folder itself as a release credited to `artistName` (for a release folder
-    sitting directly at the source root, with no artist folder around it).
-
-Overrides are checked before the automatic heuristics, and re-used on every re-run of `recognize`.
+If a folder still can't be classified (`recognition.json`'s `unrecognized[]`, e.g.
+`release-without-artist-suspected` or `no-audio-files`), there's no override file for it — move or
+rename the folder on disk so it matches one of the patterns above, then re-run `recognize`.
 
 ## Reference: lossy/lossless tracking
 
@@ -472,7 +433,6 @@ location with the `RESHELF_HOME` environment variable.
   lib\TagLibSharp.dll                   default TagLibSharp location
   cache\discogs\<hash>.json             cached Discogs API responses (a re-run cache, pruned of
                                          expired/corrupt entries on the next `propose` run)
-  overrides\<hash-of-source-root>.json  default overrides file per source root
   sessions\<yyyy-MM-dd-NNNN>\
     session.json                       stage, source root, timestamps
     recognition.json                   output of `recognize`
@@ -489,8 +449,6 @@ location with the `RESHELF_HOME` environment variable.
   again; it retries failed releases automatically.
 - **Port already in use** — pass `-Port <N>` to `ui start`.
 - **Discogs 401 Unauthorized** — your token is missing or invalid; re-run `settings set-token`.
-- The `unrecognized[]` list from `recognize` is not shown anywhere in the review UI — check
-  `recognition.json`/`proposal.json` directly.
 - There's no way to paste a Discogs release URL/ID directly in the UI to force a match.
 - The UI has no conflict detection between browser tabs/sessions — the last Save wins.
 

@@ -44,12 +44,13 @@
         "stableKey",
         "recognizedTitle",
         "recognizedYear",
+        "editionFolderName",
         "sourceFolderPath",
         "discFolderCount",
         "tracks",
         "companionFiles",
         "ignoredFiles",
-        "cueSheet",
+        "cueSheets",
         "recognitionConfidence",
         "recognitionFlags",
         "needsReview",
@@ -70,6 +71,7 @@
             { "type": "null" }
           ]
         },
+        "editionFolderName": { "type": ["string", "null"], "minLength": 1 },
         "sourceFolderPath": { "type": "string", "minLength": 1 },
         "discFolderCount": { "type": "integer", "minimum": 1 },
         "tracks": {
@@ -85,19 +87,17 @@
           "type": "array",
           "items": { "$ref": "#/$defs/ignoredFile" }
         },
-        "cueSheet": {
-          "anyOf": [
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cueFilePath", "audioFilePath"],
-              "properties": {
-                "cueFilePath": { "type": "string", "minLength": 1 },
-                "audioFilePath": { "type": "string", "minLength": 1 }
-              }
-            },
-            { "type": "null" }
-          ]
+        "cueSheets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cueFilePath", "audioFilePath"],
+            "properties": {
+              "cueFilePath": { "type": "string", "minLength": 1 },
+              "audioFilePath": { "type": "string", "minLength": 1 }
+            }
+          }
         },
         "recognitionConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "recognitionFlags": { "type": "array", "items": { "type": "string" } },
