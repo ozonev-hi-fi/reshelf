@@ -291,6 +291,56 @@ Describe 'Invoke-ReshelfFfmpegSplit codec selection' {
     }
 }
 
+Describe 'Invoke-ReshelfFfmpegSplit FLAC "invalid block size" retry' {
+    It 'retries once with the start timestamp nudged by 0.05s and succeeds, without throwing' {
+        # Confirmed by hand against the two real-world tracks that hit this (AC-DC "Dog Eat Dog" /
+        # "Come And Get It"): the failure is at encoder-open time on the FIRST chunk, so only
+        # nudging -ss (not -to) changes anything - see the comment on this retry in the module.
+        $script:callCount = 0
+        $script:capturedStartTimestamps = [System.Collections.Generic.List[string]]::new()
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            $script:callCount++
+            $startIndex = $ArgumentList.IndexOf('-ss')
+            $script:capturedStartTimestamps.Add($ArgumentList[$startIndex + 1])
+            Set-Content -LiteralPath $RedirectStandardError -Value '[flac @ 0x0] invalid block size: 4' -NoNewline
+            if ($script:callCount -eq 1) { [pscustomobject]@{ ExitCode = -22 } } else { [pscustomobject]@{ ExitCode = 0 } }
+        }
+
+        { Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '322.200' `
+                -EndTimestamp '535.070' -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Not -Throw
+
+        $script:callCount | Should -Be 2
+        $script:capturedStartTimestamps[0] | Should -Be '322.200'
+        $script:capturedStartTimestamps[1] | Should -Be '322.250'
+    }
+
+    It 'does not retry and throws immediately when ffmpeg fails for an unrelated reason' {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            Set-Content -LiteralPath $RedirectStandardError -Value 'Invalid argument' -NoNewline
+            [pscustomobject]@{ ExitCode = 1 }
+        }
+
+        { Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '0.000' `
+                -EndTimestamp '10.000' -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Throw '*exit code 1*'
+
+        Should -Invoke -ModuleName Reshelf.Implementation Start-Process -Times 1 -Exactly
+    }
+
+    It 'also retries when there is no end timestamp, since the bug is about the start boundary, not the end' {
+        $script:callCount = 0
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            $script:callCount++
+            Set-Content -LiteralPath $RedirectStandardError -Value '[flac @ 0x0] invalid block size: 4' -NoNewline
+            if ($script:callCount -eq 1) { [pscustomobject]@{ ExitCode = -22 } } else { [pscustomobject]@{ ExitCode = 0 } }
+        }
+
+        { Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '600.000' `
+                -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Not -Throw
+
+        $script:callCount | Should -Be 2
+    }
+}
+
 Describe 'Resolve-ReshelfTruncatedReleaseNames' {
     BeforeAll {
         function New-TruncationTestRelease {

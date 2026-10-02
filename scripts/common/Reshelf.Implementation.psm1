@@ -278,9 +278,40 @@ function Invoke-ReshelfFfmpegSplit {
     }
     $ffmpegArgs.Add("`"$OutputPath`"")
 
-    $process = Start-Process -FilePath $FfmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-        throw "ffmpeg split failed (exit code $($process.ExitCode)) for '$SourceAudioPath' -> '$OutputPath'."
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $process = Start-Process -FilePath $FfmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru -RedirectStandardError $stderrPath
+        if ($process.ExitCode -ne 0) {
+            $stderrText = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+
+            # Known ffmpeg native-FLAC-encoder limitation, not a Reshelf bug: with -ss/-to as OUTPUT
+            # options (as used here, for sample-accurate cuts), ffmpeg decodes from the real start of
+            # the file and trims via a filter. When the cut's start point lands a few samples before
+            # one of the SOURCE file's own internal frame boundaries, the first chunk handed to the
+            # encoder is that tiny leftover (not a trailing remainder - confirmed by hand against the
+            # two real tracks that hit this: nudging -to did nothing, nudging -ss fixed it every time).
+            # FLAC's encoder requires >=16 samples per block and aborts immediately ("invalid block
+            # size: N", N = that leftover count) without writing anything. Nudging the start timestamp
+            # by 50ms moves off that exact unlucky boundary.
+            if ($stderrText -match 'invalid block size') {
+                $nudgedStartSeconds = [double]::Parse($StartTimestamp, [System.Globalization.CultureInfo]::InvariantCulture) + 0.05
+                $nudgedStartTimestamp = $nudgedStartSeconds.ToString('F3', [System.Globalization.CultureInfo]::InvariantCulture)
+                $retryArgs = [System.Collections.Generic.List[string]]::new($ffmpegArgs)
+                $retryArgs[$retryArgs.IndexOf($StartTimestamp)] = $nudgedStartTimestamp
+                $retryProcess = Start-Process -FilePath $FfmpegPath -ArgumentList $retryArgs -NoNewWindow -Wait -PassThru -RedirectStandardError $stderrPath
+                if ($retryProcess.ExitCode -eq 0) {
+                    Write-Warning "ffmpeg split for '$OutputPath' hit the known FLAC trim 'invalid block size' edge case; recovered by nudging the start boundary by 0.05s."
+                    return
+                }
+                $stderrText = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+                throw "ffmpeg split failed (exit code $($retryProcess.ExitCode)) for '$SourceAudioPath' -> '$OutputPath', even after retrying past a FLAC 'invalid block size' error. ffmpeg stderr: $stderrText"
+            }
+
+            throw "ffmpeg split failed (exit code $($process.ExitCode)) for '$SourceAudioPath' -> '$OutputPath'. ffmpeg stderr: $stderrText"
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $stderrPath -ErrorAction SilentlyContinue
     }
 }
 
