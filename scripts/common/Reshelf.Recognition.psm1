@@ -799,6 +799,19 @@ function Split-ReshelfLeadingYear {
         return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $Matches[2].Trim() }
     }
 
+    # Real-world case: "2006-Fire Without Flame" - a release year glued directly to the title with
+    # no space at all. The spaced pattern above intentionally skips this (see its own comment), so
+    # it falls through to here. Only accept it when the remainder does NOT itself look like a second
+    # year (e.g. "1999-2003 Anthology") - that's the exact ambiguous shape the spaced-pattern comment
+    # above is protecting against, and gluing-with-no-space must preserve it instead of guessing.
+    if ($Text -match '^(\d{4})[-–](.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
+        $candidateTitle = $Matches[2].Trim()
+        $looksLikeSecondYear = $candidateTitle -match '^(\d{4})(\s|$)' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100
+        if (-not $looksLikeSecondYear) {
+            return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $candidateTitle }
+        }
+    }
+
     return [pscustomobject]@{ Year = $null; Title = $Text }
 }
 

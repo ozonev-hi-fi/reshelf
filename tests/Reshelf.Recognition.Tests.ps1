@@ -649,6 +649,7 @@ Describe 'Invoke-ReshelfRecognition' {
             @{ Folder = "1999 $([char]0x2013) XXX"; Year = 1999; Title = 'XXX' }
             @{ Folder = '1990 Live - The Tour'; Year = 1990; Title = 'Live - The Tour' }
             @{ Folder = '1999-2003 Anthology'; Year = $null; Title = '1999-2003 Anthology' }
+            @{ Folder = '2006-Fire Without Flame'; Year = 2006; Title = 'Fire Without Flame' }
         )
 
         foreach ($case in $cases) {
