@@ -997,7 +997,7 @@ function Resolve-ReshelfDiscogsCatalogFallback {
                         releaseId = [int]$item.id
                         title     = "$($ArtistIdentity.Name) - $($item.title)"
                         year      = [int]$item.year
-                        format    = (@($item.format) -join ', ')
+                        format    = $(if ($item.format) { @($item.format) -join ', ' } else { 'Unknown' })
                         score     = 1.0
                     })
             }
@@ -1009,7 +1009,7 @@ function Resolve-ReshelfDiscogsCatalogFallback {
                 releaseId = [int]$_.Item.id
                 title     = "$($ArtistIdentity.Name) - $($_.Item.title)"
                 year      = [int]$_.Item.year
-                format    = (@($_.Item.format) -join ', ')
+                format    = $(if ($_.Item.format) { @($_.Item.format) -join ', ' } else { 'Unknown' })
                 score     = [Math]::Round($_.Fingerprint.Score, 4)
             }
         })
@@ -1449,7 +1449,7 @@ function New-ReshelfProposedReleaseNames {
     }
 
     $usedSentinelYear = $false
-    if ($null -eq $yearRaw) {
+    if (-not $yearRaw) {
         $yearRaw = $script:UnresolvedYearSentinel
         $usedSentinelYear = $true
     }

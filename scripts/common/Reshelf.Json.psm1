@@ -65,8 +65,12 @@ function Set-ReshelfJsonFile {
     )
 
     $json = ConvertTo-Json -InputObject $InputObject -Depth $Depth
-    if (-not (Test-ReshelfJson -SchemaName $SchemaName -Json $json -ErrorAction SilentlyContinue)) {
-        throw "Document for '$Path' does not match schema '$SchemaName'."
+    $validationErrors = $null
+    if (-not (Test-ReshelfJson -SchemaName $SchemaName -Json $json -ErrorAction SilentlyContinue -ErrorVariable validationErrors)) {
+        $detail = if ($validationErrors -and $validationErrors.Count -gt 0) { $validationErrors[0].Exception.Message } else { $null }
+        $message = "Document for '$Path' does not match schema '$SchemaName'."
+        if ($detail) { $message += " $detail" }
+        throw $message
     }
 
     $parentDir = Split-Path -Path $Path -Parent
