@@ -345,6 +345,62 @@ function Test-ReshelfIsCompilationArtist {
     return ([string]$ArtistName).Trim() -in @('Various', 'Various Artists')
 }
 
+function Get-ReshelfVariousArtistsEvidence {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Tracks,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$FolderArtistName
+    )
+
+    # Real case (session 2026-10-03-0001): "DIO\1999 - Holy Dio" is a tribute album - 18 tracks by
+    # 18 different bands, none of them DIO - that Discogs files under "Various", so a search with
+    # the folder artist finds nothing. The tracks' own artists are the evidence a human uses: the
+    # existing Artist tag first, then the "Artist - Title" part of the file name - the latter only
+    # when EVERY track has one, since a single-artist title can have a dash too ("Song - Live").
+    $fileNameInfos = @($Tracks | ForEach-Object { ConvertFrom-ReshelfTrackFileName -FileName ([string]$_.originalFileName) })
+    $useFileNames = ($fileNameInfos.Count -gt 0) -and (@($fileNameInfos | Where-Object { -not $_.ArtistPart }).Count -eq 0)
+
+    $trackArtists = [string[]]::new($Tracks.Count)
+    $fileNameArtists = [string[]]::new($Tracks.Count)
+    for ($i = 0; $i -lt $Tracks.Count; $i++) {
+        if ($useFileNames) { $fileNameArtists[$i] = $fileNameInfos[$i].ArtistPart }
+        $tagArtist = [string]$Tracks[$i].existingTags.artist
+        $trackArtists[$i] = if (-not [string]::IsNullOrWhiteSpace($tagArtist)) { $tagArtist.Trim() } else { $fileNameArtists[$i] }
+    }
+
+    # A featured guest is not a different performer ("Metallica feat. X" is still Metallica), so
+    # the feat. part is cut before comparing.
+    $normalize = {
+        param([string]$Name)
+        $mainName = [regex]::Split($Name, '(?i)\s+(?:feat\.?|ft\.?|featuring)\s+')[0]
+        ConvertTo-ReshelfNormalizedText -Text $mainName
+    }
+    $normalizedFolderArtist = & $normalize $FolderArtistName
+    $normalizedArtists = @($trackArtists | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { & $normalize $_ } | Where-Object { $_ })
+
+    $distinctCount = @($normalizedArtists | Select-Object -Unique).Count
+    $differingCount = @($normalizedArtists | Where-Object { $_ -ne $normalizedFolderArtist }).Count
+    $trackCount = $Tracks.Count
+
+    $looksLikeVarious = ($trackCount -ge 3) -and ($distinctCount -ge 3) -and ($differingCount -gt ($trackCount / 2)) -and
+    (([string]$FolderArtistName).Trim() -notin @('Various', 'Various Artists'))
+
+    return [pscustomobject]@{
+        LooksLikeVarious    = $looksLikeVarious
+        DistinctArtistCount = $distinctCount
+        DifferingTrackCount = $differingCount
+        TrackCount          = $trackCount
+        TrackArtists        = $trackArtists
+        FileNameArtists     = $fileNameArtists
+    }
+}
+
 function Get-ReshelfDiscogsFormatPreferenceRank {
     [CmdletBinding()]
     [OutputType([int])]
@@ -737,8 +793,12 @@ function Resolve-ReshelfDiscogsMatch {
         # --- Step 1b: artist master list - a Discogs release_title search can fail outright on a
         # title Discogs itself spells differently (real case: "Redlight" vs a folder named "Red
         # Light" returns zero release_title results either way) - listing every master credited to
-        # the artist and scoring locally still finds it. Only tried when 1a found nothing eligible. ---
-        if ($eligibleMasters.Count -eq 0) {
+        # the artist and scoring locally still finds it. Only tried when 1a found nothing eligible,
+        # and skipped outright for "Various"/"Various Artists" - that artist's master list runs into
+        # the thousands and sorts nothing like a real artist's, so paging through it would only waste
+        # rate-limited calls on a release this step was never going to find. ---
+        $isVariousArtistSearch = ([string]$ArtistName).Trim() -in @('Various', 'Various Artists')
+        if ($eligibleMasters.Count -eq 0 -and -not $isVariousArtistSearch) {
             $artistMasters = [System.Collections.Generic.List[object]]::new()
             for ($page = 1; $page -le 3; $page++) {
                 $query = @{ type = 'master'; artist = $ArtistName; per_page = '100'; page = "$page" }
@@ -1169,7 +1229,12 @@ function New-ReshelfProposedTrackSet {
         [Parameter(Mandatory)]
         [string]$TrackFileTemplate,
 
-        [int]$TrackNumberPadWidth = 2
+        [int]$TrackNumberPadWidth = 2,
+
+        # Per-track artist parsed from each file name's "NN Artist - Title" shape (same order as
+        # $Tracks), from Get-ReshelfVariousArtistsEvidence. Empty/omitted entries fall through to
+        # the existing behavior unchanged.
+        [string[]]$FileNameArtists = @()
     )
 
     $substitutions = [System.Collections.Generic.List[string]]::new()
@@ -1261,6 +1326,8 @@ function New-ReshelfProposedTrackSet {
         $discIndex++
         foreach ($i in $discGroups[$discKey]) {
             $track = $Tracks[$i]
+            $fileNameInfo = ConvertFrom-ReshelfTrackFileName -FileName $track.originalFileName
+            $fileNameArtist = if ($i -lt $FileNameArtists.Count) { $FileNameArtists[$i] } else { $null }
 
             if ($useDiscogs) {
                 $rawTitle = Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$DiscogsIndices[$i] - 1].title
@@ -1268,8 +1335,14 @@ function New-ReshelfProposedTrackSet {
             elseif ($track.existingTags.title) {
                 $rawTitle = ConvertTo-ReshelfTitleCase -Text $track.existingTags.title
             }
+            elseif ($Names.IsCompilation -and -not $track.existingTags.artist -and $fileNameArtist -and $fileNameInfo.TitlePart) {
+                # A compilation track without any tags, numbered "NN Artist - Title": once the
+                # Artist half is used below, the Title half is the right fallback title too
+                # (not "Artist - Title" repeated into the Title tag).
+                $rawTitle = ConvertTo-ReshelfTitleCase -Text $fileNameInfo.TitlePart
+            }
             else {
-                $rawTitle = ConvertTo-ReshelfTitleCase -Text (ConvertFrom-ReshelfTrackFileName -FileName $track.originalFileName).Title
+                $rawTitle = ConvertTo-ReshelfTitleCase -Text $fileNameInfo.Title
             }
 
             $titleSan = ConvertTo-SafeFileName -Name $rawTitle -Context 'track file name'
@@ -1282,8 +1355,9 @@ function New-ReshelfProposedTrackSet {
             # Per-track Artist: Discogs' own per-track credit wins when it has one (this covers any
             # release with per-track credits, not only "Various" ones - a split release keeps its
             # tracks' real artists too). Failing that, a compilation falls back to the file's own
-            # existing Artist tag, and only then to the release/Album Artist ("Various") plus a note
-            # that forces human review, since silently mislabeling a compilation track is worse than
+            # existing Artist tag, then to the artist parsed from the file name ("NN Artist -
+            # Title"), and only then to the release/Album Artist ("Various") plus a note that
+            # forces human review, since silently mislabeling a compilation track is worse than
             # asking someone to look.
             $discogsCredit = $null
             if ($useDiscogs) {
@@ -1294,6 +1368,9 @@ function New-ReshelfProposedTrackSet {
             }
             elseif ($Names.IsCompilation -and $track.existingTags.artist) {
                 $trackArtist = ConvertTo-ReshelfTitleCase -Text $track.existingTags.artist
+            }
+            elseif ($Names.IsCompilation -and $fileNameArtist) {
+                $trackArtist = ConvertTo-ReshelfTitleCase -Text $fileNameArtist
             }
             elseif ($Names.IsCompilation) {
                 $trackArtist = $Names.Artist
@@ -1878,6 +1955,22 @@ function New-ReshelfProposedRelease {
     $match = Resolve-ReshelfDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
         -SourceTrackCount $Release.tracks.Count -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 
+    # Real case (session 2026-10-03-0001, "DIO\1999 - Holy Dio"): a Various-Artists release filed
+    # under its tracks' shared folder (not under "Various") never matches on that folder's own
+    # name - Discogs files it under "Various" instead. The tracks themselves are the evidence a
+    # human would use, so when the folder-artist search comes back empty/ambiguous AND most tracks
+    # clearly have a different artist each, "Various" is tried too before giving up.
+    $effectiveArtistName = $ArtistName
+    $vaEvidence = Get-ReshelfVariousArtistsEvidence -Tracks $Release.tracks -FolderArtistName $ArtistName
+    $usedVariousArtistsFallback = $false
+    if ($match.Status -ne 'matched' -and $vaEvidence.LooksLikeVarious) {
+        $variousMatch = Resolve-ReshelfDiscogsMatch -ArtistName 'Various' -Title $Release.recognizedTitle -Year $Release.recognizedYear `
+            -SourceTrackCount $Release.tracks.Count -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+        $match = $variousMatch
+        $effectiveArtistName = 'Various'
+        $usedVariousArtistsFallback = $true
+    }
+
     if ($match.ErrorNote) {
         $notes.Add($match.ErrorNote)
         $requiresReview = $true
@@ -1886,8 +1979,12 @@ function New-ReshelfProposedRelease {
         $requiresReview = $true
         $notes.Add("Discogs match status: $($match.Status)")
     }
+    if ($usedVariousArtistsFallback) {
+        $requiresReview = $true
+        $notes.Add("Tracks have $($vaEvidence.DistinctArtistCount) different artists (none is '$ArtistName'); proposed as Various Artists compilation.")
+    }
 
-    $names = New-ReshelfProposedReleaseNames -ArtistName $ArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
+    $names = New-ReshelfProposedReleaseNames -ArtistName $effectiveArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
     if ($names.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$names.Substitutions) }
     if ($names.UsedSentinelYear) {
         $requiresReview = $true
@@ -1920,7 +2017,7 @@ function New-ReshelfProposedRelease {
     }
 
     $trackSet = New-ReshelfProposedTrackSet -Tracks $Release.tracks -DiscogsTracks $discogsTracks -DiscogsIndices $discogsIndices `
-        -Names $names -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth
+        -Names $names -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth -FileNameArtists $vaEvidence.FileNameArtists
     if ($trackSet.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$trackSet.Substitutions) }
     if ($trackSet.Notes.Count -gt 0) {
         $notes.AddRange([string[]]$trackSet.Notes)

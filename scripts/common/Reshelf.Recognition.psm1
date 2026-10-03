@@ -160,6 +160,19 @@ function Test-IsGroupingFolder {
         if (Test-IsAlbumWrapperFolder -Path $sub.FullName) { return $false }
     }
 
+    # Real case (Iron Maiden\{Studio Albums,Compilation Albums}): structurally this looks like a
+    # grouping folder (e.g. a genre root) with every subfolder itself a plain container - but if
+    # the releases two levels down actually carry this folder's own name as their performer/artist
+    # tag, it's a single artist with category subfolders, not a grouping of unrelated artists.
+    $releaseFolders = @(foreach ($sub in $subfolders) {
+            Get-ChildItem -LiteralPath $sub.FullName -Directory -ErrorAction SilentlyContinue |
+                Where-Object { Test-IsReleaseFolder -Path $_.FullName } |
+                ForEach-Object { $_.FullName }
+        })
+    if ($releaseFolders.Count -gt 0 -and (Test-ReshelfMetadataConfirmsArtist -ReleaseFolderPaths $releaseFolders -ArtistName (Split-Path -Leaf $Path))) {
+        return $false
+    }
+
     return $true
 }
 
@@ -190,13 +203,84 @@ function Test-IsBandMemberFolder {
     }
 
     $subfolders = @(Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue)
-    foreach ($sub in $subfolders) {
-        if (Test-IsReleaseFolder -Path $sub.FullName) {
-            return $true
+    $releaseFolders = @($subfolders | Where-Object { Test-IsReleaseFolder -Path $_.FullName } | ForEach-Object { $_.FullName })
+    if ($releaseFolders.Count -eq 0) {
+        return $false
+    }
+
+    # Real case (Iron Maiden\Studio Albums, Iron Maiden\Compilation Albums): structurally this is
+    # indistinguishable from a genuine band-member folder (e.g. Talking Heads\David Byrne) - a
+    # differently-named pure container directly holding release folders. If the releases' own
+    # performer/artist metadata agrees with the PARENT artist instead of naming a different
+    # performer, this is a category folder in disguise, not another artist.
+    if (Test-ReshelfMetadataConfirmsArtist -ReleaseFolderPaths $releaseFolders -ArtistName $ParentArtistName) {
+        return $false
+    }
+
+    return $true
+}
+
+function Get-ReshelfReleaseFolderMetadataArtist {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $audioFile = @(Get-ReshelfAudioFilesInFolder -Path $Path -Recurse) | Select-Object -First 1
+    if ($null -eq $audioFile) { return $null }
+
+    # A cue's PERFORMER is release-level and describes the whole disc - checked first because the
+    # per-track tags on a rip like this are often empty (see the audio tag fallback below).
+    $cueFiles = @(Get-ChildItem -LiteralPath $audioFile.DirectoryName -File -Filter '*.cue' -ErrorAction SilentlyContinue)
+    if ($cueFiles.Count -gt 0) {
+        $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFiles
+        if ($cueFile) {
+            $header = Get-ReshelfCueSheetHeader -CueFilePath $cueFile.FullName
+            if ($header -and $header.Performer) { return $header.Performer }
         }
     }
 
-    return $false
+    try {
+        $tags = Get-ReshelfAudioTags -Path $audioFile.FullName
+        if ($tags.Artist) { return $tags.Artist }
+    }
+    catch {
+        # Unreadable file: no metadata signal, not a recognition failure - callers treat $null the
+        # same as "this folder has nothing to say about its artist".
+    }
+
+    return $null
+}
+
+function Test-ReshelfMetadataConfirmsArtist {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$ReleaseFolderPaths,
+
+        [Parameter(Mandatory)]
+        [string]$ArtistName
+    )
+
+    $normalizedArtist = ConvertTo-ReshelfNormalizedText -Text $ArtistName
+    $withMetadata = 0
+    $matching = 0
+    foreach ($path in $ReleaseFolderPaths) {
+        $metadataArtist = Get-ReshelfReleaseFolderMetadataArtist -Path $path
+        if ($null -eq $metadataArtist) { continue }
+
+        $withMetadata++
+        if ((ConvertTo-ReshelfNormalizedText -Text $metadataArtist) -eq $normalizedArtist) {
+            $matching++
+        }
+    }
+
+    if ($withMetadata -eq 0) { return $false }
+    return ($matching / $withMetadata) -gt 0.5
 }
 
 # --- Track / disc parsing ---------------------------------------------------
@@ -280,6 +364,50 @@ function Test-IsCueSheetRelease {
     return ($null -ne (Get-ReshelfCueSheetPathForAudio -AudioFile $audioFiles[0] -CueFiles $cueFiles))
 }
 
+function Get-ReshelfFlatDiscCuePairs {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    # Real case (Iron Maiden "1996 - Best Of The Beast (TOCP-50128-9)"): a multi-CD rip with one
+    # whole-disc image + its own cue per CD, all side by side in the release folder - no "CD 1"/
+    # "CD 2" subfolders. Each audio file must have its own, distinct cue; anything less (e.g. two
+    # audio files sharing one cue) is not this shape.
+    $audioFiles = @(Get-ReshelfAudioFilesInFolder -Path $Path)
+    if ($audioFiles.Count -lt 2) { return @() }
+
+    $cueFiles = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
+    $pairs = [System.Collections.Generic.List[object]]::new()
+    foreach ($audioFile in $audioFiles) {
+        $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFiles
+        if ($null -eq $cueFile) { return @() }
+        if (@($pairs | Where-Object { $_.CueFile.FullName -eq $cueFile.FullName }).Count -gt 0) { return @() }
+
+        $header = Get-ReshelfCueSheetHeader -CueFilePath $cueFile.FullName
+        $pairs.Add([pscustomobject]@{
+                AudioFile  = $audioFile
+                CueFile    = $cueFile
+                DiscNumber = if ($header) { $header.DiscNumber } else { $null }
+            })
+    }
+
+    if (@($pairs | Where-Object { $null -eq $_.DiscNumber }).Count -eq 0) {
+        return @($pairs | Sort-Object DiscNumber, { $_.AudioFile.Name })
+    }
+
+    # No disc numbers in the cues: the release folder name usually carries the main disc's catalog
+    # number ("The X Factor (TOCP-8588)" next to a bonus "BCD-0033" disc; "TOCP-50128-9" covering
+    # TOCP-50128 + TOCP-50129), so a pair whose own "(...)" text is in the folder name goes first.
+    $folderName = Split-Path -Leaf $Path
+    return @($pairs | Sort-Object @{ Expression = {
+                $hint = if ($_.AudioFile.BaseName -match '\(([^()]+)\)[^()]*$') { $Matches[1].Trim() } else { $null }
+                if ($hint -and $folderName.IndexOf($hint, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 0 } else { 1 }
+            }
+        }, @{ Expression = { $_.AudioFile.Name } })
+}
+
 function ConvertFrom-ReshelfCueSheetText {
     [CmdletBinding()]
     [OutputType([string])]
@@ -352,6 +480,41 @@ function ConvertFrom-ReshelfCueSheet {
     }
 
     return @($tracks | Sort-Object Number)
+}
+
+function Get-ReshelfCueSheetHeader {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$CueFilePath
+    )
+
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes((ConvertTo-ReshelfLongPath -Path $CueFilePath))
+        $text = ConvertFrom-ReshelfCueSheetText -Bytes $bytes
+        $lines = $text -split "`r`n|`r|`n"
+    }
+    catch {
+        return $null
+    }
+
+    # Only the disc-level header counts - a PERFORMER inside a TRACK block is that one track's
+    # performer, which can differ on a compilation.
+    $performer = $null
+    $discNumber = $null
+    foreach ($line in $lines) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^TRACK\s+\d+') { break }
+        if ($trimmed -match '^PERFORMER\s+"(.*)"' -and $Matches[1].Trim()) {
+            $performer = $Matches[1].Trim()
+        }
+        elseif ($trimmed -match '^REM\s+DISCNUMBER\s+"?(\d+)"?') {
+            $discNumber = [int]$Matches[1]
+        }
+    }
+
+    return [pscustomobject]@{ Performer = $performer; DiscNumber = $discNumber }
 }
 
 function New-ReshelfCueVirtualTracks {
@@ -920,8 +1083,22 @@ function New-ReshelfReleaseRecord {
     $tracks = [System.Collections.Generic.List[object]]::new()
     $cueSheets = [System.Collections.Generic.List[object]]::new()
 
+    $flatDiscPairCount = $null
     if ($discFolders.Count -eq 0) {
-        if (Test-IsCueSheetRelease -Path $Path) {
+        $flatDiscPairs = Get-ReshelfFlatDiscCuePairs -Path $Path
+        if ($flatDiscPairs.Count -ge 2) {
+            $flatDiscPairCount = $flatDiscPairs.Count
+            $needsReview = $true
+            $reviewReasons.Add('flat-multi-disc-cue-pairs')
+            foreach ($pair in $flatDiscPairs) {
+                $cueSheets.Add([pscustomobject]@{ cueFilePath = $pair.CueFile.FullName; audioFilePath = $pair.AudioFile.FullName })
+                $cueResult = New-ReshelfCueVirtualTracks -AudioFile $pair.AudioFile -CueFile $pair.CueFile -DiscFolderName $pair.AudioFile.BaseName
+                $tracks.AddRange([object[]]$cueResult.Tracks)
+                if ($cueResult.NeedsReview) { $needsReview = $true }
+                foreach ($reason in $cueResult.ReviewReasons) { $reviewReasons.Add($reason) }
+            }
+        }
+        elseif (Test-IsCueSheetRelease -Path $Path) {
             $audioFile = (Get-ReshelfAudioFilesInFolder -Path $Path)[0]
             $cueFilesHere = @(Get-ChildItem -LiteralPath $Path -File -Filter '*.cue' -ErrorAction SilentlyContinue)
             $cueFile = Get-ReshelfCueSheetPathForAudio -AudioFile $audioFile -CueFiles $cueFilesHere
@@ -1051,7 +1228,7 @@ function New-ReshelfReleaseRecord {
         recognizedYear         = $year
         editionFolderName      = if ($EditionFolderName) { $EditionFolderName } else { $null }
         sourceFolderPath       = $Path
-        discFolderCount        = [Math]::Max(1, $discFolders.Count)
+        discFolderCount        = if ($null -ne $flatDiscPairCount) { $flatDiscPairCount } else { [Math]::Max(1, $discFolders.Count) }
         tracks                 = @($tracks)
         companionFiles         = @($companions.Companions)
         ignoredFiles           = @($companions.Ignored)

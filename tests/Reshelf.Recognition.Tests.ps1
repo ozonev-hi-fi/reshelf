@@ -79,6 +79,20 @@ Describe 'Test-IsGroupingFolder (private)' {
             Test-IsGroupingFolder -Path (Join-Path $fixturesDir 'Wrapper Band') | Should -Be $false
         }
     }
+
+    It 'does not treat an artist folder as a grouping folder when its category subfolders'' releases carry its name as cue PERFORMER (real-world Iron Maiden\Studio Albums + Compilation Albums case)' {
+        InModuleScope Reshelf.Recognition {
+            $artistDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'Iron Maiden'
+            $release1 = Join-Path $artistDir 'Studio Albums' '1980 - Iron Maiden'
+            $release2 = Join-Path $artistDir 'Compilation Albums' '1996 - Best Of The Beast'
+            New-Item -ItemType File -Path (Join-Path $release1 'Iron Maiden.flac') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $release1 'Iron Maiden.cue') -Value 'PERFORMER "Iron Maiden"'
+            New-Item -ItemType File -Path (Join-Path $release2 'Best Of The Beast.flac') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $release2 'Best Of The Beast.cue') -Value 'PERFORMER "Iron Maiden"'
+
+            Test-IsGroupingFolder -Path $artistDir | Should -Be $false
+        }
+    }
 }
 
 Describe 'Test-IsAlbumWrapperFolder (private)' {
@@ -181,6 +195,18 @@ Describe 'Test-IsBandMemberFolder (private)' {
             Test-IsBandMemberFolder -Path (Join-Path $fixturesDir 'ZZ Top\EPs') -ParentArtistName 'ZZ Top' | Should -Be $false
         }
     }
+
+    It 'rejects a category-folder-in-disguise whose release metadata matches the parent artist (real-world Iron Maiden\Studio Albums case)' {
+        InModuleScope Reshelf.Recognition {
+            $parentDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) 'Iron Maiden'
+            $categoryDir = Join-Path $parentDir 'Studio Albums'
+            $releaseDir = Join-Path $categoryDir '1980 - Iron Maiden'
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden.flac') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden.cue') -Value 'PERFORMER "Iron Maiden"'
+
+            Test-IsBandMemberFolder -Path $categoryDir -ParentArtistName 'Iron Maiden' | Should -Be $false
+        }
+    }
 }
 
 Describe 'ConvertFrom-ReshelfTrackFileName (private)' {
@@ -216,6 +242,42 @@ Describe 'ConvertFrom-ReshelfTrackFileName (private)' {
             $result.Number | Should -Be $null
             $result.Title | Should -Be 'Alpha Song'
             $result.HasNumber | Should -Be $false
+        }
+    }
+
+    It 'parses a bracketed numbered filename (real Various-Artists rip case, "[01] Blind Guardian - ...")' {
+        InModuleScope Reshelf.Recognition {
+            $result = ConvertFrom-ReshelfTrackFileName -FileName "[01] Blind Guardian - Don't Talk To Stranger.mp3"
+            $result.Number | Should -Be 1
+            $result.Title | Should -Be "Blind Guardian - Don't Talk To Stranger"
+            $result.HasNumber | Should -Be $true
+            $result.ArtistPart | Should -Be 'Blind Guardian'
+            $result.TitlePart | Should -Be "Don't Talk To Stranger"
+        }
+    }
+
+    It 'parses a parenthesized numbered filename' {
+        InModuleScope Reshelf.Recognition {
+            $result = ConvertFrom-ReshelfTrackFileName -FileName '(02) Some Track.flac'
+            $result.Number | Should -Be 2
+            $result.Title | Should -Be 'Some Track'
+            $result.HasNumber | Should -Be $true
+        }
+    }
+
+    It 'does not read a parenthesized year as a track number' {
+        InModuleScope Reshelf.Recognition {
+            $result = ConvertFrom-ReshelfTrackFileName -FileName '(1999) Some Track.flac'
+            $result.Number | Should -Be $null
+            $result.HasNumber | Should -Be $false
+        }
+    }
+
+    It 'leaves ArtistPart/TitlePart null when the title has no "Artist - Title" dash' {
+        InModuleScope Reshelf.Recognition {
+            $result = ConvertFrom-ReshelfTrackFileName -FileName '03 Some Track.mp3'
+            $result.ArtistPart | Should -BeNullOrEmpty
+            $result.TitlePart | Should -BeNullOrEmpty
         }
     }
 }
@@ -421,6 +483,100 @@ Describe 'ConvertFrom-ReshelfCueSheet (private)' {
     It 'returns $null for a missing cue file' {
         InModuleScope Reshelf.Recognition {
             ConvertFrom-ReshelfCueSheet -CueFilePath (Join-Path $TestDrive 'does-not-exist.cue') | Should -Be $null
+        }
+    }
+}
+
+Describe 'Get-ReshelfCueSheetHeader (private)' {
+    It 'reads the disc-level PERFORMER and REM DISCNUMBER, ignoring a per-track PERFORMER' {
+        InModuleScope Reshelf.Recognition {
+            $path = Join-Path $TestDrive 'header.cue'
+            Set-Content -LiteralPath $path -Value @'
+REM DISCNUMBER 2
+PERFORMER "Iron Maiden"
+TITLE "Best Of The Beast (TOCP-50129)"
+FILE "Iron Maiden - Best Of The Beast (TOCP-50129).flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Rime Of The Ancient Mariner (Live)"
+    PERFORMER "A Different Performer"
+    INDEX 01 00:00:00
+'@
+            $header = Get-ReshelfCueSheetHeader -CueFilePath $path
+            $header.Performer | Should -Be 'Iron Maiden'
+            $header.DiscNumber | Should -Be 2
+        }
+    }
+
+    It 'returns $null fields when the cue has no header lines' {
+        InModuleScope Reshelf.Recognition {
+            $path = Join-Path $TestDrive 'no-header.cue'
+            Set-Content -LiteralPath $path -Value @'
+TRACK 01 AUDIO
+  TITLE "Track"
+  INDEX 01 00:00:00
+'@
+            $header = Get-ReshelfCueSheetHeader -CueFilePath $path
+            $header.Performer | Should -BeNullOrEmpty
+            $header.DiscNumber | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'returns $null for a missing cue file' {
+        InModuleScope Reshelf.Recognition {
+            Get-ReshelfCueSheetHeader -CueFilePath (Join-Path $TestDrive 'missing.cue') | Should -Be $null
+        }
+    }
+}
+
+Describe 'Get-ReshelfFlatDiscCuePairs (private)' {
+    It 'pairs each audio file with its own distinct cue, ordering by the catalog-number hint in the folder name (real-world Iron Maiden "The X Factor" case)' {
+        InModuleScope Reshelf.Recognition {
+            $releaseDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) '1995 - The X Factor (TOCP-8588)'
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).flac') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).cue') -Value 'PERFORMER "Iron Maiden"'
+            Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).cue') -Value 'PERFORMER "Iron Maiden"'
+
+            $pairs = Get-ReshelfFlatDiscCuePairs -Path $releaseDir
+            $pairs.Count | Should -Be 2
+            $pairs[0].AudioFile.Name | Should -Be 'Iron Maiden - The X Factor (TOCP-8588).flac'
+            $pairs[1].AudioFile.Name | Should -Be 'Iron Maiden - The X Factor (BCD-0033).flac'
+        }
+    }
+
+    It 'orders by REM DISCNUMBER when every cue has one, even if it disagrees with the folder-name hint' {
+        InModuleScope Reshelf.Recognition {
+            $releaseDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) '1995 - The X Factor (TOCP-8588)'
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).flac') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).cue') -Value 'REM DISCNUMBER 2'
+            Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).cue') -Value 'REM DISCNUMBER 1'
+
+            $pairs = Get-ReshelfFlatDiscCuePairs -Path $releaseDir
+            $pairs.Count | Should -Be 2
+            $pairs[0].AudioFile.Name | Should -Be 'Iron Maiden - The X Factor (BCD-0033).flac'
+            $pairs[1].AudioFile.Name | Should -Be 'Iron Maiden - The X Factor (TOCP-8588).flac'
+        }
+    }
+
+    It 'returns an empty list when 2 audio files share a single cue (not one cue per disc)' {
+        InModuleScope Reshelf.Recognition {
+            $releaseDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) '2003 Some Album'
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Track A.flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Track B.flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Album.cue') -Force | Out-Null
+
+            Get-ReshelfFlatDiscCuePairs -Path $releaseDir | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'returns an empty list when fewer than 2 audio files are present' {
+        InModuleScope Reshelf.Recognition {
+            $releaseDir = Join-Path $TestDrive ([guid]::NewGuid().ToString('N')) '2003 Some Album'
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Track A.flac') -Force | Out-Null
+            New-Item -ItemType File -Path (Join-Path $releaseDir 'Track A.cue') -Force | Out-Null
+
+            Get-ReshelfFlatDiscCuePairs -Path $releaseDir | Should -BeNullOrEmpty
         }
     }
 }
@@ -1057,6 +1213,117 @@ TRACK 02 AUDIO
         $release.cueSheets[0].cueFilePath | Should -Be (Join-Path $releaseDir 'Some Album.flac.cue')
         $release.tracks.Count | Should -Be 2
         $release.tracks[1].existingTags.title | Should -Be 'Second Track'
+    }
+
+    It 'splits a flat multi-disc folder (several flac+cue pairs, no CD subfolders) into one disc per pair, ordered by catalog-number hint in the folder name (real-world Iron Maiden "The X Factor" case)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $releaseDir = Join-Path $sourceRoot 'Iron Maiden' '1995 - The X Factor (TOCP-8588)'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).flac') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).cue') -Value @'
+PERFORMER "Iron Maiden"
+FILE "Iron Maiden - The X Factor (TOCP-8588).flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Sign Of The Cross"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "Lord Of The Flies"
+    INDEX 01 02:00:00
+'@
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).cue') -Value @'
+PERFORMER "Iron Maiden"
+FILE "Iron Maiden - The X Factor (BCD-0033).flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Justice Of The Peace"
+    INDEX 01 00:00:00
+'@
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-29' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Iron Maiden' }
+        $release = $artist.releases[0]
+        $release.discFolderCount | Should -Be 2
+        $release.cueSheets.Count | Should -Be 2
+        $release.needsReview | Should -Be $true
+        $release.reviewReasons | Should -Contain 'flat-multi-disc-cue-pairs'
+        ($release.ignoredFiles.reason) | Should -Not -Contain 'cue-sheet-not-used'
+        $discOrder = @($release.tracks | ForEach-Object discFolder | Select-Object -Unique)
+        $discOrder[0] | Should -BeLike '*TOCP-8588*'
+        $discOrder[1] | Should -BeLike '*BCD-0033*'
+        ($release.tracks | Where-Object { $_.discFolder -like '*TOCP-8588*' }).Count | Should -Be 2
+        ($release.tracks | Where-Object { $_.discFolder -like '*BCD-0033*' }).Count | Should -Be 1
+    }
+
+    It 'orders flat multi-disc pairs by REM DISCNUMBER, even when it disagrees with the catalog-number hint in the folder name' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $releaseDir = Join-Path $sourceRoot 'Iron Maiden' '1995 - The X Factor (TOCP-8588)'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).flac') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (TOCP-8588).cue') -Value @'
+REM DISCNUMBER 2
+PERFORMER "Iron Maiden"
+FILE "Iron Maiden - The X Factor (TOCP-8588).flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Sign Of The Cross"
+    INDEX 01 00:00:00
+'@
+        Set-Content -LiteralPath (Join-Path $releaseDir 'Iron Maiden - The X Factor (BCD-0033).cue') -Value @'
+REM DISCNUMBER 1
+PERFORMER "Iron Maiden"
+FILE "Iron Maiden - The X Factor (BCD-0033).flac" WAVE
+  TRACK 01 AUDIO
+    TITLE "Justice Of The Peace"
+    INDEX 01 00:00:00
+'@
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-30' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Iron Maiden' }
+        $release = $artist.releases[0]
+        $discOrder = @($release.tracks | ForEach-Object discFolder | Select-Object -Unique)
+        $discOrder[0] | Should -BeLike '*BCD-0033*'
+        $discOrder[1] | Should -BeLike '*TOCP-8588*'
+    }
+
+    It 'falls back to the old ordinary-track behavior when 2 audio files share a single cue (not one cue per disc)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $releaseDir = Join-Path $sourceRoot 'Some Artist' '2003 Some Album'
+        New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir '01 - Track One.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir '02 - Track Two.flac') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $releaseDir 'Album.cue') -Force | Out-Null
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-31' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }
+        $release = $artist.releases[0]
+        $release.discFolderCount | Should -Be 1
+        $release.cueSheets.Count | Should -Be 0
+        $release.tracks.Count | Should -Be 2
+        ($release.tracks.isCueVirtualTrack) | Should -Not -Contain $true
+        $cueEntry = $release.ignoredFiles | Where-Object { $_.sourcePath -like '*Album.cue' }
+        $cueEntry.reason | Should -Be 'cue-sheet-not-used'
+    }
+
+    It 'walks an artist folder with category subfolders whose releases carry its name as cue PERFORMER into one artist bucket (real-world Iron Maiden\Studio Albums + Compilation Albums case)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $release1 = Join-Path $sourceRoot 'Iron Maiden' 'Studio Albums' '1980 - Iron Maiden'
+        $release2 = Join-Path $sourceRoot 'Iron Maiden' 'Compilation Albums' '1996 - Best Of The Beast'
+        New-Item -ItemType File -Path (Join-Path $release1 'Iron Maiden.flac') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $release1 'Iron Maiden.cue') -Value 'PERFORMER "Iron Maiden"'
+        New-Item -ItemType File -Path (Join-Path $release2 'Best Of The Beast.flac') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $release2 'Best Of The Beast.cue') -Value 'PERFORMER "Iron Maiden"'
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-32' -DataHome $dataHome
+
+        $ironMaiden = $result.artists | Where-Object { $_.recognizedName -eq 'Iron Maiden' }
+        $ironMaiden | Should -Not -BeNullOrEmpty
+        $ironMaiden.releases.Count | Should -Be 2
+        ($result.artists.recognizedName) | Should -Not -Contain 'Studio Albums'
+        ($result.artists.recognizedName) | Should -Not -Contain 'Compilation Albums'
+        ($ironMaiden.releases.reviewReasons) | Should -Not -Contain 'grouping-folder-auto-resolved'
     }
 
     It 'recognizes a "yyyy - Title" album wrapper around a single edition subfolder, title/year from the album folder' {

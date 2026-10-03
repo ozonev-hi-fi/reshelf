@@ -214,14 +214,38 @@ function ConvertFrom-ReshelfTrackFileName {
 
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
 
-    if ($baseName -match '^(\d+)\s*[-–]\s*(.+)$') {
-        return [pscustomobject]@{ Number = [int]$Matches[1]; Title = $Matches[2].Trim(); HasNumber = $true }
+    $number = $null
+    $title = $baseName.Trim()
+    if ($baseName -match '^(\d+)\s*[-–]\s*(.+)$' -or $baseName -match '^(\d+)\s+(.+)$') {
+        $number = [int]$Matches[1]
+        $title = $Matches[2].Trim()
     }
-    if ($baseName -match '^(\d+)\s+(.+)$') {
-        return [pscustomobject]@{ Number = [int]$Matches[1]; Title = $Matches[2].Trim(); HasNumber = $true }
+    # "[01] Title" / "(01) Title" (real case: a Various-Artists rip named "[01] Blind Guardian -
+    # Don't Talk To Stranger.mp3"). At most 3 digits, so a leading "(1999) ..." year group is
+    # never read as a track number.
+    elseif ($baseName -match '^[\[\(](\d{1,3})[\]\)]\s*(?:[-–]\s*)?(.+)$') {
+        $number = [int]$Matches[1]
+        $title = $Matches[2].Trim()
     }
 
-    return [pscustomobject]@{ Number = $null; Title = $baseName.Trim(); HasNumber = $false }
+    # A possible "Artist - Title" split of the title, e.g. "Blind Guardian - Don't Talk To
+    # Stranger". Only a candidate - a single-artist title can have a dash too ("Song - Live"), so
+    # callers decide when to trust it (Reshelf.EditProposal's Various-Artists evidence uses it only
+    # when every track of a release has one).
+    $artistPart = $null
+    $titlePart = $null
+    if ($title -match '^(.+?)\s+[-–]\s+(.+)$') {
+        $artistPart = $Matches[1].Trim()
+        $titlePart = $Matches[2].Trim()
+    }
+
+    return [pscustomobject]@{
+        Number     = $number
+        Title      = $title
+        HasNumber  = ($null -ne $number)
+        ArtistPart = $artistPart
+        TitlePart  = $titlePart
+    }
 }
 
 function ConvertTo-SafeFileName {

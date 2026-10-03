@@ -534,6 +534,94 @@ Describe 'Test-ReshelfIsCompilationArtist (private)' {
     }
 }
 
+Describe 'Get-ReshelfVariousArtistsEvidence (private)' {
+    # Real case (session 2026-10-03-0001): "DIO\1999 - Holy Dio" is a Various-Artists tribute - 18
+    # tracks, 18 different tagged artists, none of them "DIO" - that a plain Discogs search on the
+    # folder artist never finds.
+    It 'looks like Various Artists when every track has a different tagged artist than the folder' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = 'Blind Guardian' }; originalFileName = "[01] Blind Guardian - Don't Talk To Stranger.mp3" }
+                [pscustomobject]@{ existingTags = @{ artist = 'Primal Fear' }; originalFileName = '[02] Primal Fear - Kill The King.mp3' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Doro' }; originalFileName = '[03] Doro - Egypt.mp3' }
+            )
+            $result = Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'DIO'
+            $result.LooksLikeVarious | Should -Be $true
+            $result.DistinctArtistCount | Should -Be 3
+            $result.DifferingTrackCount | Should -Be 3
+            $result.TrackArtists | Should -Be @('Blind Guardian', 'Primal Fear', 'Doro')
+        }
+    }
+
+    It 'is false for a normal single-artist release (every track tagged with the folder artist)' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = 'Radiohead' }; originalFileName = '01 - Airbag.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Radiohead' }; originalFileName = '02 - Paranoid Android.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Radiohead' }; originalFileName = '03 - Subterranean Homesick Alien.flac' }
+            )
+            Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'Radiohead' | Select-Object -ExpandProperty LooksLikeVarious | Should -Be $false
+        }
+    }
+
+    It 'is false for a 2-artist split release (not enough distinct artists)' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = 'Band A' }; originalFileName = '01 - Song One.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Band A' }; originalFileName = '02 - Song Two.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Band B' }; originalFileName = '03 - Song Three.flac' }
+            )
+            Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'Band A' | Select-Object -ExpandProperty LooksLikeVarious | Should -Be $false
+        }
+    }
+
+    It 'treats a "feat." guest as the same artist as the main credit' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = 'Metallica' }; originalFileName = '01 - Enter Sandman.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Metallica feat. Justin Bieber' }; originalFileName = '02 - Nothing Else Matters.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Metallica' }; originalFileName = '03 - Enter Sandman.flac' }
+            )
+            Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'Metallica' | Select-Object -ExpandProperty LooksLikeVarious | Should -Be $false
+        }
+    }
+
+    It 'is false when the folder is already "Various"/"Various Artists" (no retry needed)' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = 'Band A' }; originalFileName = '01 - Song One.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Band B' }; originalFileName = '02 - Song Two.flac' }
+                [pscustomobject]@{ existingTags = @{ artist = 'Band C' }; originalFileName = '03 - Song Three.flac' }
+            )
+            Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'Various' | Select-Object -ExpandProperty LooksLikeVarious | Should -Be $false
+        }
+    }
+
+    It 'falls back to a consistent "Artist - Title" file name when no track has an Artist tag' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '[01] Blind Guardian - Title One.mp3' }
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '[02] Primal Fear - Title Two.mp3' }
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '[03] Doro - Title Three.mp3' }
+            )
+            $result = Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'DIO'
+            $result.LooksLikeVarious | Should -Be $true
+            $result.TrackArtists | Should -Be @('Blind Guardian', 'Primal Fear', 'Doro')
+        }
+    }
+
+    It 'ignores file-name artists when not every track has one (inconsistent naming)' {
+        InModuleScope Reshelf.EditProposal {
+            $tracks = @(
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '[01] Blind Guardian - Title One.mp3' }
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '02 Title Two.mp3' }
+                [pscustomobject]@{ existingTags = @{ artist = $null }; originalFileName = '03 Title Three.mp3' }
+            )
+            Get-ReshelfVariousArtistsEvidence -Tracks $tracks -FolderArtistName 'DIO' | Select-Object -ExpandProperty LooksLikeVarious | Should -Be $false
+        }
+    }
+}
+
 Describe 'Get-ReshelfDiscogsSearchTitleVariants (private)' {
     # Each case is a real one from plan/12 milestone 3's re-verification against the actual Discogs
     # API - a release_title search containing this "noise" returned zero results even for a release
@@ -935,6 +1023,21 @@ Describe 'New-ReshelfProposedTrackSet (private) - real track positions' {
             }
         }
 
+        It 'falls back to the file-name artist on a compilation with no tags at all, and uses the title part as the title (real "Holy Dio" case)' {
+            $tracks = @(
+                (New-NumberingTestTrack -FileName "[01] Blind Guardian - Don't Talk To Stranger.mp3" -Number 1)
+            )
+            InModuleScope Reshelf.EditProposal -Parameters @{ tracks = $tracks; names = $script:CompilationNames } {
+                param($tracks, $names)
+                $set = New-ReshelfProposedTrackSet -Tracks $tracks -DiscogsTracks @() -Names $names -TrackFileTemplate '{trackNumber} {title}' `
+                    -FileNameArtists @('Blind Guardian')
+                $set.Tracks[0].tags.artist | Should -Be 'Blind Guardian'
+                $set.Tracks[0].tags.albumArtist | Should -Be 'Various'
+                $set.Tracks[0].proposedTitle | Should -Be "Don't Talk To Stranger"
+                $set.Notes | Should -Not -Match 'no track artist from Discogs or file tags'
+            }
+        }
+
         It 'keeps today''s behavior on a non-compilation release with no Discogs per-track artist' {
             $tracks = @(
                 (New-NumberingTestTrack -FileName '01 - a.mp3' -Number 1 -ExistingArtist 'Some Other Name')
@@ -1019,6 +1122,24 @@ Describe 'Resolve-ReshelfDiscogsMatch (private)' {
         }
 
         $result.Status | Should -Be 'not-found'
+    }
+
+    It 'skips the artist-master-list fallback for "Various" (its master list runs into the thousands)' {
+        $calls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            $calls.Add([pscustomobject]@{ Path = $Path; Query = $Query })
+            [pscustomobject]@{ results = @() }
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Various' -Title 'Holy Dio' -Year 1999 -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'not-found'
+        # Only the per-title-variant/year master searches (at most 4 here, since both the title and
+        # its year attempt are tried) - never the paged artist-master-list ('per_page' query key).
+        ($calls | Where-Object { $_.Query.ContainsKey('per_page') }).Count | Should -Be 0
     }
 
     It 'catches a network failure and returns not-found with an error note instead of throwing' {
@@ -1677,6 +1798,137 @@ Describe 'Invoke-ReshelfEditProposal' {
             $releaseResult.tracks[0].tags.isCompilation | Should -Be $true
             $releaseResult.tracks[1].tags.artist | Should -Be 'Dublin City Ramblers'
             $releaseResult.tracks[1].tags.albumArtist | Should -Be 'Various'
+        }
+
+        It 'retries under "Various" and matches when a Various-Artists release is filed under its tracks'' shared folder (real "DIO/1999 - Holy Dio" case)' {
+            $root = Join-Path $script:sourceRoot 'DIO' '1999 - Holy Dio'
+            $t1 = New-TestAudioFile -Path (Join-Path $root "[01] Blind Guardian - Don't Talk To Stranger.mp3")
+            $t2 = New-TestAudioFile -Path (Join-Path $root '[02] Primal Fear - Kill The King.mp3')
+            $t3 = New-TestAudioFile -Path (Join-Path $root '[03] Doro - Egypt (The Chains Are On).mp3')
+
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t1 -OriginalFileName "[01] Blind Guardian - Don't Talk To Stranger.mp3" -DetectedTrackNumberInDisc 1 -Format 'mp3' -IsLossless $false -ExistingArtist 'Blind Guardian')
+                (New-TestTrack -SourceFilePath $t2 -OriginalFileName '[02] Primal Fear - Kill The King.mp3' -DetectedTrackNumberInDisc 2 -Format 'mp3' -IsLossless $false -ExistingArtist 'Primal Fear')
+                (New-TestTrack -SourceFilePath $t3 -OriginalFileName '[03] Doro - Egypt (The Chains Are On).mp3' -DetectedTrackNumberInDisc 3 -Format 'mp3' -IsLossless $false -ExistingArtist 'Doro')
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'DIO' -Album 'Holy Dio' -Year 1999) `
+                -RecognizedTitle 'Holy Dio' -RecognizedYear 1999 -SourceFolderPath $root -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'DIO'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $script:variousMaster = [pscustomobject]@{
+                results = @([pscustomobject]@{ id = 9001; type = 'master'; title = 'Various - Holy Dio'; year = '1999'; format = @('CD', 'Compilation') })
+            }
+            $script:variousMasterDetail = [pscustomobject]@{ id = 9001; main_release = 5001; year = 1999 }
+            $script:variousVersions = [pscustomobject]@{ versions = @([pscustomobject]@{ id = 5001; major_formats = @('CD'); format = 'CD'; released = '1999' }) }
+            $script:variousReleaseDetail = [pscustomobject]@{
+                id        = 5001
+                title     = 'Holy Dio'
+                year      = 1999
+                country   = 'US'
+                artists   = @([pscustomobject]@{ name = 'Various'; id = 194 })
+                formats   = @([pscustomobject]@{ name = 'CD'; qty = '1'; descriptions = @('Compilation') })
+                images    = @()
+                tracklist = @(
+                    [pscustomobject]@{ position = '1'; title = "Don't Talk To Stranger"; artists = @([pscustomobject]@{ name = 'Blind Guardian'; join = '' }) }
+                    [pscustomobject]@{ position = '2'; title = 'Kill The King'; artists = @([pscustomobject]@{ name = 'Primal Fear'; join = '' }) }
+                    [pscustomobject]@{ position = '3'; title = 'Egypt (The Chains Are On)'; artists = @([pscustomobject]@{ name = 'Doro'; join = '' }) }
+                )
+            }
+
+            $calls = [System.Collections.Generic.List[object]]::new()
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                $calls.Add([pscustomobject]@{ Path = $Path; Query = $Query })
+                if ($Path -eq '/database/search') {
+                    if ($Query.artist -eq 'Various' -and $Query.type -eq 'master') { return $script:variousMaster }
+                    return [pscustomobject]@{ results = @() }
+                }
+                if ($Path -eq '/masters/9001') { return $script:variousMasterDetail }
+                if ($Path -eq '/masters/9001/versions') { return $script:variousVersions }
+                if ($Path -eq '/releases/5001') { return $script:variousReleaseDetail }
+                return [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.discogsMatch.status | Should -Be 'matched'
+            $releaseResult.proposed.artistFolderName | Should -Be 'Various'
+            $releaseResult.proposed.isCompilation | Should -Be $true
+            $releaseResult.tracks[0].tags.artist | Should -Be 'Blind Guardian'
+            $releaseResult.tracks[0].tags.albumArtist | Should -Be 'Various'
+            $releaseResult.tracks[1].tags.artist | Should -Be 'Primal Fear'
+            $releaseResult.tracks[2].tags.artist | Should -Be 'Doro'
+            $releaseResult.humanReview.required | Should -Be $true
+            $releaseResult.humanReview.notes | Should -Match 'Various Artists compilation'
+
+            ($calls | Where-Object { $_.Path -eq '/database/search' -and $_.Query.artist -eq 'DIO' }).Count | Should -BeGreaterThan 0
+            ($calls | Where-Object { $_.Path -eq '/database/search' -and $_.Query.artist -eq 'Various' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'falls back to a proposed "Various" compilation (with tag-based track artists) when the Various retry also finds nothing' {
+            $root = Join-Path $script:sourceRoot 'DIO' '1999 - Holy Dio'
+            $t1 = New-TestAudioFile -Path (Join-Path $root "[01] Blind Guardian - Don't Talk To Stranger.mp3")
+            $t2 = New-TestAudioFile -Path (Join-Path $root '[02] Primal Fear - Kill The King.mp3')
+            $t3 = New-TestAudioFile -Path (Join-Path $root '[03] Doro - Egypt (The Chains Are On).mp3')
+
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t1 -OriginalFileName "[01] Blind Guardian - Don't Talk To Stranger.mp3" -DetectedTrackNumberInDisc 1 -Format 'mp3' -IsLossless $false -ExistingArtist 'Blind Guardian')
+                (New-TestTrack -SourceFilePath $t2 -OriginalFileName '[02] Primal Fear - Kill The King.mp3' -DetectedTrackNumberInDisc 2 -Format 'mp3' -IsLossless $false -ExistingArtist 'Primal Fear')
+                (New-TestTrack -SourceFilePath $t3 -OriginalFileName '[03] Doro - Egypt (The Chains Are On).mp3' -DetectedTrackNumberInDisc 3 -Format 'mp3' -IsLossless $false -ExistingArtist 'Doro')
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'DIO' -Album 'Holy Dio' -Year 1999) `
+                -RecognizedTitle 'Holy Dio' -RecognizedYear 1999 -SourceFolderPath $root -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'DIO'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                [pscustomobject]@{ results = @() }
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.discogsMatch.status | Should -Be 'not-found'
+            $releaseResult.proposed.artistFolderName | Should -Be 'Various'
+            $releaseResult.proposed.isCompilation | Should -Be $true
+            $releaseResult.tracks[0].tags.artist | Should -Be 'Blind Guardian'
+            $releaseResult.tracks[1].tags.artist | Should -Be 'Primal Fear'
+            $releaseResult.tracks[2].tags.artist | Should -Be 'Doro'
+            $releaseResult.humanReview.required | Should -Be $true
+            $releaseResult.humanReview.notes | Should -Match 'Various Artists compilation'
+        }
+
+        It 'does not retry under "Various" when the folder-artist search already matched' {
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
+
+            $tracks = @(
+                (New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Airbag.flac' -DetectedTrackNumberInDisc 1)
+            )
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Radiohead' -Album 'OK Computer' -Year 1997) `
+                -RecognizedTitle 'OK Computer' -RecognizedYear 1997 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            $calls = [System.Collections.Generic.List[object]]::new()
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                $calls.Add([pscustomobject]@{ Path = $Path; Query = $Query })
+                if ($Path -eq '/database/search') { return $script:SearchFixture }
+                return $script:ReleaseFixture
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.discogsMatch.status | Should -Be 'matched'
+            $releaseResult.proposed.artistFolderName | Should -Be 'Radiohead'
+            ($calls | Where-Object { $_.Path -eq '/database/search' -and $_.Query.artist -eq 'Various' }).Count | Should -Be 0
         }
 
         It 'keeps invalid filesystem characters in tags while sanitizing folder and file names' {

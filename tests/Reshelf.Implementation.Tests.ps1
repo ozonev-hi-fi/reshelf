@@ -244,6 +244,19 @@ Describe 'Invoke-ReshelfFfmpegSplit / Invoke-ReshelfFfmpegResize argument quotin
     }
 }
 
+Describe 'Invoke-ReshelfFfmpegResize error handling' {
+    It 'includes ffmpeg stderr in the thrown message on failure' {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            Set-Content -LiteralPath $RedirectStandardError -Value 'Invalid data found when processing input' -NoNewline
+            [pscustomobject]@{ ExitCode = 1 }
+        }
+
+        { Invoke-ReshelfFfmpegResize -SourceImagePath (Join-Path $TestDrive 'cover.jpg') -MaxDimension 600 `
+                -OutputPath (Join-Path $TestDrive 'out.jpg') -FfmpegPath 'ffmpeg.exe' } |
+            Should -Throw '*exit code 1*Invalid data found when processing input*'
+    }
+}
+
 Describe 'Invoke-ReshelfFfmpegSplit codec selection' {
     It 'uses -c copy (stream copy) for a source that is neither .ape nor .flac' {
         $script:capturedArgs = $null
@@ -338,6 +351,30 @@ Describe 'Invoke-ReshelfFfmpegSplit FLAC "invalid block size" retry' {
                 -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Not -Throw
 
         $script:callCount | Should -Be 2
+    }
+
+    It 'does not retry and throws the ordinary message when the start timestamp is not plain seconds' {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            Set-Content -LiteralPath $RedirectStandardError -Value '[flac @ 0x0] invalid block size: 4' -NoNewline
+            [pscustomobject]@{ ExitCode = -22 }
+        }
+
+        { Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '00:00:00' `
+                -EndTimestamp '00:01:00' -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Throw '*exit code -22*'
+
+        Should -Invoke -ModuleName Reshelf.Implementation Start-Process -Times 1 -Exactly
+    }
+
+    It 'does not retry and throws the ordinary message when nudging the start would land at or past the end' {
+        Mock -ModuleName Reshelf.Implementation Start-Process {
+            Set-Content -LiteralPath $RedirectStandardError -Value '[flac @ 0x0] invalid block size: 4' -NoNewline
+            [pscustomobject]@{ ExitCode = -22 }
+        }
+
+        { Invoke-ReshelfFfmpegSplit -SourceAudioPath (Join-Path $TestDrive 'source.flac') -StartTimestamp '100.000' `
+                -EndTimestamp '100.030' -OutputPath (Join-Path $TestDrive 'out.flac') -FfmpegPath 'ffmpeg.exe' } | Should -Throw '*exit code -22*'
+
+        Should -Invoke -ModuleName Reshelf.Implementation Start-Process -Times 1 -Exactly
     }
 }
 

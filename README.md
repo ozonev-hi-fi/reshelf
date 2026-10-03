@@ -391,17 +391,29 @@ Recognition automatically handles a few common patterns, with no configuration n
   releases are folded into the parent artist.
 - **Band-member folders** (a subfolder with a different name holding only release folders, no
   loose files) — treated as a separate artist named after the folder.
+- **Metadata-confirmed category folders** — a subfolder name not in the fixed list above (e.g.
+  `Studio Albums`, `Compilation Albums`) is still folded into the parent artist, not treated as a
+  grouping/band-member folder, when most of its releases' own metadata (a cue sheet's `PERFORMER`
+  line, checked first, then the audio file's artist tag) agrees with the parent artist's name. With
+  no such metadata, folder-name/shape heuristics decide as before.
 - **Grouping folders** (a folder with no loose files whose children are themselves artist-like,
   e.g. `Godspeeds and their projects` containing `Godspeed You! Black Emperor` and `Silver Mountain
   Zion`) — each direct subfolder becomes its own artist. Since there's no reliable way to confirm a
   subfolder's name really is a distinct artist, every release found this way is flagged for review
-  (`grouping-folder-auto-resolved`).
+  (`grouping-folder-auto-resolved`), unless metadata confirms it's really one artist with category
+  subfolders (previous bullet).
 - **Album wrapper folders** (a `yyyy - Title` folder that itself holds no tracks, but wraps one or
   more edition/pressing subfolders instead — e.g. `AC-DC\1975 - T.N.T. (Australian Release)\1989
   Australia Albert 465262 2\...`) — title and year always come from the album folder, not the
   edition folder (which is recorded as `editionFolderName`). If the album folder has more than one
   edition subfolder, each becomes its own release, flagged for review
   (`multiple-editions-in-album-folder`).
+- **Flat multi-disc cue folders** (several whole-disc audio files + one `.cue` each, sitting
+  directly in the release folder — no `CD 1`/`CD 2` subfolders) — each audio+cue pair becomes its
+  own disc, split like any other cue-sheet release. Disc order: every cue's `REM DISCNUMBER` if all
+  of them have one; otherwise the pair whose own catalog number (the last parenthesized text in its
+  file name) appears in the release folder's name goes first, then the rest by file name. Always
+  flagged for review (`flat-multi-disc-cue-pairs`) so the order can be checked.
 
 If a folder still can't be classified (`recognition.json`'s `unrecognized[]`, e.g.
 `release-without-artist-suspected` or `no-audio-files`), there's no override file for it — move or

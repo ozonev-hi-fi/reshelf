@@ -294,17 +294,36 @@ function Invoke-ReshelfFfmpegSplit {
             # size: N", N = that leftover count) without writing anything. Nudging the start timestamp
             # by 50ms moves off that exact unlucky boundary.
             if ($stderrText -match 'invalid block size') {
-                $nudgedStartSeconds = [double]::Parse($StartTimestamp, [System.Globalization.CultureInfo]::InvariantCulture) + 0.05
-                $nudgedStartTimestamp = $nudgedStartSeconds.ToString('F3', [System.Globalization.CultureInfo]::InvariantCulture)
-                $retryArgs = [System.Collections.Generic.List[string]]::new($ffmpegArgs)
-                $retryArgs[$retryArgs.IndexOf($StartTimestamp)] = $nudgedStartTimestamp
-                $retryProcess = Start-Process -FilePath $FfmpegPath -ArgumentList $retryArgs -NoNewWindow -Wait -PassThru -RedirectStandardError $stderrPath
-                if ($retryProcess.ExitCode -eq 0) {
-                    Write-Warning "ffmpeg split for '$OutputPath' hit the known FLAC trim 'invalid block size' edge case; recovered by nudging the start boundary by 0.05s."
-                    return
+                # The nudge only makes sense when $StartTimestamp is plain decimal seconds (what every
+                # current caller passes - see ConvertTo-ReshelfFfmpegSeconds) and still leaves start
+                # before end. Neither is guaranteed by the parameter's [string] type, so both are
+                # checked with TryParse instead of assumed - a malformed/edge-case timestamp here must
+                # fall through to the ordinary throw below, not a raw FormatException or a nonsensical
+                # retry with start past end.
+                $startSeconds = 0.0
+                $canRetry = [double]::TryParse($StartTimestamp, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$startSeconds)
+                if ($canRetry) {
+                    $nudgedStartSeconds = $startSeconds + 0.05
+                    if ($EndTimestamp) {
+                        $endSeconds = 0.0
+                        if ([double]::TryParse($EndTimestamp, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$endSeconds) -and $nudgedStartSeconds -ge $endSeconds) {
+                            $canRetry = $false
+                        }
+                    }
                 }
-                $stderrText = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
-                throw "ffmpeg split failed (exit code $($retryProcess.ExitCode)) for '$SourceAudioPath' -> '$OutputPath', even after retrying past a FLAC 'invalid block size' error. ffmpeg stderr: $stderrText"
+
+                if ($canRetry) {
+                    $nudgedStartTimestamp = $nudgedStartSeconds.ToString('F3', [System.Globalization.CultureInfo]::InvariantCulture)
+                    $retryArgs = [System.Collections.Generic.List[string]]::new($ffmpegArgs)
+                    $retryArgs[$retryArgs.IndexOf($StartTimestamp)] = $nudgedStartTimestamp
+                    $retryProcess = Start-Process -FilePath $FfmpegPath -ArgumentList $retryArgs -NoNewWindow -Wait -PassThru -RedirectStandardError $stderrPath
+                    if ($retryProcess.ExitCode -eq 0) {
+                        Write-Warning "ffmpeg split for '$OutputPath' hit the known FLAC trim 'invalid block size' edge case; recovered by nudging the start boundary by 0.05s."
+                        return
+                    }
+                    $stderrText = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+                    throw "ffmpeg split failed (exit code $($retryProcess.ExitCode)) for '$SourceAudioPath' -> '$OutputPath', even after retrying past a FLAC 'invalid block size' error. ffmpeg stderr: $stderrText"
+                }
             }
 
             throw "ffmpeg split failed (exit code $($process.ExitCode)) for '$SourceAudioPath' -> '$OutputPath'. ffmpeg stderr: $stderrText"
@@ -338,9 +357,16 @@ function Invoke-ReshelfFfmpegResize {
     # Start-Process -ArgumentList does not quote array elements containing spaces.
     $ffmpegArgs = @('-hide_banner', '-loglevel', 'error', '-y', '-i', "`"$SourceImagePath`"", '-vf', $scaleFilter, "`"$OutputPath`"")
 
-    $process = Start-Process -FilePath $FfmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-        throw "ffmpeg resize failed (exit code $($process.ExitCode)) for '$SourceImagePath' -> '$OutputPath'."
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $process = Start-Process -FilePath $FfmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru -RedirectStandardError $stderrPath
+        if ($process.ExitCode -ne 0) {
+            $stderrText = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+            throw "ffmpeg resize failed (exit code $($process.ExitCode)) for '$SourceImagePath' -> '$OutputPath'. ffmpeg stderr: $stderrText"
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $stderrPath -ErrorAction SilentlyContinue
     }
 }
 
