@@ -129,6 +129,23 @@ BeforeAll {
         return $Path
     }
 
+    # A real, minimal 2x2 PNG (not 1x1 - Get-ReshelfImageDimensions' own "couldn't decode" sentinel
+    # is 1x1, so a genuinely-decodable test fixture must be some other size to stay distinguishable
+    # from that failure case).
+    function New-TestImageFile {
+        param(
+            [Parameter(Mandatory)]
+            [string]$Path
+        )
+
+        $dir = Split-Path -Path $Path -Parent
+        if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        $bytes = [Convert]::FromBase64String(
+            'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAALSURBVBhXY2BABwAAEgABp3qZbgAAAABJRU5ErkJggg==')
+        [System.IO.File]::WriteAllBytes($Path, $bytes)
+        return $Path
+    }
+
     # Writes a fake apply-log.json entry directly, standing in for a real 'Reshelf.ps1 apply' run -
     # used to test Resolve-ReshelfTargetComparison's re-run skip check (Reshelf.EditProposal.psm1)
     # without actually running Invoke-ReshelfImplementation.
@@ -2103,7 +2120,7 @@ Describe 'Invoke-ReshelfEditProposal' {
 
         It 'defaults to an already-embedded cover even when Discogs also has images' {
             $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
-            $embeddedCoverPath = New-TestAudioFile -Path (Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg') -Content 'not-a-real-image'
+            $embeddedCoverPath = New-TestImageFile -Path (Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg')
             $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Airbag.flac' -DetectedTrackNumberInDisc 1 -ExistingCoverArtPath $embeddedCoverPath))
             $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Radiohead' -Album 'OK Computer' -Year 1997) `
                 -RecognizedTitle 'OK Computer' -RecognizedYear 1997 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
@@ -2127,6 +2144,34 @@ Describe 'Invoke-ReshelfEditProposal' {
             $releaseResult.coverArt.candidates.sourceEdition | Should -Contain 'existing (embedded)'
             $releaseResult.coverArt.candidates.Count | Should -Be 2
             $releaseResult.coverArt.chosenCandidateUrl | Should -Be $embeddedCoverPath
+        }
+
+        It 'falls back to a Discogs image when the embedded cover is not a decodable image' {
+            # Real case (session 2026-10-03-0008): a track's embedded picture frame was garbage
+            # bytes, not a real JPEG - Get-ReshelfImageDimensions can't decode it and returns its
+            # 1x1 "undecodable" sentinel. Defaulting to it anyway (the previous behavior) picked a
+            # cover that then failed ffmpeg resize at apply time ("No JPEG data found in image").
+            $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Radiohead' '1997 OK Computer' '01 - Airbag.flac')
+            $embeddedCoverPath = New-TestAudioFile -Path (Join-Path $script:dataHome 'embedded-covers' 'existing-cover.jpg') -Content 'not-a-real-image'
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Airbag.flac' -DetectedTrackNumberInDisc 1 -ExistingCoverArtPath $embeddedCoverPath))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Radiohead' -Album 'OK Computer' -Year 1997) `
+                -RecognizedTitle 'OK Computer' -RecognizedYear 1997 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Radiohead'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                if ($Path -eq '/database/search') { return $script:SearchFixture }
+                return $script:ReleaseFixture
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.coverArt.candidates.sourceEdition | Should -Not -Contain 'existing (embedded)'
+            $releaseResult.coverArt.candidates.Count | Should -Be 1
+            $releaseResult.coverArt.chosenCandidateUrl | Should -Not -Be $embeddedCoverPath
         }
 
         It 'renames a digit-starting loose companion and forces review, end to end through Invoke-ReshelfEditProposal' {

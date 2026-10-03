@@ -152,6 +152,27 @@ switch ($Command) {
             Rejected  = $result.Rejected
             Failed    = $result.Failed
         } | Format-List
+
+        if ($result.Failed -gt 0) {
+            # The summary above only has counts - without this, the reason a release failed is
+            # only visible by opening apply-log.json by hand. Scoped to this session's own
+            # releases: Get-ReshelfApplyLog is shared across every session ever applied, and an
+            # unrelated stableKey could still be sitting there as 'failed' from a previous run.
+            $sessionProposal = Get-Content -LiteralPath $session.proposalPath -Raw | ConvertFrom-Json
+            $sessionStableKeys = @($sessionProposal.artists.releases.stableKey)
+            $failedEntries = @(Get-ReshelfApplyLog -DataHome $dataHome | Where-Object {
+                    $_.status -eq 'failed' -and $_.stableKey -in $sessionStableKeys
+                })
+
+            Write-Host "Failed releases:" -ForegroundColor Yellow
+            foreach ($entry in $failedEntries) {
+                [pscustomobject]@{
+                    StableKey    = $entry.stableKey
+                    TargetPath   = $entry.targetPath
+                    ErrorMessage = $entry.errorMessage
+                } | Format-List
+            }
+        }
     }
     'ui' {
         switch ($SubCommand) {

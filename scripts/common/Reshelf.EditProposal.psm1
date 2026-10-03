@@ -1456,12 +1456,19 @@ function New-ReshelfCoverArtProposal {
     $embeddedTrack = @($Release.tracks | Where-Object { $_.existingCoverArtPath }) | Select-Object -First 1
     if ($embeddedTrack) {
         $dims = Get-ReshelfImageDimensions -Path $embeddedTrack.existingCoverArtPath
-        $candidates.Add([pscustomobject]@{
-                url           = $embeddedTrack.existingCoverArtPath
-                sourceEdition = 'existing (embedded)'
-                width         = $dims.Width
-                height        = $dims.Height
-            })
+        # Width/Height both 1 is Get-ReshelfImageDimensions' sentinel for "found a picture tag but
+        # couldn't decode it as an actual image" (real case: an embedded picture frame that's just
+        # garbage bytes, not a JPEG/PNG) - not a real 1x1 cover. Offering it here would make it the
+        # default choice below and fail ffmpeg resize at apply time; skip it so this release falls
+        # back to Discogs/local-companion candidates exactly as if no embedded cover existed.
+        if ($dims.Width -ne 1 -or $dims.Height -ne 1) {
+            $candidates.Add([pscustomobject]@{
+                    url           = $embeddedTrack.existingCoverArtPath
+                    sourceEdition = 'existing (embedded)'
+                    width         = $dims.Width
+                    height        = $dims.Height
+                })
+        }
     }
 
     if ($Match.Status -eq 'matched' -and $Match.Detail.images -and @($Match.Detail.images).Count -gt 0) {
