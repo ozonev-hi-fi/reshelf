@@ -12,6 +12,18 @@ BeforeAll {
         return [Microsoft.PowerShell.Commands.HttpResponseException]::new('Unauthorized', $httpResponse)
     }
 
+    function Get-DiscogsTooManyRequestsException {
+        param(
+            [string]$RetryAfter
+        )
+
+        $httpResponse = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]::TooManyRequests)
+        if ($RetryAfter) {
+            $httpResponse.Headers.TryAddWithoutValidation('Retry-After', $RetryAfter) | Out-Null
+        }
+        return [Microsoft.PowerShell.Commands.HttpResponseException]::new('Too Many Requests', $httpResponse)
+    }
+
     # Reshelf.Discogs.psm1 re-imports Reshelf.Common.psm1 internally as part of loading, which turns
     # it into a nested module of Reshelf.Discogs - PowerShell then hides its commands from this
     # script's own top-level scope (same gotcha noted in Reshelf.EditProposal.Tests.ps1 and
@@ -395,6 +407,50 @@ Describe 'Invoke-DiscogsRequest' {
 
         { Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome } | Should -Throw -ExpectedMessage '*failed after 3 attempts*'
         Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 3 -Exactly
+    }
+
+    It 'retries a 429 and succeeds, honoring the Retry-After header instead of the generic backoff' {
+        $script:callCount = 0
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
+            $script:callCount++
+            if ($script:callCount -eq 1) {
+                throw (Get-DiscogsTooManyRequestsException -RetryAfter '5')
+            }
+            [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
+        }
+
+        $result = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome
+
+        $result.results.Count | Should -Be 2
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 2 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -ParameterFilter { $Seconds -eq 5 } -Times 1 -Exactly
+    }
+
+    It 'retries a 429 using the rate-limit backoff when no Retry-After header is present' {
+        $script:callCount = 0
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
+            $script:callCount++
+            if ($script:callCount -eq 1) {
+                throw (Get-DiscogsTooManyRequestsException)
+            }
+            [PSCustomObject]@{ Body = $script:SearchFixture; Headers = @{} }
+        }
+
+        $result = Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome
+
+        $result.results.Count | Should -Be 2
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -ParameterFilter { $Seconds -eq 20 } -Times 1 -Exactly
+    }
+
+    It 'throws after exhausting all retry attempts on a persistent 429, waiting the rate-limit backoff each time' {
+        Mock -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest {
+            throw (Get-DiscogsTooManyRequestsException)
+        }
+
+        { Invoke-DiscogsRequest -Path '/database/search' -Query @{ q = 'Radiohead' } -DataHome $script:dataHome } | Should -Throw -ExpectedMessage '*failed after 3 attempts*'
+        Should -Invoke -ModuleName Reshelf.Discogs Invoke-DiscogsHttpRequest -Times 3 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -ParameterFilter { $Seconds -eq 20 } -Times 1 -Exactly
+        Should -Invoke -ModuleName Reshelf.Discogs Start-Sleep -ParameterFilter { $Seconds -eq 40 } -Times 1 -Exactly
     }
 
     It 'sleeps once the self-imposed per-minute ceiling is reached' {

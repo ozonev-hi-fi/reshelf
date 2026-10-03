@@ -182,6 +182,39 @@ function Wait-DiscogsRateLimit {
     }
 }
 
+function Get-DiscogsRetryAfterSeconds {
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        $ResponseHeaders
+    )
+
+    if (-not $ResponseHeaders) { return $null }
+
+    try {
+        $values = $ResponseHeaders.GetValues('Retry-After')
+    }
+    catch {
+        return $null
+    }
+
+    $raw = ($values | Select-Object -First 1)
+    if (-not $raw) { return $null }
+
+    $seconds = 0
+    if ([int]::TryParse($raw, [ref]$seconds)) {
+        return [Math]::Max($seconds, 0)
+    }
+
+    $retryDate = [datetime]::MinValue
+    if ([datetime]::TryParse($raw, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$retryDate)) {
+        $delta = ($retryDate.ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalSeconds
+        return [Math]::Max([int][Math]::Ceiling($delta), 0)
+    }
+
+    return $null
+}
+
 function Invoke-DiscogsHttpRequest {
     [CmdletBinding()]
     param(
@@ -252,6 +285,9 @@ function Invoke-DiscogsRequest {
 
     $maxAttempts = 3
     $backoffSeconds = @(1, 2, 4)
+    # 429 means the per-minute window is exhausted, not a transient blip - retrying after 1-2-4s
+    # just hits the same wall, so it gets its own, much longer backoff.
+    $rateLimitBackoffSeconds = @(20, 40, 60)
     $result = $null
 
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -266,8 +302,10 @@ function Invoke-DiscogsRequest {
             $script:DiscogsRequestTimestamps.Add((Get-Date))
 
             $statusCode = $null
+            $responseHeaders = $null
             if ($_.Exception.Response) {
                 try { $statusCode = [int]$_.Exception.Response.StatusCode } catch { $statusCode = $null }
+                try { $responseHeaders = $_.Exception.Response.Headers } catch { $responseHeaders = $null }
             }
 
             if ($statusCode -eq 401) {
@@ -278,7 +316,18 @@ function Invoke-DiscogsRequest {
                 throw "Discogs request to '$Path' failed after $maxAttempts attempts: $($_.Exception.Message)"
             }
 
-            Start-Sleep -Seconds $backoffSeconds[$attempt - 1]
+            if ($statusCode -eq 429) {
+                $script:DiscogsLowRemainingSignal = $true
+                $waitSeconds = Get-DiscogsRetryAfterSeconds -ResponseHeaders $responseHeaders
+                if (-not $waitSeconds) {
+                    $waitSeconds = $rateLimitBackoffSeconds[$attempt - 1]
+                }
+                Write-Verbose "Discogs rate limit hit (429) on '$Path', waiting ${waitSeconds}s before retry $($attempt + 1)/$maxAttempts."
+                Start-Sleep -Seconds $waitSeconds
+            }
+            else {
+                Start-Sleep -Seconds $backoffSeconds[$attempt - 1]
+            }
         }
     }
 
