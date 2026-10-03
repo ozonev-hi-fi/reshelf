@@ -46,9 +46,68 @@ function ConvertTo-ReshelfNormalizedText {
         [string]$Text
     )
 
-    $lowered = $Text.Trim().ToLowerInvariant()
+    # NFKC first: folds "compatibility" forms (most visibly, full-width Latin letters/digits used in
+    # Japanese releases, e.g. "ＢＢ") down to their ordinary form before casing/stripping - without
+    # it, a full-width "ＢＢ" and plain "bb" score as two completely different strings even though
+    # they're the same text to a human.
+    $normalizedForm = $Text.Trim().Normalize([System.Text.NormalizationForm]::FormKC)
+    $lowered = $normalizedForm.ToLowerInvariant()
     $stripped = [regex]::Replace($lowered, '[^\p{L}\p{Nd}\s]', '')
     return [regex]::Replace($stripped, '\s+', ' ').Trim()
+}
+
+function Test-ReshelfHasJapaneseScript {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    # Hiragana, Katakana, CJK ideographs (kanji) and half-width Katakana (U+FF66-FF9F) - enough to
+    # recognize a Japanese release title/artist credit without pulling in a full script-detection
+    # library. CJK ideographs alone could in principle be Chinese, but in this collection they only
+    # ever show up as kanji inside a Japanese title, so treating them as "Japanese" here is fine.
+    return [bool]([regex]::IsMatch($Text, '[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}ｦ-ﾟ]'))
+}
+
+function Test-ReshelfIsRomanizedText {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    if (Test-ReshelfHasJapaneseScript -Text $Text) { return $false }
+    return [bool]([regex]::IsMatch($Text, '\p{L}'))
+}
+
+function Join-ReshelfBilingualName {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowNull()]
+        [string]$Romanized,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Original
+    )
+
+    # Discogs' own convention for a Japanese release is "{Romanized} = {Original}" (e.g. "Rokkinpo
+    # Goroshi = ロッキンポ殺し") - this only ever adds a romanized half the encyclopedia itself didn't
+    # already give, never replaces or reformats what Discogs returned. The spacing around "=" isn't
+    # even consistent in Discogs' own text (real case: "...「F」= 爪爪爪..." has no space before it but
+    # one after), so this only checks for the character itself, not a fixed " = " shape.
+    if ($Original.Contains('=')) { return $Original }
+    if (-not (Test-ReshelfHasJapaneseScript -Text $Original)) { return $Original }
+    if (-not (Test-ReshelfIsRomanizedText -Text $Romanized)) { return $Original }
+
+    return "$Romanized = $Original"
 }
 
 function ConvertTo-ReshelfCueTimestampSeconds {
@@ -527,4 +586,5 @@ Export-ModuleMember -Function Resolve-ReshelfDataHome, Get-ReshelfEffectiveDataH
     Get-ReshelfAudioFilesInFolder, ConvertFrom-ReshelfTrackFileName, ConvertTo-SafeFileName, Get-ReshelfFileSetHash, `
     Set-ReshelfTagLibSharpContext, Import-ReshelfTagLibSharp, Protect-ReshelfSecret, Unprotect-ReshelfSecret, Get-ReshelfRelativePath, `
     ConvertTo-ReshelfTruncatedSegment, Test-ReshelfLooseCompanionFileName, Get-ReshelfLooseCompanionFileName, `
-    Remove-ReshelfInvisibleCharacters, ConvertTo-ReshelfTitleCase
+    Remove-ReshelfInvisibleCharacters, ConvertTo-ReshelfTitleCase, `
+    Test-ReshelfHasJapaneseScript, Test-ReshelfIsRomanizedText, Join-ReshelfBilingualName

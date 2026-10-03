@@ -184,9 +184,11 @@ BeforeAll {
             [string]$DiscFolder,
             [int]$DetectedTrackNumberInDisc = 1,
             [string]$ExistingArtist,
+            [string]$ExistingAlbum,
             [string]$ExistingTitle,
             [string]$Format = 'flac',
             [bool]$IsLossless = $true,
+            [double]$DurationSeconds = 200.0,
             [AllowNull()] $ExistingCoverArtPath = $null
         )
 
@@ -196,11 +198,11 @@ BeforeAll {
             originalFileName          = $OriginalFileName
             detectedTrackNumberInDisc = $DetectedTrackNumberInDisc
             inferredTrackOrder        = $false
-            existingTags              = @{ artist = $ExistingArtist; album = $null; title = $ExistingTitle }
+            existingTags              = @{ artist = $ExistingArtist; album = $ExistingAlbum; title = $ExistingTitle }
             existingCoverArtPath      = $ExistingCoverArtPath
             format                    = $Format
             isLossless                = $IsLossless
-            durationSeconds           = 200.0
+            durationSeconds           = $DurationSeconds
             cueTimestamp              = $null
             isCueVirtualTrack         = $false
         }
@@ -215,6 +217,13 @@ BeforeAll {
             [string]$RecognizedTitle,
 
             [Nullable[int]]$RecognizedYear,
+
+            # Untyped (not [string]) - an unset [string] parameter defaults to '' in PowerShell, not
+            # $null, which would fail the schema's pattern/enum check for these two nullable fields
+            # on every existing test that doesn't pass them.
+            $RecognizedReleaseDate = $null,
+
+            $RecognizedReleaseType = $null,
 
             [Parameter(Mandatory)]
             [string]$SourceFolderPath,
@@ -235,6 +244,8 @@ BeforeAll {
             stableKey             = $StableKey
             recognizedTitle       = $RecognizedTitle
             recognizedYear        = $RecognizedYear
+            recognizedReleaseDate = $RecognizedReleaseDate
+            recognizedReleaseType = $RecognizedReleaseType
             editionFolderName     = $null
             sourceFolderPath      = $SourceFolderPath
             discFolderCount       = $DiscFolderCount
@@ -397,6 +408,28 @@ Describe 'Get-ReshelfDiscogsCandidateScore (private)' {
                 $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Some Band' -ExpectedTitle 'Some Title' -ExpectedYear 2001 -Candidate $candidate
                 $score | Should -BeLessThan $plainScore
             }
+        }
+    }
+
+    It 'scores a Japanese-only artist credit at the threshold when an artist alias is given (real Maximum The Hormone case, session 2026-10-03-0010)' {
+        InModuleScope Reshelf.EditProposal {
+            $candidate = [pscustomobject]@{ title = 'マキシマム ザ ホルモン* - Greatest The Hits 2011-2011'; year = '2011'; format = @('CD', 'Maxi-Single') }
+            $withoutAlias = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Maximum The Hormone' -ExpectedTitle 'Greatest The Hits 2011' -ExpectedYear 2011 -Candidate $candidate
+            $withAlias = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Maximum The Hormone' -ExpectedTitle 'Greatest The Hits 2011' -ExpectedYear 2011 -Candidate $candidate -ArtistAliases @('マキシマム ザ ホルモン')
+            $withoutAlias | Should -BeLessThan 0.85
+            $withAlias | Should -BeGreaterOrEqual 0.85
+        }
+    }
+
+    It 'scores a Discogs "X = Y" title at the threshold by comparing against its romanized half (real Maximum The Hormone "Tsume Tsume Tsume''F" case)' {
+        InModuleScope Reshelf.EditProposal {
+            $candidate = [pscustomobject]@{
+                title  = 'マキシマム ザ ホルモン* - Tsume Tsume Tsume / 「F」= 爪爪爪 / 「F」'
+                year   = '2008'
+                format = @('CD', 'Single')
+            }
+            $score = Get-ReshelfDiscogsCandidateScore -ExpectedArtist 'Maximum The Hormone' -ExpectedTitle "Tsume Tsume Tsume'F" -ExpectedYear 2008 -Candidate $candidate -ArtistAliases @('マキシマム ザ ホルモン')
+            $score | Should -BeGreaterOrEqual 0.85
         }
     }
 }
@@ -1433,6 +1466,119 @@ Describe 'Resolve-ReshelfDiscogsMatch (private)' {
         $result.SelectedReleaseId | Should -Be 999
         $result.MasterId | Should -Be 555
     }
+
+    It 'matches by track durations when every title-based search comes up empty (real Maximum The Hormone case, session 2026-10-03-0010: Discogs titles the release only in Japanese)' {
+        $artistSearch = [pscustomobject]@{ results = @([pscustomobject]@{ id = 500; type = 'artist'; title = 'マキシマム ザ ホルモン' }) }
+        $artistDetail = [pscustomobject]@{ id = 500; name = 'マキシマム ザ ホルモン'; namevariations = @('Maximum The Hormone') }
+        $catalogReleases = [pscustomobject]@{
+            releases = @([pscustomobject]@{ id = 99; type = 'release'; role = 'Main'; year = 2005; format = @('CD', 'Album'); title = 'ロッキンポ殺し' })
+        }
+        $releaseDetail = [pscustomobject]@{
+            id        = 99; title = 'ロッキンポ殺し'; year = 2005; released = '2005-03-02'
+            artists   = @([pscustomobject]@{ name = 'マキシマム ザ ホルモン' })
+            tracklist = @(
+                [pscustomobject]@{ position = '1'; title = 'ロッキンポ殺し'; duration = '2:05' }
+                [pscustomobject]@{ position = '2'; title = 'ニトロBB戦争'; duration = '2:20' }
+            )
+        }
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search' -and $Query.type -eq 'artist') { return $artistSearch }
+            if ($Path -eq '/artists/500') { return $artistDetail }
+            if ($Path -eq '/database/search') { return [pscustomobject]@{ results = @() } }
+            if ($Path -eq '/artists/500/releases') { return $catalogReleases }
+            if ($Path -eq '/releases/99') { return $releaseDetail }
+            throw "unexpected path $Path"
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Maximum The Hormone' -Title 'Rokkinpo Goroshi' -Year 2005 `
+                -SourceTrackCount 2 -SourceDurations @(125.0, 140.0) -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'matched'
+        $result.SelectedReleaseId | Should -Be 99
+        $result.Detail.title | Should -Be 'ロッキンポ殺し'
+    }
+
+    It 'falls back to ambiguous (not not-found) when the catalog-fallback candidate''s durations do not line up' {
+        $artistSearch = [pscustomobject]@{ results = @([pscustomobject]@{ id = 500; type = 'artist'; title = 'マキシマム ザ ホルモン' }) }
+        $artistDetail = [pscustomobject]@{ id = 500; name = 'マキシマム ザ ホルモン'; namevariations = @('Maximum The Hormone') }
+        $catalogReleases = [pscustomobject]@{
+            releases = @([pscustomobject]@{ id = 99; type = 'release'; role = 'Main'; year = 2005; format = @('CD', 'Album'); title = 'ロッキンポ殺し' })
+        }
+        $releaseDetail = [pscustomobject]@{
+            id        = 99; title = 'ロッキンポ殺し'; year = 2005; released = '2005-03-02'
+            artists   = @([pscustomobject]@{ name = 'マキシマム ザ ホルモン' })
+            tracklist = @(
+                [pscustomobject]@{ position = '1'; title = 'ロッキンポ殺し'; duration = '2:05' }
+                [pscustomobject]@{ position = '2'; title = 'ニトロBB戦争'; duration = '2:20' }
+            )
+        }
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search' -and $Query.type -eq 'artist') { return $artistSearch }
+            if ($Path -eq '/artists/500') { return $artistDetail }
+            if ($Path -eq '/database/search') { return [pscustomobject]@{ results = @() } }
+            if ($Path -eq '/artists/500/releases') { return $catalogReleases }
+            if ($Path -eq '/releases/99') { return $releaseDetail }
+            throw "unexpected path $Path"
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            # Durations (50s/60s) are nowhere close to the catalog release's (125s/140s), and no
+            # release date was given either - too weak to auto-match.
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Maximum The Hormone' -Title 'Rokkinpo Goroshi' -Year 2005 `
+                -SourceTrackCount 2 -SourceDurations @(50.0, 60.0) -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'ambiguous'
+        $result.Candidates.Count | Should -BeGreaterThan 0
+        $result.Candidates[0].releaseId | Should -Be 99
+    }
+
+    It 'needs an exact release date, not just one lucky duration, to auto-match a 1-track single by catalog fallback' {
+        $artistSearch = [pscustomobject]@{ results = @([pscustomobject]@{ id = 500; type = 'artist'; title = 'マキシマム ザ ホルモン' }) }
+        $artistDetail = [pscustomobject]@{ id = 500; name = 'マキシマム ザ ホルモン'; namevariations = @('Maximum The Hormone') }
+        $catalogReleases = [pscustomobject]@{
+            releases = @([pscustomobject]@{ id = 77; type = 'release'; role = 'Main'; year = 2005; format = @('CD', 'Single'); title = 'ざわざわ' })
+        }
+        $releaseDetail = [pscustomobject]@{
+            id        = 77; title = 'ざわざわ'; year = 2005; released = '2005-10-19'
+            artists   = @([pscustomobject]@{ name = 'マキシマム ザ ホルモン' })
+            tracklist = @([pscustomobject]@{ position = '1'; title = 'ざわざわ'; duration = '2:05' })
+        }
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            if ($Path -eq '/database/search' -and $Query.type -eq 'artist') { return $artistSearch }
+            if ($Path -eq '/artists/500') { return $artistDetail }
+            if ($Path -eq '/database/search') { return [pscustomobject]@{ results = @() } }
+            if ($Path -eq '/artists/500/releases') { return $catalogReleases }
+            if ($Path -eq '/releases/77') { return $releaseDetail }
+            throw "unexpected path $Path"
+        }
+
+        # One track, its one duration matches exactly (125s), but no release date was given -
+        # should still only reach 'ambiguous', not an auto-matched 'matched'.
+        $ambiguous = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Maximum The Hormone' -Title 'Zawa' -Year 2005 `
+                -SourceTrackCount 1 -SourceDurations @(125.0) -DataHome $dataHome
+        }
+        $ambiguous.Status | Should -Be 'ambiguous'
+
+        # Same one duration, but this time the exact release date is also given - now it's strong
+        # enough to auto-match.
+        $matched = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Maximum The Hormone' -Title 'Zawa' -Year 2005 `
+                -SourceTrackCount 1 -SourceDurations @(125.0) -ReleaseDate '2005-10-19' -DataHome $dataHome
+        }
+        $matched.Status | Should -Be 'matched'
+        $matched.SelectedReleaseId | Should -Be 77
+    }
 }
 
 Describe 'Sort-ReshelfDiscogsVersions / Get-ReshelfDiscogsVersionRank (private)' {
@@ -2083,6 +2229,113 @@ Describe 'Invoke-ReshelfEditProposal' {
             $releaseResult.humanReview.notes | Should -BeLike '*trailing dot/space removed*'
 
             Test-ProposalDocumentJson -Path (Join-Path $script:dataHome 'sessions' 'test-session' 'proposal.json') | Should -Be $true
+        }
+    }
+
+    Context 'bilingual (Japanese) release naming (session 2026-10-03-0010)' {
+        It 'names the album/track "{romanized} = {original}" and shares the bilingual artist folder across every release of the artist, even one that did not itself match' {
+            # Release A: Discogs only has a Japanese-only title for it (real case: "ロッキンポ殺し") -
+            # matched by the step-1d catalog fallback (track durations), not by title text at all.
+            $folderA = Join-Path $script:sourceRoot 'Maximum the Hormone' '2005 Rokkinpo Goroshi'
+            $a1 = New-TestAudioFile -Path (Join-Path $folderA '01 - Rokkinpo Goroshi.flac')
+            $a2 = New-TestAudioFile -Path (Join-Path $folderA '02 - Nitro Bb Sensou.flac')
+            $tracksA = @(
+                (New-TestTrack -SourceFilePath $a1 -OriginalFileName '01 - Rokkinpo Goroshi.flac' -DetectedTrackNumberInDisc 1 -ExistingTitle 'Rokkinpo Goroshi' -DurationSeconds 125.0)
+                (New-TestTrack -SourceFilePath $a2 -OriginalFileName '02 - Nitro Bb Sensou.flac' -DetectedTrackNumberInDisc 2 -ExistingTitle 'Nitro Bb Sensou' -DurationSeconds 140.0)
+            )
+            $releaseA = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Maximum the Hormone' -Album 'Rokkinpo Goroshi' -Year 2005) `
+                -RecognizedTitle 'Rokkinpo Goroshi' -RecognizedYear 2005 -SourceFolderPath $folderA -Tracks $tracksA
+
+            # Release B: no Discogs match at all (not even the catalog fallback finds anything near
+            # its year) - still must end up under the same bilingual artist folder as release A.
+            $folderB = Join-Path $script:sourceRoot 'Maximum the Hormone' '1990 Kusoban'
+            $b1 = New-TestAudioFile -Path (Join-Path $folderB '01 - Track One.flac')
+            $tracksB = @((New-TestTrack -SourceFilePath $b1 -OriginalFileName '01 - Track One.flac' -DetectedTrackNumberInDisc 1))
+            $releaseB = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Maximum the Hormone' -Album 'Kusoban' -Year 1990) `
+                -RecognizedTitle 'Kusoban' -RecognizedYear 1990 -SourceFolderPath $folderB -Tracks $tracksB
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Maximum the Hormone'; sourcePaths = @($script:sourceRoot); releases = @($releaseA, $releaseB) }
+            )
+
+            $artistSearch = [pscustomobject]@{ results = @([pscustomobject]@{ id = 500; type = 'artist'; title = 'マキシマム ザ ホルモン' }) }
+            $artistDetail = [pscustomobject]@{ id = 500; name = 'マキシマム ザ ホルモン'; namevariations = @('Maximum The Hormone') }
+            # Only release A's year (2005) is within the catalog fallback's +/-1 window of itself;
+            # release B's year (1990) filters this same single catalog entry out entirely.
+            $catalogReleases = [pscustomobject]@{
+                releases = @([pscustomobject]@{ id = 99; type = 'release'; role = 'Main'; year = 2005; format = @('CD', 'Album'); title = 'ロッキンポ殺し' })
+            }
+            $releaseDetailA = [pscustomobject]@{
+                id        = 99; title = 'ロッキンポ殺し'; year = 2005; released = '2005-03-02'
+                artists   = @([pscustomobject]@{ name = 'マキシマム ザ ホルモン' })
+                tracklist = @(
+                    [pscustomobject]@{ position = '1'; title = 'ロッキンポ殺し'; duration = '2:05' }
+                    [pscustomobject]@{ position = '2'; title = 'ニトロBB戦争'; duration = '2:20' }
+                )
+            }
+
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                if ($Path -eq '/database/search' -and $Query.type -eq 'artist') { return $artistSearch }
+                if ($Path -eq '/artists/500') { return $artistDetail }
+                if ($Path -eq '/database/search') { return [pscustomobject]@{ results = @() } }
+                if ($Path -eq '/artists/500/releases') { return $catalogReleases }
+                if ($Path -eq '/releases/99') { return $releaseDetailA }
+                throw "unexpected path $Path"
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releases = $result.artists[0].releases
+
+            $releaseAResult = $releases | Where-Object { $_.proposed.album -like 'Rokkinpo Goroshi*' }
+            $releaseAResult.discogsMatch.status | Should -Be 'matched'
+            $releaseAResult.proposed.artistFolderName | Should -Be 'Maximum The Hormone = マキシマム ザ ホルモン'
+            $releaseAResult.proposed.album | Should -Be 'Rokkinpo Goroshi = ロッキンポ殺し'
+            $releaseAResult.tracks[0].tags.artist | Should -Be 'Maximum The Hormone = マキシマム ザ ホルモン'
+            $releaseAResult.tracks[0].tags.albumArtist | Should -Be 'Maximum The Hormone = マキシマム ザ ホルモン'
+            $releaseAResult.tracks[0].proposedTitle | Should -Be 'Rokkinpo Goroshi = ロッキンポ殺し'
+            $releaseAResult.tracks[1].proposedTitle | Should -Be 'Nitro Bb Sensou = ニトロBB戦争'
+
+            $releaseBResult = $releases | Where-Object { $_.proposed.album -eq 'Kusoban' }
+            $releaseBResult.discogsMatch.status | Should -Be 'not-found'
+            $releaseBResult.proposed.artistFolderName | Should -Be 'Maximum The Hormone = マキシマム ザ ホルモン'
+        }
+
+        It 'does not add a Japanese name to a non-Japanese act even when a Japanese pressing''s release title is partly Japanese (Iron Maiden guard)' {
+            $folder = Join-Path $script:sourceRoot 'Iron Maiden' '1981 Killers'
+            $t1 = New-TestAudioFile -Path (Join-Path $folder '01 - The Ides Of March.flac')
+            $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - The Ides Of March.flac' -DetectedTrackNumberInDisc 1))
+            $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Iron Maiden' -Album 'Killers' -Year 1981) `
+                -RecognizedTitle 'Killers' -RecognizedYear 1981 -SourceFolderPath $folder -Tracks $tracks
+
+            New-TestRecognitionFile -Path $script:recognitionPath -SessionId 'test-session' -SourceRoot $script:sourceRoot -Artists @(
+                [pscustomobject]@{ recognizedName = 'Iron Maiden'; sourcePaths = @($script:sourceRoot); releases = @($release) }
+            )
+
+            # A Japanese pressing: its OWN title carries a Japanese subtitle, but the artist credit
+            # itself ("Iron Maiden") stays Latin script - that's the only evidence this feature trusts.
+            $releaseSearch = [pscustomobject]@{
+                results = @([pscustomobject]@{ id = 321; type = 'release'; title = 'Iron Maiden - Killers (地獄の処刑台)'; year = '1981'; format = @('CD', 'Album') })
+            }
+            $detail = [pscustomobject]@{
+                id        = 321; title = 'Killers (地獄の処刑台)'; year = 1981
+                artists   = @([pscustomobject]@{ name = 'Iron Maiden' })
+                tracklist = @([pscustomobject]@{ position = '1'; title = 'The Ides Of March' })
+            }
+
+            Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+                if ($Path -eq '/database/search' -and $Query.type -eq 'artist') { return [pscustomobject]@{ results = @() } }
+                if ($Path -eq '/database/search' -and $Query.type -eq 'master') { return [pscustomobject]@{ results = @() } }
+                if ($Path -eq '/database/search') { return $releaseSearch }
+                if ($Path -eq '/releases/321') { return $detail }
+                throw "unexpected path $Path"
+            }
+
+            $result = Invoke-ReshelfEditProposal -SessionId 'test-session' -RecognitionPath $script:recognitionPath -TargetRoot $script:targetRoot -DataHome $script:dataHome
+            $releaseResult = $result.artists[0].releases[0]
+
+            $releaseResult.discogsMatch.status | Should -Be 'matched'
+            $releaseResult.proposed.artistFolderName | Should -Be 'Iron Maiden'
+            $releaseResult.tracks[0].tags.albumArtist | Should -Be 'Iron Maiden'
         }
     }
 

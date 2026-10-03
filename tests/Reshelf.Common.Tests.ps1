@@ -68,6 +68,87 @@ Describe 'ConvertTo-ReshelfNormalizedText (private)' {
             $a | Should -Be $b
         }
     }
+
+    It 'folds full-width Latin letters/digits (NFKC) to their ordinary form, so they compare equal to plain ASCII' {
+        InModuleScope Reshelf.Common {
+            # "ＢＢ" (full-width B, B) - real Japanese-release text, e.g. a track titled "Nitro BB
+            # Sensou" sometimes appears on Discogs with full-width Latin letters.
+            $fullWidth = ConvertTo-ReshelfNormalizedText -Text 'ＢＢ'
+            $plain = ConvertTo-ReshelfNormalizedText -Text 'BB'
+            $fullWidth | Should -Be $plain
+        }
+    }
+}
+
+Describe 'Test-ReshelfHasJapaneseScript' {
+    It 'returns true for hiragana' {
+        Test-ReshelfHasJapaneseScript -Text 'ひらがな' | Should -Be $true
+    }
+
+    It 'returns true for katakana' {
+        Test-ReshelfHasJapaneseScript -Text 'マキシマム ザ ホルモン' | Should -Be $true
+    }
+
+    It 'returns true for kanji' {
+        Test-ReshelfHasJapaneseScript -Text 'ロッキンポ殺し' | Should -Be $true
+    }
+
+    It 'returns true when Japanese script is mixed with Latin text' {
+        Test-ReshelfHasJapaneseScript -Text 'Nitro BB戦争' | Should -Be $true
+    }
+
+    It 'returns false for plain romanized text' {
+        Test-ReshelfHasJapaneseScript -Text 'Rokkinpo Goroshi' | Should -Be $false
+    }
+
+    It 'returns false for an empty string' {
+        Test-ReshelfHasJapaneseScript -Text '' | Should -Be $false
+    }
+}
+
+Describe 'Test-ReshelfIsRomanizedText' {
+    It 'returns true for plain romanized text' {
+        Test-ReshelfIsRomanizedText -Text 'Maximum The Hormone' | Should -Be $true
+    }
+
+    It 'returns false for Japanese-script text' {
+        Test-ReshelfIsRomanizedText -Text 'マキシマム ザ ホルモン' | Should -Be $false
+    }
+
+    It 'returns false for text with no letters at all' {
+        Test-ReshelfIsRomanizedText -Text '1999' | Should -Be $false
+    }
+
+    It 'returns false for an empty string' {
+        Test-ReshelfIsRomanizedText -Text '' | Should -Be $false
+    }
+
+    It 'returns false for whitespace only' {
+        Test-ReshelfIsRomanizedText -Text '   ' | Should -Be $false
+    }
+}
+
+Describe 'Join-ReshelfBilingualName' {
+    It 'joins a romanized name with a Japanese-only original (Discogs convention)' {
+        Join-ReshelfBilingualName -Romanized 'Rokkinpo Goroshi' -Original 'ロッキンポ殺し' | Should -Be 'Rokkinpo Goroshi = ロッキンポ殺し'
+    }
+
+    It 'keeps the original as-is when it already has both halves ("X = Y")' {
+        $original = 'Tsume Tsume Tsume / 「F」= 爪爪爪 / 「F」'
+        Join-ReshelfBilingualName -Romanized 'anything' -Original $original | Should -Be $original
+    }
+
+    It 'keeps the original as-is when it has no Japanese script at all' {
+        Join-ReshelfBilingualName -Romanized 'Rokkinpo Goroshi' -Original 'Falling Jimmy' | Should -Be 'Falling Jimmy'
+    }
+
+    It 'keeps the original as-is when there is no romanized text to add' {
+        Join-ReshelfBilingualName -Romanized $null -Original 'ロッキンポ殺し' | Should -Be 'ロッキンポ殺し'
+    }
+
+    It 'keeps the original as-is when the romanized text is itself Japanese script' {
+        Join-ReshelfBilingualName -Romanized 'マキシマム' -Original 'ロッキンポ殺し' | Should -Be 'ロッキンポ殺し'
+    }
 }
 
 Describe 'Get-ReshelfSha256Hex' {

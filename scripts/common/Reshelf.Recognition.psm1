@@ -958,8 +958,26 @@ function Split-ReshelfLeadingYear {
     # real-world case) would misparse "3218" as a year and fail schema validation outright.
     # The optional whitespace-surrounded dash/en-dash covers the manifesto section 1 source format
     # "yyyy - Release Name"; an unspaced dash ("1999-2003 Anthology") is deliberately not a separator.
+
+    # Real-world case (session 2026-10-03-0010, "1999.08.29 - (album) A.S.A. Crew"): a full release
+    # date instead of just the year. Checked first - the year-only patterns below never accept a '.'
+    # after the 4 digits, and the unspaced one would misread "2006-07-05 - X" as year + "07-05 - X".
+    # The date itself is kept (ReleaseDate) because it is strong evidence for Discogs matching.
+    if ($Text -match '^(\d{4})[.\-](\d{2})[.\-](\d{2})(?:\s*[-–]\s*|\s+)(.+)$') {
+        $dateYear = [int]$Matches[1]
+        $dateMonth = [int]$Matches[2]
+        $dateDay = [int]$Matches[3]
+        if ($dateYear -ge 1900 -and $dateYear -le 2100 -and $dateMonth -ge 1 -and $dateMonth -le 12 -and $dateDay -ge 1 -and $dateDay -le 31) {
+            return [pscustomobject]@{
+                Year        = $dateYear
+                Title       = $Matches[4].Trim()
+                ReleaseDate = '{0:D4}-{1:D2}-{2:D2}' -f $dateYear, $dateMonth, $dateDay
+            }
+        }
+    }
+
     if ($Text -match '^(\d{4})(?:\s+[-–])?\s+(.+)$' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100) {
-        return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $Matches[2].Trim() }
+        return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $Matches[2].Trim(); ReleaseDate = $null }
     }
 
     # Real-world case: "2006-Fire Without Flame" - a release year glued directly to the title with
@@ -971,11 +989,37 @@ function Split-ReshelfLeadingYear {
         $candidateTitle = $Matches[2].Trim()
         $looksLikeSecondYear = $candidateTitle -match '^(\d{4})(\s|$)' -and [int]$Matches[1] -ge 1900 -and [int]$Matches[1] -le 2100
         if (-not $looksLikeSecondYear) {
-            return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $candidateTitle }
+            return [pscustomobject]@{ Year = [int]$Matches[1]; Title = $candidateTitle; ReleaseDate = $null }
         }
     }
 
-    return [pscustomobject]@{ Year = $null; Title = $Text }
+    return [pscustomobject]@{ Year = $null; Title = $Text; ReleaseDate = $null }
+}
+
+function Split-ReshelfReleaseTypeHint {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Title
+    )
+
+    # Real-world cases (session 2026-10-03-0010): "(album) A.S.A. Crew", "(single) Niku Cup",
+    # "Hou (EP)", "'Kyo's Poem Book' [EP]". The release type is a note about the release, not part of
+    # its name - left in, it ends up in the proposed folder name when Discogs has no match, and it
+    # never helps the title score. Only a bracket group holding nothing but a known type word is
+    # taken, so "Greatest (Deluxe)" or "(What's The Story) Morning Glory?" are never touched.
+    $typeWords = '(?<type>mini[- ]album|maxi[- ]single|album|single|ep|lp)'
+    $leading = [regex]::Match($Title, '^\s*[\(\[]\s*' + $typeWords + '\s*[\)\]]\s*(?<rest>.+)$', 'IgnoreCase')
+    if ($leading.Success) {
+        return [pscustomobject]@{ Title = $leading.Groups['rest'].Value.Trim(); ReleaseType = ($leading.Groups['type'].Value.ToLowerInvariant() -replace ' ', '-') }
+    }
+    $trailing = [regex]::Match($Title, '^(?<rest>.+?)\s*[\(\[]\s*' + $typeWords + '\s*[\)\]]\s*$', 'IgnoreCase')
+    if ($trailing.Success) {
+        return [pscustomobject]@{ Title = $trailing.Groups['rest'].Value.Trim(); ReleaseType = ($trailing.Groups['type'].Value.ToLowerInvariant() -replace ' ', '-') }
+    }
+    return [pscustomobject]@{ Title = $Title; ReleaseType = $null }
 }
 
 function Remove-ReshelfArtistNamePrefixFromTitle {
@@ -1049,6 +1093,7 @@ function New-ReshelfReleaseRecord {
     $yearSplit = Split-ReshelfLeadingYear -Text $leafName
     $year = $yearSplit.Year
     $title = $yearSplit.Title
+    $releaseDate = $yearSplit.ReleaseDate
 
     $recognitionFlags = [System.Collections.Generic.List[string]]::new()
     $reviewReasons = [System.Collections.Generic.List[string]]::new()
@@ -1071,9 +1116,18 @@ function New-ReshelfReleaseRecord {
             if ($null -ne $yearSplitAfterPrefixStrip.Year) {
                 $year = $yearSplitAfterPrefixStrip.Year
                 $title = $yearSplitAfterPrefixStrip.Title
+                $releaseDate = $yearSplitAfterPrefixStrip.ReleaseDate
             }
         }
     }
+
+    # Real-world cases (session 2026-10-03-0010, Maximum The Hormone): "(album) A.S.A. Crew",
+    # "Hou (EP)". The type hint is only ever cosmetic text left over in the title once the year is
+    # gone - stored separately so it helps Discogs version-ranking (EditProposal) instead of ending up
+    # baked into the proposed folder/track name when there's no Discogs match to defer to.
+    $typeHintSplit = Split-ReshelfReleaseTypeHint -Title $title
+    $title = $typeHintSplit.Title
+    $releaseType = $typeHintSplit.ReleaseType
 
     if ((ConvertTo-ReshelfLongPath -Path $Path) -ne $Path) {
         $recognitionFlags.Add('path-near-length-limit')
@@ -1226,6 +1280,8 @@ function New-ReshelfReleaseRecord {
         stableKey              = Get-ReshelfStableKey -Artist $ArtistName -Album $stableKeyAlbum -Year $year
         recognizedTitle        = $title
         recognizedYear         = $year
+        recognizedReleaseDate  = $releaseDate
+        recognizedReleaseType  = $releaseType
         editionFolderName      = if ($EditionFolderName) { $EditionFolderName } else { $null }
         sourceFolderPath       = $Path
         discFolderCount        = if ($null -ne $flatDiscPairCount) { $flatDiscPairCount } else { [Math]::Max(1, $discFolders.Count) }

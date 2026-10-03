@@ -419,6 +419,33 @@ If a folder still can't be classified (`recognition.json`'s `unrecognized[]`, e.
 `release-without-artist-suspected` or `no-audio-files`), there's no override file for it — move or
 rename the folder on disk so it matches one of the patterns above, then re-run `recognize`.
 
+## Reference: Japanese releases
+
+A release folder named with a full date and a release-type hint is recognized too — e.g.
+`1999.08.29 - (album) A.S.A. Crew` or `Hou (EP)` parse the same as a plain `yyyy - Title` folder,
+with the date and the hint (`album`/`mini-album`/`ep`/`single`/`maxi-single`/`lp`) kept separately
+(`recognition.json`'s `recognizedReleaseDate`/`recognizedReleaseType`) rather than left in the
+title. Both are used only for Discogs matching, never written to a tag.
+
+Many Japanese releases are catalogued on Discogs under a Japanese-only title and/or artist credit
+(e.g. the release titled `ロッキンポ殺し`, the artist credited as `マキシマム ザ ホルモン`), which a
+romanized folder name never scores a text match against. When every ordinary search comes up empty
+or unconvincing, Reshelf falls back to listing the artist's own Discogs catalog (needs the Discogs
+artist profile to resolve from the folder's romanized name — skipped for an unresolved or
+`Various`/`Various Artists` artist) and checking each nearby-year release/master directly against
+the source release itself: equal track count, plus either most track durations within ±3 seconds or
+an exact release-date match. Only a release that clears that bar is auto-matched; anything weaker is
+left `ambiguous` for the usual UI candidate picker instead of silently guessing.
+
+When Discogs' own title or artist name turns out to be Japanese-only text, Reshelf adds the
+source's own romanized text to it, Discogs' own convention: `{romanized} = {original}` (e.g. album
+`Rokkinpo Goroshi = ロッキンポ殺し`, artist `Maximum The Hormone = マキシマム ザ ホルモン`). The
+romanized half always comes from the source itself — an existing tag, the recognized folder/file
+title, or the folder's own artist name — never invented or transliterated. A release Discogs already
+gives as `X = Y`, or whose Discogs text has no Japanese script at all, is left exactly as Discogs
+wrote it. Every release of one artist shares the same bilingual artist folder, even one that didn't
+itself carry the Japanese-script evidence.
+
 ## Reference: lossy/lossless tracking
 
 If a release's source files are lossy (e.g. mp3) instead of lossless (e.g. flac), `propose` logs

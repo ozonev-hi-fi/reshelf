@@ -198,7 +198,13 @@ function Get-ReshelfDiscogsCandidateScore {
         [Nullable[int]]$ExpectedYear,
 
         [Parameter(Mandatory)]
-        [object]$Candidate
+        [object]$Candidate,
+
+        # Other names Discogs itself has on file for this artist (namevariations, from
+        # Resolve-ReshelfDiscogsArtistIdentity) - a Japanese act is very often only ever credited on
+        # Discogs by its Japanese name ("マキシマム ザ ホルモン"), so scoring only against the folder's
+        # own (romanized) artist name would never pass the threshold for any of its releases.
+        [string[]]$ArtistAliases = @()
     )
 
     $rawTitle = [string]$Candidate.title
@@ -212,18 +218,40 @@ function Get-ReshelfDiscogsCandidateScore {
         $candidateTitle = $rawTitle
     }
 
-    $normalizedExpectedArtist = ConvertTo-ReshelfNormalizedText -Text $ExpectedArtist
-    $normalizedCandidateArtist = ConvertTo-ReshelfNormalizedText -Text $candidateArtist
+    # Discogs disambiguates a reused artist name with a trailing "*" ("Pivot (2)" shows as "Pivot*"
+    # in a release/master title) and spells a Japanese act's name as "{Romanized} = {Japanese}" the
+    # same way it does release titles - stripped/split here so neither lowers the artist score.
+    # Discogs' own spacing around "=" isn't even consistent (real case: "...「F」= 爪爪爪..." has no
+    # space before it but one after) - split on the character with optional surrounding whitespace,
+    # not a fixed " = " shape.
+    $candidateArtist = $candidateArtist.TrimEnd('*').Trim()
+    $candidateArtistParts = @($candidateArtist -split '\s*=\s*' | Where-Object { $_ })
+    if ($candidateArtistParts.Count -eq 0) { $candidateArtistParts = @($candidateArtist) }
 
-    $artistScore = Get-ReshelfStringSimilarity -A $normalizedExpectedArtist -B $normalizedCandidateArtist
+    $expectedArtistNames = @(@($ExpectedArtist) + @($ArtistAliases) | Where-Object { $_ } | Select-Object -Unique)
+    $normalizedCandidateArtistParts = @($candidateArtistParts | ForEach-Object { ConvertTo-ReshelfNormalizedText -Text $_ })
+
+    $artistScore = 0.0
+    foreach ($expectedName in $expectedArtistNames) {
+        $normalizedExpectedArtist = ConvertTo-ReshelfNormalizedText -Text $expectedName
+        foreach ($normalizedCandidatePart in $normalizedCandidateArtistParts) {
+            $formScore = Get-ReshelfStringSimilarity -A $normalizedExpectedArtist -B $normalizedCandidatePart
+            if ($formScore -gt $artistScore) { $artistScore = $formScore }
+        }
+    }
+
+    $candidateTitleParts = @($candidateTitle -split '\s*=\s*' | Where-Object { $_ })
+    if ($candidateTitleParts.Count -eq 0) { $candidateTitleParts = @($candidateTitle) }
 
     $expectedTitleForms = Get-ReshelfDiscogsTitleForms -Text $ExpectedTitle
-    $candidateTitleForms = Get-ReshelfDiscogsTitleForms -Text $candidateTitle
     $titleScore = 0.0
-    foreach ($expectedForm in $expectedTitleForms) {
-        foreach ($candidateForm in $candidateTitleForms) {
-            $formScore = Get-ReshelfStringSimilarity -A $expectedForm -B $candidateForm
-            if ($formScore -gt $titleScore) { $titleScore = $formScore }
+    foreach ($candidateTitlePart in $candidateTitleParts) {
+        $candidateTitleForms = Get-ReshelfDiscogsTitleForms -Text $candidateTitlePart
+        foreach ($expectedForm in $expectedTitleForms) {
+            foreach ($candidateForm in $candidateTitleForms) {
+                $formScore = Get-ReshelfStringSimilarity -A $expectedForm -B $candidateForm
+                if ($formScore -gt $titleScore) { $titleScore = $formScore }
+            }
         }
     }
 
@@ -287,6 +315,88 @@ function Get-ReshelfDiscogsPlayableTracks {
     }
 
     return @($result)
+}
+
+function Get-ReshelfDiscogsDurationSeconds {
+    [CmdletBinding()]
+    [OutputType([Nullable[double]])]
+    param(
+        [AllowNull()]
+        [string]$Duration
+    )
+
+    # Discogs tracklist duration is "m:ss" (the common case) or occasionally "h:mm:ss" for a very
+    # long track - never fractional seconds, so this never needs to parse anything finer.
+    if ([string]::IsNullOrWhiteSpace($Duration)) { return $null }
+    $parts = @($Duration.Trim() -split ':')
+    if ($parts.Count -lt 2 -or $parts.Count -gt 3) { return $null }
+    try {
+        $numericParts = @($parts | ForEach-Object { [int]$_ })
+    }
+    catch {
+        return $null
+    }
+    if ($numericParts.Count -eq 2) { return [double]($numericParts[0] * 60 + $numericParts[1]) }
+    return [double]($numericParts[0] * 3600 + $numericParts[1] * 60 + $numericParts[2])
+}
+
+function Get-ReshelfDiscogsFingerprintScore {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Detail,
+
+        [Parameter(Mandatory)]
+        [int]$SourceTrackCount,
+
+        [double[]]$SourceDurations = @(),
+
+        [string]$ReleaseDate
+    )
+
+    # Used only when title-based search already failed (step 1d, catalog fallback) - here the
+    # release's own identity is the evidence instead: same number of tracks, and either most of
+    # those tracks' durations line up within a few seconds, or the exact release date matches.
+    # Deliberately strict (an auto-match with no name match at all needs strong proof) - anything
+    # short of this is surfaced as an 'ambiguous' candidate for a human to confirm instead.
+    $playableTracks = @(Get-ReshelfDiscogsPlayableTracks -Tracklist $Detail.tracklist)
+    $trackCountMatches = ($SourceTrackCount -gt 0) -and ($playableTracks.Count -eq $SourceTrackCount)
+
+    $durationMatchCount = 0
+    $durationCompareCount = 0
+    if ($trackCountMatches) {
+        for ($i = 0; $i -lt $playableTracks.Count; $i++) {
+            if ($i -ge $SourceDurations.Count) { continue }
+            $sourceSeconds = $SourceDurations[$i]
+            if (-not $sourceSeconds) { continue }
+            $discogsSeconds = Get-ReshelfDiscogsDurationSeconds -Duration ([string]$playableTracks[$i].duration)
+            if ($null -eq $discogsSeconds) { continue }
+            $durationCompareCount++
+            if ([Math]::Abs($discogsSeconds - $sourceSeconds) -le 3) { $durationMatchCount++ }
+        }
+    }
+
+    # At least 2/3 of the release's own tracks need a Discogs duration to compare (and at least 2 of
+    # them in absolute terms - a 1-track single getting its one duration lucky is not proof of
+    # anything, it needs the exact release date instead), and every one of those compared must be
+    # within tolerance.
+    $durationsStrong = $trackCountMatches -and $durationCompareCount -ge 2 `
+        -and ($durationCompareCount / [double]$playableTracks.Count) -ge (2.0 / 3.0) `
+        -and ($durationMatchCount -eq $durationCompareCount)
+
+    $releasedText = [string]$Detail.released
+    $dateMatchesExactly = [bool]($ReleaseDate -and $releasedText -and ($releasedText -eq $ReleaseDate))
+
+    $strong = $trackCountMatches -and ($durationsStrong -or $dateMatchesExactly)
+
+    # Not threshold-gated - only used to order 'ambiguous' candidates when nothing reached Strong.
+    $score = 0.0
+    if ($trackCountMatches) { $score += 0.4 }
+    if ($durationCompareCount -gt 0) { $score += 0.5 * ($durationMatchCount / [double]$durationCompareCount) }
+    if ($dateMatchesExactly) { $score += 0.1 }
+
+    return [pscustomobject]@{ Strong = $strong; Score = $score }
 }
 
 function Get-ReshelfDiscogsArtistCredit {
@@ -563,7 +673,9 @@ function Get-ReshelfScoredDiscogsCandidates {
         [Parameter(Mandatory)]
         [string]$ArtistName,
 
-        [Nullable[int]]$Year
+        [Nullable[int]]$Year,
+
+        [string[]]$ArtistAliases = @()
     )
 
     # Shared by the master search, the artist-master-list fallback, and the release search - all
@@ -574,7 +686,7 @@ function Get-ReshelfScoredDiscogsCandidates {
             # results, and the best score kept - a candidate can score well against the raw
             # title even when only the cleaned variant's search actually found it (or vice versa).
             $score = ($Variants.Titles | ForEach-Object {
-                    Get-ReshelfDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $_ -ExpectedYear $Year -Candidate $result
+                    Get-ReshelfDiscogsCandidateScore -ExpectedArtist $ArtistName -ExpectedTitle $_ -ExpectedYear $Year -Candidate $result -ArtistAliases $ArtistAliases
                 } | Measure-Object -Maximum).Maximum
             $candidateYear = $null
             if ($result.year) { try { $candidateYear = [int]$result.year } catch { $candidateYear = $null } }
@@ -734,6 +846,177 @@ function Select-ReshelfDiscogsMasterVersion {
     return [pscustomobject]@{ ReleaseId = $chosenId; Detail = $chosenDetail; Master = $master; Versions = $versions }
 }
 
+function Resolve-ReshelfDiscogsArtistIdentity {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ArtistName,
+
+        [string]$DataHome,
+
+        [int]$CacheTtlDays = 30,
+
+        [int]$RateLimitPerMinute = 55
+    )
+
+    # A folder's own (romanized) artist name is often not the name Discogs itself credits a release
+    # to (real case, Maximum The Hormone's own releases are mostly credited to "マキシマム ザ ホルモン" on
+    # Discogs) - looked up once per artist so every title search below can also score the candidate
+    # against every name Discogs has on file, not just the folder's own spelling.
+    if (([string]$ArtistName).Trim() -in @('Various', 'Various Artists')) { return $null }
+
+    try {
+        $searchResult = Invoke-DiscogsRequest -Path '/database/search' -Query @{ type = 'artist'; q = $ArtistName } `
+            -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        $normalizedArtistName = ConvertTo-ReshelfNormalizedText -Text $ArtistName
+
+        # A search result's own 'title' is always the artist's canonical/displayed name, which for a
+        # Japanese act is the Japanese name itself, NOT the romanized name that found it (Discogs'
+        # own search indexes namevariations too) - so an exact match can only be confirmed by fetching
+        # each top candidate's own profile and checking its name/namevariations, not the search
+        # result's title text. Capped at 5 candidates: this only runs once per artist per session
+        # (cached afterwards), so a wrong top-5 guess is cheap to accept as "unknown" instead of
+        # guessing further down an irrelevant list.
+        $topHits = @(@($searchResult.results | Where-Object { $_.type -eq 'artist' }) | Select-Object -First 5)
+        foreach ($hit in $topHits) {
+            $artistId = [int]$hit.id
+            $detail = Invoke-DiscogsRequest -Path "/artists/$artistId" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+            $candidateNames = @(@($detail.name -replace '\s+\(\d+\)$', '') + @($detail.namevariations) | Where-Object { $_ })
+            $isExactMatch = [bool](@($candidateNames | Where-Object { (ConvertTo-ReshelfNormalizedText -Text $_) -eq $normalizedArtistName }).Count -gt 0)
+            if (-not $isExactMatch) { continue }
+
+            $variations = @(@($detail.name) + @($detail.namevariations) | Where-Object { $_ } | Select-Object -Unique)
+            return [pscustomobject]@{ Id = $artistId; Name = [string]$detail.name; Variations = $variations }
+        }
+
+        return $null
+    }
+    catch {
+        Write-Verbose "Could not resolve Discogs artist identity for '$ArtistName': $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Resolve-ReshelfDiscogsCatalogFallback {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$ArtistIdentity,
+
+        [Parameter(Mandatory)]
+        [int]$SourceTrackCount,
+
+        [Parameter(Mandatory)]
+        [int]$FolderYear,
+
+        [string]$ReleaseType,
+
+        [string]$ReleaseDate,
+
+        [double[]]$SourceDurations = @(),
+
+        [string[]]$EditionHints = @(),
+
+        [string]$DataHome,
+
+        [int]$CacheTtlDays = 30,
+
+        [int]$RateLimitPerMinute = 55
+    )
+
+    # Last resort when every title-based search (1a/1b/1c) came up empty (real case: Discogs titles a
+    # release only in Japanese, e.g. "ロッキンポ殺し", and the folder's own title never scores close to
+    # that) - the artist's own catalog is listed instead and each candidate near the folder's year is
+    # checked against the release itself (track count/durations/date), not against its title text.
+    $items = [System.Collections.Generic.List[object]]::new()
+    for ($page = 1; $page -le 3; $page++) {
+        $pageResult = Invoke-DiscogsRequest -Path "/artists/$($ArtistIdentity.Id)/releases" -Query @{ per_page = '100'; page = "$page" } `
+            -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+        $pageItems = @($pageResult.releases)
+        if ($pageItems.Count -eq 0) { break }
+        $items.AddRange([object[]]@($pageItems | Where-Object {
+                    $_.role -eq 'Main' -and $_.year -and [Math]::Abs([int]$_.year - $FolderYear) -le 1
+                }))
+        if ($pageItems.Count -lt 100) { break }
+    }
+
+    if ($items.Count -eq 0) { return $null }
+
+    # Closest year first, then (when the folder's own type hint, e.g. "single", agrees with the
+    # catalog entry's own format text) an exact-type entry before an approximate one - only a
+    # tie-breaker, since the real decision is the per-release check below, not this ranking.
+    $ranked = @($items | Sort-Object -Property `
+        @{ Expression = { [Math]::Abs([int]$_.year - $FolderYear) } }, `
+        @{ Expression = { if ($ReleaseType -and ((@($_.format) -join ', ') -match [regex]::Escape($ReleaseType))) { 0 } else { 1 } } })
+
+    $checkLimit = [Math]::Min(8, $ranked.Count)
+    $checked = [System.Collections.Generic.List[object]]::new()
+
+    for ($i = 0; $i -lt $checkLimit; $i++) {
+        $item = $ranked[$i]
+        try {
+            $detail = if ([string]$item.type -eq 'master') {
+                Invoke-DiscogsRequest -Path "/masters/$([int]$item.id)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+            }
+            else {
+                Invoke-DiscogsRequest -Path "/releases/$([int]$item.id)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
+            }
+        }
+        catch {
+            Write-Verbose "Could not fetch catalog-fallback candidate $($item.type) $($item.id): $($_.Exception.Message)"
+            continue
+        }
+
+        $fingerprint = Get-ReshelfDiscogsFingerprintScore -Detail $detail -SourceTrackCount $SourceTrackCount -SourceDurations $SourceDurations -ReleaseDate $ReleaseDate
+        $checked.Add([pscustomobject]@{ Item = $item; Detail = $detail; Fingerprint = $fingerprint })
+
+        if ($fingerprint.Strong) {
+            if ([string]$item.type -eq 'master') {
+                $picked = Select-ReshelfDiscogsMasterVersion -MasterId ([int]$item.id) -SourceTrackCount $SourceTrackCount `
+                    -FolderYear $FolderYear -EditionHints $EditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+
+                return [pscustomobject]@{
+                    Strong     = $true
+                    ReleaseId  = $picked.ReleaseId
+                    Detail     = $picked.Detail
+                    MasterId   = [int]$item.id
+                    Master     = $picked.Master
+                    Candidates = Get-ReshelfMasterVersionCandidates -Versions $picked.Versions -ArtistName $ArtistIdentity.Name -Score 1.0
+                }
+            }
+
+            return [pscustomobject]@{
+                Strong     = $true
+                ReleaseId  = [int]$item.id
+                Detail     = $detail
+                MasterId   = $null
+                Master     = $null
+                Candidates = @([pscustomobject]@{
+                        releaseId = [int]$item.id
+                        title     = "$($ArtistIdentity.Name) - $($item.title)"
+                        year      = [int]$item.year
+                        format    = (@($item.format) -join ', ')
+                        score     = 1.0
+                    })
+            }
+        }
+    }
+
+    $ambiguousCandidates = @($checked | Sort-Object -Property { $_.Fingerprint.Score } -Descending | Select-Object -First 5 | ForEach-Object {
+            [pscustomobject]@{
+                releaseId = [int]$_.Item.id
+                title     = "$($ArtistIdentity.Name) - $($_.Item.title)"
+                year      = [int]$_.Item.year
+                format    = (@($_.Item.format) -join ', ')
+                score     = [Math]::Round($_.Fingerprint.Score, 4)
+            }
+        })
+
+    return [pscustomobject]@{ Strong = $false; Candidates = $ambiguousCandidates }
+}
+
 function Resolve-ReshelfDiscogsMatch {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -750,6 +1033,18 @@ function Resolve-ReshelfDiscogsMatch {
         # care, e.g. tests) get the pre-existing single-top-candidate behavior unchanged.
         [int]$SourceTrackCount = 0,
 
+        # The folder's own release-type hint ("album"/"ep"/"single"/...) and full release date, from
+        # Recognition's recognizedReleaseType/recognizedReleaseDate (session 2026-10-03-0010) - used
+        # only as extra matching evidence (version ranking, catalog-fallback ranking/scoring below),
+        # never as title text.
+        [string]$ReleaseType,
+
+        [string]$ReleaseDate,
+
+        # Per-track duration (seconds) in source track order - used only by the step-1d catalog
+        # fallback, to confirm a release Discogs has no matching title text for.
+        [double[]]$SourceDurations = @(),
+
         [string]$DataHome,
 
         [int]$CacheTtlDays = 30,
@@ -760,6 +1055,14 @@ function Resolve-ReshelfDiscogsMatch {
     try {
         $variants = Get-ReshelfDiscogsSearchTitleVariants -Title $Title
         $effectiveYear = if ($null -ne $Year) { $Year } else { $variants.YearHint }
+        $effectiveEditionHints = @(@($variants.EditionHints) + @($ReleaseType) | Where-Object { $_ } | Select-Object -Unique)
+
+        # Looked up once per artist, before any title scoring - a Japanese act is very often only
+        # ever credited on Discogs by its Japanese name (real case, session 2026-10-03-0010: Maximum
+        # The Hormone's own releases are mostly credited to "マキシマム ザ ホルモン"), so every search
+        # below also scores candidates against whatever other names Discogs itself has on file.
+        $artistIdentity = Resolve-ReshelfDiscogsArtistIdentity -ArtistName $ArtistName -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+        $artistAliases = if ($artistIdentity) { @($artistIdentity.Variations) } else { @() }
 
         # A ladder of at most 4 cached searches (2 title variants x with/without year), stopping at
         # the first one that returns anything - not every combination up front, since most releases
@@ -787,7 +1090,7 @@ function Resolve-ReshelfDiscogsMatch {
             }
         }
         $masterResults = @($masterResults | Sort-Object -Property id -Unique)
-        $scoredMasters = Get-ReshelfScoredDiscogsCandidates -Results $masterResults -Variants $variants -ArtistName $ArtistName -Year $Year
+        $scoredMasters = Get-ReshelfScoredDiscogsCandidates -Results $masterResults -Variants $variants -ArtistName $ArtistName -Year $Year -ArtistAliases $artistAliases
         $eligibleMasters = @($scoredMasters | Where-Object { $_.score -ge $script:DiscogsMatchThreshold })
 
         # --- Step 1b: artist master list - a Discogs release_title search can fail outright on a
@@ -809,7 +1112,7 @@ function Resolve-ReshelfDiscogsMatch {
                 if ($pageResults.Count -lt 100) { break }
             }
             if ($artistMasters.Count -gt 0) {
-                $scoredArtistMasters = Get-ReshelfScoredDiscogsCandidates -Results @($artistMasters) -Variants $variants -ArtistName $ArtistName -Year $Year
+                $scoredArtistMasters = Get-ReshelfScoredDiscogsCandidates -Results @($artistMasters) -Variants $variants -ArtistName $ArtistName -Year $Year -ArtistAliases $artistAliases
                 $eligibleFromArtistList = @($scoredArtistMasters | Where-Object { $_.score -ge $script:DiscogsMatchThreshold })
                 if ($eligibleFromArtistList.Count -gt 0) {
                     $scoredMasters = $scoredArtistMasters
@@ -821,7 +1124,7 @@ function Resolve-ReshelfDiscogsMatch {
         if ($eligibleMasters.Count -gt 0) {
             $bestMaster = @($eligibleMasters | Sort-Object -Property score -Descending)[0]
             $picked = Select-ReshelfDiscogsMasterVersion -MasterId $bestMaster.releaseId -SourceTrackCount $SourceTrackCount `
-                -FolderYear $effectiveYear -EditionHints $variants.EditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+                -FolderYear $effectiveYear -EditionHints $effectiveEditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 
             return [pscustomobject]@{
                 Status            = 'matched'
@@ -847,20 +1150,43 @@ function Resolve-ReshelfDiscogsMatch {
             if ($releaseResults.Count -gt 0) { break }
         }
 
-        if ($releaseResults.Count -eq 0) {
-            return [pscustomobject]@{ Status = 'not-found'; SelectedReleaseId = $null; Candidates = @(); Detail = $null; MasterId = $null; Master = $null; ErrorNote = $null }
-        }
-
-        $scoredReleases = Get-ReshelfScoredDiscogsCandidates -Results $releaseResults -Variants $variants -ArtistName $ArtistName -Year $Year
+        # An empty $releaseResults flows straight through (Get-ReshelfScoredDiscogsCandidates on an
+        # empty array returns an empty array) rather than returning 'not-found' here directly - step
+        # 1d below (catalog fallback) still gets a chance when every title-based search came back
+        # empty, which it couldn't if this returned early.
+        $scoredReleases = Get-ReshelfScoredDiscogsCandidates -Results $releaseResults -Variants $variants -ArtistName $ArtistName -Year $Year -ArtistAliases $artistAliases
         $sortedReleases = @($scoredReleases | Sort-Object -Property score -Descending)
         $topCandidates = @($sortedReleases | Select-Object -First 5)
         $eligibleReleases = @($sortedReleases | Where-Object { $_.score -ge $script:DiscogsMatchThreshold })
 
         if ($eligibleReleases.Count -eq 0) {
+            # --- Step 1d: catalog fallback - every title-based search (1a/1b/1c) came up with
+            # nothing eligible. Only possible when the artist itself was identified and the folder
+            # has a year to narrow the catalog by. ---
+            $catalogResult = $null
+            if ($artistIdentity -and $null -ne $effectiveYear) {
+                $catalogResult = Resolve-ReshelfDiscogsCatalogFallback -ArtistIdentity $artistIdentity -SourceTrackCount $SourceTrackCount `
+                    -FolderYear $effectiveYear -ReleaseType $ReleaseType -ReleaseDate $ReleaseDate -SourceDurations $SourceDurations `
+                    -EditionHints $effectiveEditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+            }
+
+            if ($catalogResult -and $catalogResult.Strong) {
+                return [pscustomobject]@{
+                    Status            = 'matched'
+                    SelectedReleaseId = $catalogResult.ReleaseId
+                    Candidates        = $catalogResult.Candidates
+                    Detail            = $catalogResult.Detail
+                    MasterId          = $catalogResult.MasterId
+                    Master            = $catalogResult.Master
+                    ErrorNote         = $null
+                }
+            }
+
             # Neither a master nor a plain release was eligible - the ambiguous candidate list
-            # combines both, since a low-confidence master's main release is just as valid a
-            # human-reviewed pick as a low-confidence plain release (real case, plan/12: an obscure
-            # release can be missing from one search type but present, if unconfident, in the other).
+            # combines all three sources (a low-confidence master's main release, a low-confidence
+            # plain release, and any catalog-fallback candidate), since any of them is just as valid
+            # a human-reviewed pick (real case, plan/12: an obscure release can be missing from one
+            # search type but present, if unconfident, in the other).
             $masterCandidates = @(foreach ($scoredMaster in @($scoredMasters | Sort-Object -Property score -Descending | Select-Object -First 5)) {
                     try {
                         $masterDetail = Invoke-DiscogsRequest -Path "/masters/$($scoredMaster.releaseId)" -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute -DataHome $DataHome
@@ -874,9 +1200,14 @@ function Resolve-ReshelfDiscogsMatch {
                         Write-Verbose "Could not fetch master $($scoredMaster.releaseId) for ambiguous candidate list: $($_.Exception.Message)"
                     }
                 })
+            $catalogCandidates = if ($catalogResult) { @($catalogResult.Candidates) } else { @() }
 
-            $combinedCandidates = @($masterCandidates + $topCandidates) | Sort-Object -Property score -Descending
+            $combinedCandidates = @($masterCandidates + $topCandidates + $catalogCandidates) | Sort-Object -Property score -Descending
             $uniqueCandidates = @($combinedCandidates | Group-Object -Property releaseId | ForEach-Object { $_.Group[0] } | Sort-Object -Property score -Descending | Select-Object -First 5)
+
+            if ($uniqueCandidates.Count -eq 0) {
+                return [pscustomobject]@{ Status = 'not-found'; SelectedReleaseId = $null; Candidates = @(); Detail = $null; MasterId = $null; Master = $null; ErrorNote = $null }
+            }
 
             return [pscustomobject]@{
                 Status            = 'ambiguous'
@@ -896,7 +1227,7 @@ function Resolve-ReshelfDiscogsMatch {
 
         if ($bestMasterId -gt 0) {
             $picked = Select-ReshelfDiscogsMasterVersion -MasterId $bestMasterId -SourceTrackCount $SourceTrackCount `
-                -FolderYear $effectiveYear -EditionHints $variants.EditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+                -FolderYear $effectiveYear -EditionHints $effectiveEditionHints -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
 
             return [pscustomobject]@{
                 Status            = 'matched'
@@ -935,6 +1266,33 @@ function Resolve-ReshelfDiscogsMatch {
     }
 }
 
+function Resolve-ReshelfDiscogsMatchForRelease {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ArtistName,
+
+        [Parameter(Mandatory)]
+        [object]$Release,
+
+        [string]$DataHome,
+
+        [int]$CacheTtlDays = 30,
+
+        [int]$RateLimitPerMinute = 55
+    )
+
+    # The one Resolve-ReshelfDiscogsMatch call every release needs for its own folder-artist name -
+    # pulled out so Invoke-ReshelfEditProposal can run it once per release up front (to collect every
+    # release's match before deciding the artist's shared bilingual display name, Get-
+    # ReshelfBilingualArtistName) and New-ReshelfProposedRelease can still make the same call itself
+    # for any caller (e.g. tests) that doesn't precompute it.
+    return Resolve-ReshelfDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
+        -SourceTrackCount $Release.tracks.Count -ReleaseType $Release.recognizedReleaseType -ReleaseDate $Release.recognizedReleaseDate `
+        -SourceDurations @($Release.tracks.durationSeconds) -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+}
+
 # --- Naming templates ----------------------------------------------------------
 
 function Expand-ReshelfNamingTemplate {
@@ -971,6 +1329,67 @@ function Get-ReshelfProposalPadWidth {
     return [Math]::Max($MinWidth, $TotalTrackCount.ToString().Length)
 }
 
+function Get-ReshelfLocalRomanizedTitle {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Release
+    )
+
+    # Discogs is the encyclopedia for text, but it never has the romanized half of its own "X = Y"
+    # convention for a release the source already carries romanized tags/folder name for (real case,
+    # session 2026-10-03-0010: Discogs titles "Rokkinpo Goroshi" only as "ロッキンポ殺し", the source files'
+    # own Album tag already says "Rokkinpo Goroshi") - this is that local romanized text, preferring
+    # the tags (closer to the release itself than a folder name a human typed once) over the folder.
+    $tagAlbums = @($Release.tracks.existingTags.album | Where-Object { $_ })
+    if ($tagAlbums.Count -gt 0) {
+        $mostCommonAlbum = ($tagAlbums | Group-Object | Sort-Object -Property Count -Descending | Select-Object -First 1).Name
+        if (Test-ReshelfIsRomanizedText -Text $mostCommonAlbum) {
+            return ConvertTo-ReshelfTitleCase -Text $mostCommonAlbum
+        }
+    }
+
+    if (Test-ReshelfIsRomanizedText -Text $Release.recognizedTitle) {
+        return ConvertTo-ReshelfTitleCase -Text $Release.recognizedTitle
+    }
+
+    return $null
+}
+
+function Get-ReshelfBilingualArtistName {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Matches,
+
+        [Parameter(Mandatory)]
+        [string]$ArtistName
+    )
+
+    if (([string]$ArtistName).Trim() -in @('Various', 'Various Artists')) { return $null }
+
+    # Evidence that this artist's own Discogs release credit is Japanese-only text, not Discogs text
+    # that merely happens to have some Japanese characters elsewhere - checked directly on the exact
+    # field New-ReshelfProposedReleaseNames builds the artist folder/tag from (real case, Maximum The
+    # Hormone's own release credits read "マキシマム ザ ホルモン", no romanized half at all). A Japanese
+    # pressing of a non-Japanese act (e.g. Iron Maiden) never trips this - its own artist credit
+    # stays Latin script even on a release whose title is partly Japanese.
+    $discogsName = $Matches | Where-Object { $_.Status -eq 'matched' -and $_.Detail -and $_.Detail.artists -and $_.Detail.artists.Count -gt 0 } |
+        ForEach-Object { Remove-ReshelfInvisibleCharacters -Text (([string]$_.Detail.artists[0].name) -replace '\s+\(\d+\)$', '') } |
+        Where-Object { Test-ReshelfHasJapaneseScript -Text $_ } | Select-Object -First 1
+
+    if (-not $discogsName) { return $null }
+
+    # The folder's own (romanized) artist name is the only romanized source for the artist name -
+    # Discogs itself never gave one here at all, so there's no Discogs text to prefer over it.
+    if (-not (Test-ReshelfIsRomanizedText -Text $ArtistName)) { return $null }
+
+    return Join-ReshelfBilingualName -Romanized (ConvertTo-ReshelfTitleCase -Text $ArtistName) -Original $discogsName
+}
+
 function New-ReshelfProposedReleaseNames {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -985,15 +1404,30 @@ function New-ReshelfProposedReleaseNames {
         [object]$Match,
 
         [Parameter(Mandatory)]
-        [string]$ReleaseFolderTemplate
+        [string]$ReleaseFolderTemplate,
+
+        # Set when Get-ReshelfBilingualArtistName found Japanese-script evidence somewhere in this
+        # artist's own matched releases (e.g. "Maximum The Hormone = マキシマム ザ ホルモン") - shared across
+        # every release of the same artist so they all get the same artist folder/tag text, not just
+        # the one release that happened to carry the evidence.
+        [string]$ArtistDisplayName
     )
 
     if ($Match.Status -eq 'matched') {
         # Discogs is the encyclopedia here and has priority for casing/text as-is (e.g. "edbl" is
         # kept lowercase when Discogs itself agrees) - only invisible characters are stripped, never
         # a case change. (Bandcamp will get the same priority once plan/13 adds it.)
-        $artistRaw = Remove-ReshelfInvisibleCharacters -Text ($Match.Detail.artists[0].name -replace '\s+\(\d+\)$', '')
-        $titleRaw = Remove-ReshelfInvisibleCharacters -Text $Match.Detail.title
+        $artistRaw = if ($ArtistDisplayName) {
+            $ArtistDisplayName
+        }
+        else {
+            Remove-ReshelfInvisibleCharacters -Text ($Match.Detail.artists[0].name -replace '\s+\(\d+\)$', '')
+        }
+        # Discogs' own "X = Y" convention (romanized = original) is kept as-is when it already gave
+        # it; otherwise the source's own romanized text (tags/folder name) is added to a
+        # Japanese-only Discogs title, same convention, using text Discogs itself never had.
+        $titleRaw = Join-ReshelfBilingualName -Romanized (Get-ReshelfLocalRomanizedTitle -Release $Release) `
+            -Original (Remove-ReshelfInvisibleCharacters -Text $Match.Detail.title)
         # The master's year is the release's original year (a master groups every pressing under
         # one original work) - preferred over the specific pressing's own year so a later reissue
         # (e.g. Koenjihyakkei "Angherr Shisspa", picked pressing from 2019) still tags/folders as
@@ -1002,10 +1436,14 @@ function New-ReshelfProposedReleaseNames {
         $yearRaw = if ($Match.Master -and $Match.Master.year) { $Match.Master.year } else { $Match.Detail.year }
     }
     else {
-        # No encyclopedia entry to defer to - Title Case is applied so a folder/tag name like
-        # "aoki takamasa" (all-lowercase source folder) reads as "Aoki Takamasa" instead of
-        # silently keeping whatever casing the source folder happened to use.
-        $artistRaw = ConvertTo-ReshelfTitleCase -Text $ArtistName
+        # No encyclopedia entry to defer to for THIS release - but another release of the same
+        # artist may already have Japanese-script evidence (Get-ReshelfBilingualArtistName), and
+        # every release of one artist must share the same artist folder/tag (manifesto section 5):
+        # kept bilingual here too, instead of silently reverting to a romanized-only name just
+        # because this one release didn't match. Title Case is applied otherwise so a folder/tag
+        # name like "aoki takamasa" (all-lowercase source folder) reads as "Aoki Takamasa" instead
+        # of silently keeping whatever casing the source folder happened to use.
+        $artistRaw = if ($ArtistDisplayName) { $ArtistDisplayName } else { ConvertTo-ReshelfTitleCase -Text $ArtistName }
         $titleRaw = ConvertTo-ReshelfTitleCase -Text $Release.recognizedTitle
         $yearRaw = $Release.recognizedYear
     }
@@ -1330,7 +1768,19 @@ function New-ReshelfProposedTrackSet {
             $fileNameArtist = if ($i -lt $FileNameArtists.Count) { $FileNameArtists[$i] } else { $null }
 
             if ($useDiscogs) {
-                $rawTitle = Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$DiscogsIndices[$i] - 1].title
+                # Same "X = Y" convention as the release/album title (New-ReshelfProposedReleaseNames):
+                # Discogs' own track title is kept as-is when it already has both halves, or already
+                # has none to pair with; otherwise the source's own romanized title (tag, else the
+                # filename's title part) is added to a Japanese-only Discogs track title.
+                $localTrackTitle = if (Test-ReshelfIsRomanizedText -Text $track.existingTags.title) {
+                    ConvertTo-ReshelfTitleCase -Text $track.existingTags.title
+                }
+                elseif (Test-ReshelfIsRomanizedText -Text $fileNameInfo.Title) {
+                    ConvertTo-ReshelfTitleCase -Text $fileNameInfo.Title
+                }
+                else { $null }
+                $rawTitle = Join-ReshelfBilingualName -Romanized $localTrackTitle `
+                    -Original (Remove-ReshelfInvisibleCharacters -Text $DiscogsTracks[$DiscogsIndices[$i] - 1].title)
             }
             elseif ($track.existingTags.title) {
                 $rawTitle = ConvertTo-ReshelfTitleCase -Text $track.existingTags.title
@@ -1364,7 +1814,14 @@ function New-ReshelfProposedTrackSet {
                 $discogsCredit = Get-ReshelfDiscogsArtistCredit -Artists @($DiscogsTracks[$DiscogsIndices[$i] - 1].artists)
             }
             if ($discogsCredit) {
-                $trackArtist = $discogsCredit
+                # $Names.Artist may be the bilingual "Romanized = Original" form (joined from
+                # Discogs' own, un-joined artist name) - a per-track credit that's just that same
+                # un-joined name (the ordinary case for a non-compilation release) should read the
+                # same bilingual way, not fall back to the raw Japanese-only text on every track.
+                $releaseArtistParts = @($Names.Artist -split ' = ')
+                $normalizedCredit = ConvertTo-ReshelfNormalizedText -Text $discogsCredit
+                $creditMatchesReleaseArtist = [bool](@($releaseArtistParts | Where-Object { (ConvertTo-ReshelfNormalizedText -Text $_) -eq $normalizedCredit }).Count -gt 0)
+                $trackArtist = if ($creditMatchesReleaseArtist) { $Names.Artist } else { $discogsCredit }
             }
             elseif ($Names.IsCompilation -and $track.existingTags.artist) {
                 $trackArtist = ConvertTo-ReshelfTitleCase -Text $track.existingTags.artist
@@ -1944,7 +2401,19 @@ function New-ReshelfProposedRelease {
         [System.Collections.Generic.Dictionary[string, object]]$SessionSeen,
 
         [Parameter(Mandatory)]
-        [string]$DataHome
+        [string]$DataHome,
+
+        # Already-resolved Resolve-ReshelfDiscogsMatchForRelease result for $ArtistName/$Release -
+        # set by Invoke-ReshelfEditProposal, which needs every release's own match up front anyway
+        # (Get-ReshelfBilingualArtistName looks across all of an artist's releases) and would
+        # otherwise redo the exact same cached-but-still-scored lookup a second time here. Left
+        # unset, this resolves its own match exactly as before (e.g. any caller that proposes a
+        # single release standalone, such as a test).
+        [object]$PrecomputedMatch,
+
+        # From Get-ReshelfBilingualArtistName, shared by every release of this artist - see
+        # New-ReshelfProposedReleaseNames.
+        [string]$ArtistDisplayName
     )
 
     $notes = [System.Collections.Generic.List[string]]::new()
@@ -1959,8 +2428,12 @@ function New-ReshelfProposedRelease {
         if ($Release.reviewReasons) { $notes.AddRange([string[]]@($Release.reviewReasons)) }
     }
 
-    $match = Resolve-ReshelfDiscogsMatch -ArtistName $ArtistName -Title $Release.recognizedTitle -Year $Release.recognizedYear `
-        -SourceTrackCount $Release.tracks.Count -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+    $match = if ($PrecomputedMatch) {
+        $PrecomputedMatch
+    }
+    else {
+        Resolve-ReshelfDiscogsMatchForRelease -ArtistName $ArtistName -Release $Release -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+    }
 
     # Real case (session 2026-10-03-0001, "DIO\1999 - Holy Dio"): a Various-Artists release filed
     # under its tracks' shared folder (not under "Various") never matches on that folder's own
@@ -1972,7 +2445,8 @@ function New-ReshelfProposedRelease {
     $usedVariousArtistsFallback = $false
     if ($match.Status -ne 'matched' -and $vaEvidence.LooksLikeVarious) {
         $variousMatch = Resolve-ReshelfDiscogsMatch -ArtistName 'Various' -Title $Release.recognizedTitle -Year $Release.recognizedYear `
-            -SourceTrackCount $Release.tracks.Count -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+            -SourceTrackCount $Release.tracks.Count -ReleaseType $Release.recognizedReleaseType -ReleaseDate $Release.recognizedReleaseDate `
+            -SourceDurations @($Release.tracks.durationSeconds) -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
         $match = $variousMatch
         $effectiveArtistName = 'Various'
         $usedVariousArtistsFallback = $true
@@ -1991,7 +2465,11 @@ function New-ReshelfProposedRelease {
         $notes.Add("Tracks have $($vaEvidence.DistinctArtistCount) different artists (none is '$ArtistName'); proposed as Various Artists compilation.")
     }
 
-    $names = New-ReshelfProposedReleaseNames -ArtistName $effectiveArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
+    # The precomputed bilingual display name was built for $ArtistName's own releases - it doesn't
+    # apply once the Various-Artists fallback switches the effective artist to 'Various'.
+    $effectiveArtistDisplayName = if ($usedVariousArtistsFallback) { $null } else { $ArtistDisplayName }
+    $names = New-ReshelfProposedReleaseNames -ArtistName $effectiveArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate `
+        -ArtistDisplayName $effectiveArtistDisplayName
     if ($names.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$names.Substitutions) }
     if ($names.UsedSentinelYear) {
         $requiresReview = $true
@@ -2162,7 +2640,27 @@ function Update-ReshelfReleaseForDiscogsSelection {
         ErrorNote         = $null
     }
 
-    $names = New-ReshelfProposedReleaseNames -ArtistName $ArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate
+    # A hand-picked release is only one data point for Get-ReshelfBilingualArtistName, where a full
+    # propose run sees every release of the artist - if this one pick alone isn't Japanese-credited
+    # evidence, a sibling release that already got the bilingual name (from that full run, or an
+    # earlier manual pick) is reused instead, so one odd pick doesn't drop the rest of the artist's
+    # releases back to a romanized-only folder/tag.
+    # $ArtistName itself may already be a previous bilingual folder/tag value (it comes from the
+    # release's own current Album Artist tag) - only its romanized half is ever a useful "folder's
+    # own romanized name" input, so that half is taken back out first.
+    $romanizedArtistName = if ($ArtistName -match ' = ') { (@($ArtistName -split ' = '))[0].Trim() } else { $ArtistName }
+    $artistDisplayName = Get-ReshelfBilingualArtistName -Matches @($match) -ArtistName $romanizedArtistName
+    if (-not $artistDisplayName) {
+        $normalizedArtistName = ConvertTo-ReshelfNormalizedText -Text $romanizedArtistName
+        $siblingWithBilingualName = $SiblingReleases | Where-Object {
+            $_.proposed -and $_.proposed.artistFolderName -match ' = ' -and
+            (ConvertTo-ReshelfNormalizedText -Text (@($_.proposed.artistFolderName -split ' = ')[0])) -eq $normalizedArtistName
+        } | Select-Object -First 1
+        if ($siblingWithBilingualName) { $artistDisplayName = $siblingWithBilingualName.proposed.artistFolderName }
+    }
+
+    $names = New-ReshelfProposedReleaseNames -ArtistName $ArtistName -Release $Release -Match $match -ReleaseFolderTemplate $ReleaseFolderTemplate `
+        -ArtistDisplayName $artistDisplayName
     if ($names.Substitutions.Count -gt 0) { $notes.AddRange([string[]]$names.Substitutions) }
     if ($names.UsedSentinelYear) {
         $requiresReview = $true
@@ -2297,11 +2795,24 @@ function Invoke-ReshelfEditProposal {
     $sessionSeen = [System.Collections.Generic.Dictionary[string, object]]::new()
 
     $artists = @(foreach ($artist in @($recognition.artists)) {
-            $releases = @(foreach ($release in @($artist.releases)) {
-                    New-ReshelfProposedRelease -ArtistName $artist.recognizedName -Release $release -TargetRoot $TargetRoot `
+            # Every release's Discogs match is resolved once, up front, rather than inside
+            # New-ReshelfProposedRelease per release - Get-ReshelfBilingualArtistName needs to see
+            # every release of this artist before any of them can get their final (shared) artist
+            # folder/tag name (real case, session 2026-10-03-0010: every Maximum The Hormone release
+            # must end up under the same "Maximum The Hormone = マキシマム ザ ホルモン" folder, not just
+            # whichever release happens to carry the Japanese-script evidence).
+            $matches = @(foreach ($release in @($artist.releases)) {
+                    Resolve-ReshelfDiscogsMatchForRelease -ArtistName $artist.recognizedName -Release $release `
+                        -DataHome $DataHome -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute
+                })
+            $artistDisplayName = Get-ReshelfBilingualArtistName -Matches $matches -ArtistName $artist.recognizedName
+
+            $releases = @(for ($i = 0; $i -lt @($artist.releases).Count; $i++) {
+                    New-ReshelfProposedRelease -ArtistName $artist.recognizedName -Release $artist.releases[$i] -TargetRoot $TargetRoot `
                         -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth `
                         -CoverMaxDimension $CoverMaxDimension -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute `
-                        -TargetIndex $targetIndex -SessionSeen $sessionSeen -DataHome $DataHome
+                        -TargetIndex $targetIndex -SessionSeen $sessionSeen -DataHome $DataHome `
+                        -PrecomputedMatch $matches[$i] -ArtistDisplayName $artistDisplayName
                 })
 
             [pscustomobject]@{

@@ -352,6 +352,56 @@ Describe 'Remove-ReshelfArtistNamePrefixFromTitle (private)' {
     }
 }
 
+Describe 'Split-ReshelfReleaseTypeHint (private)' {
+    It 'strips a leading "(album)" hint' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title '(album) A.S.A. Crew'
+            $result.Title | Should -Be 'A.S.A. Crew'
+            $result.ReleaseType | Should -Be 'album'
+        }
+    }
+
+    It 'strips a trailing "(EP)" hint regardless of letter case' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title 'Hou (EP)'
+            $result.Title | Should -Be 'Hou'
+            $result.ReleaseType | Should -Be 'ep'
+        }
+    }
+
+    It 'strips a trailing "[EP]" hint written with square brackets' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title "'Kyo's Poem Book' [EP]"
+            $result.Title | Should -Be "'Kyo's Poem Book'"
+            $result.ReleaseType | Should -Be 'ep'
+        }
+    }
+
+    It 'normalizes a "mini-album" hint with a space to a hyphenated type' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title '(mini album) Ootori'
+            $result.Title | Should -Be 'Ootori'
+            $result.ReleaseType | Should -Be 'mini-album'
+        }
+    }
+
+    It 'leaves a trailing bracket group untouched when it is not a known release-type word' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title 'Greatest (Deluxe)'
+            $result.Title | Should -Be 'Greatest (Deluxe)'
+            $result.ReleaseType | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'leaves a title with no bracket group untouched' {
+        InModuleScope Reshelf.Recognition {
+            $result = Split-ReshelfReleaseTypeHint -Title 'Rokkinpo Goroshi'
+            $result.Title | Should -Be 'Rokkinpo Goroshi'
+            $result.ReleaseType | Should -BeNullOrEmpty
+        }
+    }
+}
+
 Describe 'Get-ReshelfTrackOrder (private)' {
     It 'orders fully-numbered files by their parsed number' {
         InModuleScope Reshelf.Recognition {
@@ -817,6 +867,33 @@ Describe 'Invoke-ReshelfRecognition' {
             $release = ($result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }).releases[0]
             $release.recognizedYear | Should -Be $case.Year -Because "folder '$($case.Folder)'"
             $release.recognizedTitle | Should -Be $case.Title -Because "folder '$($case.Folder)'"
+        }
+    }
+
+    It 'parses a full release date and a release-type hint from each real-world folder name form (session 2026-10-03-0010, Maximum The Hormone)' {
+        $cases = @(
+            @{ Folder = '1999.08.29 - (album) A.S.A. Crew'; Year = 1999; Title = 'A.S.A. Crew'; Date = '1999-08-29'; Type = 'album' }
+            @{ Folder = '2004.06.23 - (single) Rock Bankurawase'; Year = 2004; Title = 'Rock Bankurawase'; Date = '2004-06-23'; Type = 'single' }
+            @{ Folder = '2001.08.01 - (mini-album) Ootori'; Year = 2001; Title = 'Ootori'; Date = '2001-08-01'; Type = 'mini-album' }
+            @{ Folder = '2001 - Hou (EP)'; Year = 2001; Title = 'Hou'; Date = $null; Type = 'ep' }
+            @{ Folder = "2001 - 'Kyo's Poem Book' [EP]"; Year = 2001; Title = "'Kyo's Poem Book'"; Date = $null; Type = 'ep' }
+            @{ Folder = '2008 - Tsume Tsume Tsume''F (Single)'; Year = 2008; Title = "Tsume Tsume Tsume'F"; Date = $null; Type = 'single' }
+            # Month 13 is not a valid date - falls back to the plain "yyyy - Title" form instead,
+            # keeping the literal text (including the dot) as part of the title.
+            @{ Folder = '2006.13.01 - X'; Year = $null; Title = '2006.13.01 - X'; Date = $null; Type = $null }
+        )
+
+        foreach ($case in $cases) {
+            $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            New-Item -ItemType File -Path (Join-Path $sourceRoot 'Some Artist' $case.Folder '01 - Track.flac') -Force | Out-Null
+
+            $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-2e' -DataHome $dataHome
+
+            $release = ($result.artists | Where-Object { $_.recognizedName -eq 'Some Artist' }).releases[0]
+            $release.recognizedYear | Should -Be $case.Year -Because "folder '$($case.Folder)'"
+            $release.recognizedTitle | Should -Be $case.Title -Because "folder '$($case.Folder)'"
+            $release.recognizedReleaseDate | Should -Be $case.Date -Because "folder '$($case.Folder)'"
+            $release.recognizedReleaseType | Should -Be $case.Type -Because "folder '$($case.Folder)'"
         }
     }
 

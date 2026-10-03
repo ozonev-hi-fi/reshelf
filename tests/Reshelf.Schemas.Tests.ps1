@@ -30,6 +30,19 @@ Describe 'Schema examples validate against their schema' {
     It 'apply-log-example.json validates against apply-log.schema.json' {
         Test-Json -LiteralPath "$FixturesDir/apply-log-example.json" -SchemaFile "$PSScriptRoot/../schemas/apply-log.schema.json" | Should -Be $true
     }
+
+    It 'recognition-example.json validates with recognizedReleaseDate/recognizedReleaseType added (session 2026-10-03-0010), and still does when they are explicitly null' {
+        $recognition = Get-Content -Raw "$FixturesDir/recognition-example.json" | ConvertFrom-Json
+        $release = $recognition.artists[0].releases[0]
+
+        $release | Add-Member -NotePropertyName recognizedReleaseDate -NotePropertyValue '1999-08-29'
+        $release | Add-Member -NotePropertyName recognizedReleaseType -NotePropertyValue 'album'
+        Test-Json -Json ($recognition | ConvertTo-Json -Depth 20) -SchemaFile "$PSScriptRoot/../schemas/recognition.schema.json" | Should -Be $true
+
+        $release.recognizedReleaseDate = $null
+        $release.recognizedReleaseType = $null
+        Test-Json -Json ($recognition | ConvertTo-Json -Depth 20) -SchemaFile "$PSScriptRoot/../schemas/recognition.schema.json" | Should -Be $true
+    }
 }
 
 Describe 'recognition.json can be extended into a valid proposal.json' {
