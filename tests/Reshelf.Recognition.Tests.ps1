@@ -25,6 +25,13 @@ Describe 'Test-IsReleaseFolder (private)' {
         }
     }
 
+    It 'recognizes a multi-disc release folder whose children are LP#-numbered disc subfolders' {
+        InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
+            param($fixturesDir)
+            Test-IsReleaseFolder -Path (Join-Path $fixturesDir 'Wrapper Band\2004 - LP Reissue') | Should -Be $true
+        }
+    }
+
     It 'does not recognize an artist folder (release-shaped children, no direct audio) as a release' {
         InModuleScope Reshelf.Recognition -Parameters @{ fixturesDir = $script:FixturesDir } {
             param($fixturesDir)
@@ -441,6 +448,16 @@ Describe 'Test-IsDiscFolder / Get-ReshelfDiscFolders (private)' {
         }
     }
 
+    It 'recognizes LP-prefixed disc folders, including a "#" separator' {
+        InModuleScope Reshelf.Recognition {
+            Test-IsDiscFolder -Name 'LP#1' | Should -Be $true
+            Test-IsDiscFolder -Name 'LP#2' | Should -Be $true
+            Test-IsDiscFolder -Name 'LP 1' | Should -Be $true
+            Test-IsDiscFolder -Name 'lp.1' | Should -Be $true
+            Test-IsDiscFolder -Name 'LP10Something' | Should -Be $false
+        }
+    }
+
     It 'recognizes a disc number followed by trailing text after a separator' {
         InModuleScope Reshelf.Recognition {
             Test-IsDiscFolder -Name 'CD1. Forwards' | Should -Be $true
@@ -471,6 +488,13 @@ Describe 'Get-ReshelfDiscNumber (private)' {
         InModuleScope Reshelf.Recognition {
             Get-ReshelfDiscNumber -Name 'CD1' | Should -Be 1
             Get-ReshelfDiscNumber -Name 'Disc 2' | Should -Be 2
+        }
+    }
+
+    It 'parses an LP#-numbered name (real-world 2-LP vinyl rip case)' {
+        InModuleScope Reshelf.Recognition {
+            Get-ReshelfDiscNumber -Name 'LP#1' | Should -Be 1
+            Get-ReshelfDiscNumber -Name 'LP#2' | Should -Be 2
         }
     }
 
@@ -1477,6 +1501,19 @@ FILE "Iron Maiden - The X Factor (BCD-0033).flac" WAVE
         ($cd1Tracks.isCueVirtualTrack) | Should -Not -Contain $false
         $cd2Tracks.Count | Should -Be 2
         ($cd2Tracks.isCueVirtualTrack) | Should -Not -Contain $true
+    }
+
+    It 'recognizes LP#-numbered disc folders directly under the release folder as one multi-disc release, not two separate editions (real-world 2-LP vinyl rip)' {
+        $result = Invoke-ReshelfRecognition -SourceRoot $FixturesDir -SessionId 'session-33' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Wrapper Band' }
+        $releases = @($artist.releases | Where-Object { $_.recognizedTitle -eq 'LP Reissue' })
+        $releases.Count | Should -Be 1
+        $release = $releases[0]
+        $release.discFolderCount | Should -Be 2
+        $release.tracks.Count | Should -Be 5
+        ($release.tracks | Where-Object { $_.discFolder -eq 'LP#1' }).Count | Should -Be 2
+        ($release.tracks | Where-Object { $_.discFolder -eq 'LP#2' }).Count | Should -Be 3
     }
 }
 

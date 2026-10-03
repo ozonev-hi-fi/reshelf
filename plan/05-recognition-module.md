@@ -115,7 +115,7 @@ genuinely-ambiguous cases above, not instead of them:
      folder, set `inferredTrackOrder: true` and add flag
      `"no-track-number"` — never blocks recognition, but is visible
      downstream.
-- Disc folder detection: `^(CD|Disc|Disk)\s*\.?\s*(\d+)$` (case-insensitive).
+- Disc folder detection: `^(CD|Disc|Disk|LP)\s*#?\.?\s*(\d+)$` (case-insensitive).
   Track numbers from files inside disc folders are combined and
   renumbered continuously across discs per manifesto §4.4 when building
   `proposedFileName` in [06](06-edit-proposal-module.md) — Recognition itself

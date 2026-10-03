@@ -53,6 +53,12 @@ Wrapper Band/2001 Mixed Disc Album/01 Disc One Track One.flac
 Wrapper Band/2001 Mixed Disc Album/02 Disc One Track Two.flac
 Wrapper Band/2001 Mixed Disc Album/03 Track One.flac
 Wrapper Band/2001 Mixed Disc Album/04 Track Two.flac
+Wrapper Band/2004 LP Reissue/
+Wrapper Band/2004 LP Reissue/01 LP Reissue Track One.flac
+Wrapper Band/2004 LP Reissue/02 LP Reissue Track Two.flac
+Wrapper Band/2004 LP Reissue/03 LP Reissue Track Three.flac
+Wrapper Band/2004 LP Reissue/04 LP Reissue Track Four.flac
+Wrapper Band/2004 LP Reissue/05 LP Reissue Track Five.flac
 ZZ Top/
 ZZ Top/1994 One Foot In The Blues/
 ZZ Top/1994 One Foot In The Blues/01 Song A.flac

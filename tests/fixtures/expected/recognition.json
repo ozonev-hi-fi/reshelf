@@ -894,6 +894,124 @@
           "recognitionFlags": [],
           "needsReview": false,
           "reviewReasons": []
+        },
+        {
+          "stableKey": "9b2ecb4804602cb1",
+          "recognizedTitle": "LP Reissue",
+          "recognizedYear": 2004,
+          "recognizedReleaseDate": null,
+          "recognizedReleaseType": null,
+          "editionFolderName": null,
+          "sourceFolderPath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue",
+          "discFolderCount": 2,
+          "tracks": [
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#1\\Side One.flac",
+              "discFolder": "LP#1",
+              "originalFileName": "Side One.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "LP Reissue Track One"
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 120.0,
+              "cueTimestamp": "00:00:00",
+              "isCueVirtualTrack": true
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#1\\Side One.flac",
+              "discFolder": "LP#1",
+              "originalFileName": "Side One.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "LP Reissue Track Two"
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 80.0,
+              "cueTimestamp": "02:00:00",
+              "isCueVirtualTrack": true
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#2\\Side Two.flac",
+              "discFolder": "LP#2",
+              "originalFileName": "Side Two.flac",
+              "detectedTrackNumberInDisc": 1,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "LP Reissue Track Three"
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 60.0,
+              "cueTimestamp": "00:00:00",
+              "isCueVirtualTrack": true
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#2\\Side Two.flac",
+              "discFolder": "LP#2",
+              "originalFileName": "Side Two.flac",
+              "detectedTrackNumberInDisc": 2,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "LP Reissue Track Four"
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 60.0,
+              "cueTimestamp": "01:00:00",
+              "isCueVirtualTrack": true
+            },
+            {
+              "sourceFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#2\\Side Two.flac",
+              "discFolder": "LP#2",
+              "originalFileName": "Side Two.flac",
+              "detectedTrackNumberInDisc": 3,
+              "inferredTrackOrder": false,
+              "existingTags": {
+                "artist": null,
+                "album": null,
+                "title": "LP Reissue Track Five"
+              },
+              "existingCoverArtPath": null,
+              "format": "flac",
+              "isLossless": true,
+              "durationSeconds": 80.0,
+              "cueTimestamp": "02:00:00",
+              "isCueVirtualTrack": true
+            }
+          ],
+          "companionFiles": [],
+          "ignoredFiles": [],
+          "cueSheets": [
+            {
+              "cueFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#1\\Side One.cue",
+              "audioFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#1\\Side One.flac"
+            },
+            {
+              "cueFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#2\\Side Two.cue",
+              "audioFilePath": "<SOURCE_ROOT>\\Wrapper Band\\2004 - LP Reissue\\LP#2\\Side Two.flac"
+            }
+          ],
+          "recognitionConfidence": 1.0,
+          "recognitionFlags": [],
+          "needsReview": false,
+          "reviewReasons": []
         }
       ]
     },
