@@ -32,6 +32,18 @@ For each recognized release:
    a `release_title` still carrying this noise returns **zero results** even
    for a release that demonstrably exists (e.g. "Violator (1990) (ALFA
    ALCB-35) (1st Japan 1990)" finds nothing; "Violator" does).
+1a. Before any of the above, the artist/title text is run through
+    `ConvertTo-ReshelfHomoglyphNormalizedText` (`Reshelf.Common.psm1`), which
+    folds a Cyrillic/Greek look-alike character back to its Latin equivalent
+    when the surrounding text otherwise reads as Latin (real case: a source
+    folder named "Inсubus Succubus" has a Cyrillic U+0441 standing in for
+    Latin "c" in "Incubus" — invisible to a human, but Discogs' server-side
+    search matches indexed text exactly and returns nothing for it). Only
+    fires when the string is Latin text with a few look-alikes mixed in, not
+    genuinely non-Latin text (a real Cyrillic or Japanese name is left
+    untouched). When it changes anything, `Resolve-ReshelfDiscogsMatch`
+    carries a note through to `humanReview.notes` so the correction is
+    visible, not silent.
 2. `Resolve-ReshelfDiscogsMatch` tries each variant, with its year then
    without it, stopping at the first search that returns anything — at most 4
    cached searches ([02](02-discogs-account-and-api-access.md)), not one
@@ -51,6 +63,21 @@ For each recognized release:
    behavior).
 5. Fetch full detail (`/releases/{id}`) for the selected/auto candidate to get
    canonical tracklist, year, and cover images.
+
+> **Note (added after this section was written):** the code now also searches
+> `type=master` before falling back to a plain release search, then picks the
+> right pressing under that master (`Select-ReshelfDiscogsMasterVersion`) by
+> track count, year, format, and edition hints ("Special Edition" etc.,
+> extracted by `Get-ReshelfDiscogsSearchTitleVariants` above). That hint
+> matching (`Get-ReshelfDiscogsVersionRank`) compares against Discogs' own
+> comma-separated format descriptors (e.g. `"CD, Album, Reissue, Deluxe
+> Edition"`) token-for-token first, falling back to a plain substring check
+> against the pressing title only when no format token matches — more
+> reliable than matching against a blob of format+title text, which could
+> both false-positive (hint text incidentally inside an unrelated word) and
+> false-negative (wording differs from how the hint was stripped from the
+> folder title). This section hasn't been fully reconciled with that flow;
+> treat it as describing the release-search fallback path, not master search.
 
 ### Computing proposed names and tags
 

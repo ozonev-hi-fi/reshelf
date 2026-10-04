@@ -56,6 +56,68 @@ function ConvertTo-ReshelfNormalizedText {
     return [regex]::Replace($stripped, '\s+', ' ').Trim()
 }
 
+# Standard Unicode "confusables" subset: Cyrillic/Greek letters that are visually identical
+# to a Latin letter in common fonts - not a broad fuzzy-matching scheme, just the handful that
+# genuinely look the same, so normalizing them can't mangle genuinely foreign text by accident.
+# Built from explicit code points (not literal characters in this source file) so the mapping
+# can't be silently corrupted by whatever encoding a particular editor/terminal reads this file
+# with - confirmed necessary: literal Cyrillic/Greek characters here collided into the Unicode
+# replacement character U+FFFD on this machine, producing a "duplicate key" parse error.
+$script:ReshelfHomoglyphMap = @{}
+$script:ReshelfHomoglyphPairs = @(
+    # Cyrillic lowercase -> Latin
+    @(0x0430, 'a'), @(0x0435, 'e'), @(0x043E, 'o'), @(0x0440, 'p'), @(0x0441, 'c'), @(0x0443, 'y'), @(0x0445, 'x'), @(0x0456, 'i'), @(0x0458, 'j'), @(0x0455, 's'),
+    # Cyrillic uppercase -> Latin
+    @(0x0410, 'A'), @(0x0412, 'B'), @(0x0415, 'E'), @(0x041A, 'K'), @(0x041C, 'M'), @(0x041D, 'H'), @(0x041E, 'O'), @(0x0420, 'P'), @(0x0421, 'C'), @(0x0422, 'T'), @(0x0425, 'X'), @(0x0405, 'S'), @(0x0408, 'J'),
+    # Greek uppercase -> Latin
+    @(0x0391, 'A'), @(0x0392, 'B'), @(0x0395, 'E'), @(0x0396, 'Z'), @(0x0397, 'H'), @(0x0399, 'I'), @(0x039A, 'K'), @(0x039C, 'M'), @(0x039D, 'N'), @(0x039F, 'O'), @(0x03A1, 'P'), @(0x03A4, 'T'), @(0x03A5, 'Y'), @(0x03A7, 'X'),
+    # Greek lowercase (only omicron is a true visual duplicate of Latin 'o' in common fonts)
+    @(0x03BF, 'o')
+)
+foreach ($pair in $script:ReshelfHomoglyphPairs) {
+    $script:ReshelfHomoglyphMap[[string][char]$pair[0]] = $pair[1]
+}
+
+function ConvertTo-ReshelfHomoglyphNormalizedText {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    # Real case: a source folder name copy-pasted from a non-English site can pick up a single
+    # look-alike character (e.g. "Inсubus Succubus" with Cyrillic U+0441 in place of Latin "c") -
+    # invisible to a human reading the name, but Discogs' server-side search matches indexed text
+    # exactly and returns nothing for it. Only replaces confusables when the string reads as Latin
+    # text with a few look-alikes mixed in - a genuinely non-Latin name (no Latin letters at all, or
+    # containing letters outside both Latin and this map) is left untouched, so this can't mangle a
+    # real Cyrillic/Greek/Japanese artist name into something wrong.
+    $latinCount = 0
+    $confusableCount = 0
+    $otherForeignCount = 0
+    foreach ($ch in $Text.ToCharArray()) {
+        if (-not [char]::IsLetter($ch)) { continue }
+        if ($ch -ge 'A' -and $ch -le 'Z' -or $ch -ge 'a' -and $ch -le 'z') { $latinCount++ }
+        elseif ($script:ReshelfHomoglyphMap.ContainsKey([string]$ch)) { $confusableCount++ }
+        else { $otherForeignCount++ }
+    }
+
+    if ($confusableCount -eq 0 -or $latinCount -eq 0 -or $otherForeignCount -gt 0) {
+        return [pscustomobject]@{ Text = $Text; Changed = $false }
+    }
+
+    $builder = [System.Text.StringBuilder]::new($Text.Length)
+    foreach ($ch in $Text.ToCharArray()) {
+        $key = [string]$ch
+        if ($script:ReshelfHomoglyphMap.ContainsKey($key)) { [void]$builder.Append($script:ReshelfHomoglyphMap[$key]) }
+        else { [void]$builder.Append($ch) }
+    }
+
+    return [pscustomobject]@{ Text = $builder.ToString(); Changed = $true }
+}
+
 function Test-ReshelfHasJapaneseScript {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -582,7 +644,7 @@ function Import-ReshelfTagLibSharp {
 }
 
 Export-ModuleMember -Function Resolve-ReshelfDataHome, Get-ReshelfEffectiveDataHome, Get-ReshelfStableKey, ConvertTo-ReshelfLongPath, `
-    ConvertTo-ReshelfNormalizedText, ConvertTo-ReshelfCueTimestampSeconds, Get-ReshelfSha256Hex, Test-ReshelfIsAudioExtension, Test-ReshelfIsLosslessFormat, `
+    ConvertTo-ReshelfNormalizedText, ConvertTo-ReshelfHomoglyphNormalizedText, ConvertTo-ReshelfCueTimestampSeconds, Get-ReshelfSha256Hex, Test-ReshelfIsAudioExtension, Test-ReshelfIsLosslessFormat, `
     Get-ReshelfAudioFilesInFolder, ConvertFrom-ReshelfTrackFileName, ConvertTo-SafeFileName, Get-ReshelfFileSetHash, `
     Set-ReshelfTagLibSharpContext, Import-ReshelfTagLibSharp, Protect-ReshelfSecret, Unprotect-ReshelfSecret, Get-ReshelfRelativePath, `
     ConvertTo-ReshelfTruncatedSegment, Test-ReshelfLooseCompanionFileName, Get-ReshelfLooseCompanionFileName, `

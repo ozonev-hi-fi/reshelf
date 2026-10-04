@@ -554,10 +554,25 @@ function Get-ReshelfDiscogsVersionRank {
     }
     $yearMatch = ($null -ne $FolderYear -and $null -ne $releasedYear -and $FolderYear -eq $releasedYear)
 
-    $versionText = "$($Version.format) $($Version.title)"
+    # Discogs encodes an edition's own descriptors (Reissue, Remastered, Special Edition, ...) as
+    # comma-separated tokens in its own `format` field (e.g. "CD, Album, Reissue, Deluxe Edition") -
+    # matching a hint against those tokens exactly is far more reliable than a raw substring check
+    # against the combined format+title text, which can both false-positive (hint text accidentally
+    # inside an unrelated word) and false-negative (wording differs from how the hint was stripped
+    # from the folder title). A title-substring check remains as a secondary, weaker signal for the
+    # cases where an edition is only ever named in the pressing title, not the format descriptors.
+    $formatTokens = @(($Version.format -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $normalizedFormatTokens = @($formatTokens | ForEach-Object { ConvertTo-ReshelfNormalizedText -Text $_ })
+
     $editionMatch = $false
     foreach ($hint in $EditionHints) {
-        if ($hint -and $versionText -match [regex]::Escape($hint)) { $editionMatch = $true; break }
+        if (-not $hint) { continue }
+        if ($normalizedFormatTokens -contains (ConvertTo-ReshelfNormalizedText -Text $hint)) { $editionMatch = $true; break }
+    }
+    if (-not $editionMatch) {
+        foreach ($hint in $EditionHints) {
+            if ($hint -and [string]$Version.title -match [regex]::Escape($hint)) { $editionMatch = $true; break }
+        }
     }
 
     # Real case (AC-DC "T.N.T.", master 8648): an 8-Track Cartridge version has the same track
@@ -1052,6 +1067,19 @@ function Resolve-ReshelfDiscogsMatch {
         [int]$RateLimitPerMinute = 55
     )
 
+    # A folder name copy-pasted from a non-Latin source can carry a Cyrillic/Greek look-alike
+    # character that's invisible to a human but makes Discogs' server-side search return nothing
+    # (real case: "Inсubus Succubus" with Cyrillic U+0441 in place of Latin "c"). Normalizing here,
+    # once, means every search/scoring path below automatically uses the corrected text.
+    $artistNorm = ConvertTo-ReshelfHomoglyphNormalizedText -Text $ArtistName
+    $titleNorm = ConvertTo-ReshelfHomoglyphNormalizedText -Text $Title
+    $ArtistName = $artistNorm.Text
+    $Title = $titleNorm.Text
+    $homoglyphNote = if ($artistNorm.Changed -or $titleNorm.Changed) {
+        'Source artist/title name contained look-alike characters (e.g. Cyrillic/Greek letters resembling Latin ones); normalized before searching Discogs.'
+    }
+    else { $null }
+
     try {
         $variants = Get-ReshelfDiscogsSearchTitleVariants -Title $Title
         $effectiveYear = if ($null -ne $Year) { $Year } else { $variants.YearHint }
@@ -1134,6 +1162,7 @@ function Resolve-ReshelfDiscogsMatch {
                 MasterId          = $bestMaster.releaseId
                 Master            = $picked.Master
                 ErrorNote         = $null
+                HomoglyphNote     = $homoglyphNote
             }
         }
 
@@ -1179,6 +1208,7 @@ function Resolve-ReshelfDiscogsMatch {
                     MasterId          = $catalogResult.MasterId
                     Master            = $catalogResult.Master
                     ErrorNote         = $null
+                    HomoglyphNote     = $homoglyphNote
                 }
             }
 
@@ -1206,7 +1236,7 @@ function Resolve-ReshelfDiscogsMatch {
             $uniqueCandidates = @($combinedCandidates | Group-Object -Property releaseId | ForEach-Object { $_.Group[0] } | Sort-Object -Property score -Descending | Select-Object -First 5)
 
             if ($uniqueCandidates.Count -eq 0) {
-                return [pscustomobject]@{ Status = 'not-found'; SelectedReleaseId = $null; Candidates = @(); Detail = $null; MasterId = $null; Master = $null; ErrorNote = $null }
+                return [pscustomobject]@{ Status = 'not-found'; SelectedReleaseId = $null; Candidates = @(); Detail = $null; MasterId = $null; Master = $null; ErrorNote = $null; HomoglyphNote = $homoglyphNote }
             }
 
             return [pscustomobject]@{
@@ -1217,6 +1247,7 @@ function Resolve-ReshelfDiscogsMatch {
                 MasterId          = $null
                 Master            = $null
                 ErrorNote         = $null
+                HomoglyphNote     = $homoglyphNote
             }
         }
 
@@ -1237,6 +1268,7 @@ function Resolve-ReshelfDiscogsMatch {
                 MasterId          = $bestMasterId
                 Master            = $picked.Master
                 ErrorNote         = $null
+                HomoglyphNote     = $homoglyphNote
             }
         }
 
@@ -1251,6 +1283,7 @@ function Resolve-ReshelfDiscogsMatch {
             MasterId          = $null
             Master            = $null
             ErrorNote         = $null
+            HomoglyphNote     = $homoglyphNote
         }
     }
     catch {
@@ -1262,6 +1295,7 @@ function Resolve-ReshelfDiscogsMatch {
             MasterId          = $null
             Master            = $null
             ErrorNote         = "Discogs lookup failed: $($_.Exception.Message)"
+            HomoglyphNote     = $homoglyphNote
         }
     }
 }
@@ -2492,6 +2526,7 @@ function New-ReshelfProposedRelease {
         $notes.Add($match.ErrorNote)
         $requiresReview = $true
     }
+    if ($match.HomoglyphNote) { $notes.Add($match.HomoglyphNote) }
     if ($match.Status -ne 'matched') {
         $requiresReview = $true
         $notes.Add("Discogs match status: $($match.Status)")

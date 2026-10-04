@@ -1348,6 +1348,58 @@ Describe 'Resolve-ReshelfDiscogsMatch (private)' {
         $result.Candidates.Count | Should -Be 2
     }
 
+    It 'normalizes a Cyrillic look-alike character in the artist name before querying Discogs (real "Inсubus Succubus" case)' {
+        # The "c" in the ArtistName below is U+0441 CYRILLIC SMALL LETTER ES, not Latin "c" - looks
+        # identical to a human but Discogs' server-side search would return nothing for it.
+        $corruptedArtist = [string]::Concat('In', [char]0x0441, 'ubus Succubus')
+        $masterSearch = [pscustomobject]@{
+            results = @([pscustomobject]@{ id = 298095; type = 'master'; title = 'Incubus Succubus - Wytches'; year = '1994'; format = @('CD', 'Album') })
+        }
+        $masterDetail = [pscustomobject]@{ id = 298095; main_release = 111; year = 1994; images = @() }
+        $versionsResult = [pscustomobject]@{
+            versions = @([pscustomobject]@{ id = 111; title = 'Wytches'; released = '1994'; format = 'Album'; major_formats = @('CD'); stats = [pscustomobject]@{ community = [pscustomobject]@{ in_collection = 10 } } })
+        }
+        $mainDetail = [pscustomobject]@{
+            id = 111; title = 'Wytches'; year = 1994; country = 'UK'
+            artists = @([pscustomobject]@{ name = 'Incubus Succubus' })
+            formats = @([pscustomobject]@{ name = 'CD'; descriptions = @('Album') }); images = @()
+            tracklist = @(1..9 | ForEach-Object { [pscustomobject]@{ position = "$_"; title = "Track $_" } })
+        }
+
+        $calls = [System.Collections.Generic.List[object]]::new()
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            $calls.Add([pscustomobject]@{ Path = $Path; Query = $Query })
+            if ($Path -eq '/database/search' -and $Query.type -eq 'master') { return $masterSearch }
+            if ($Path -eq '/masters/298095') { return $masterDetail }
+            if ($Path -eq '/masters/298095/versions') { return $versionsResult }
+            if ($Path -eq '/releases/111') { return $mainDetail }
+            throw "unexpected path $Path"
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome; corruptedArtist = $corruptedArtist } {
+            param($dataHome, $corruptedArtist)
+            Resolve-ReshelfDiscogsMatch -ArtistName $corruptedArtist -Title 'Wytches' -Year 1994 -SourceTrackCount 9 -DataHome $dataHome
+        }
+
+        $result.Status | Should -Be 'matched'
+        $result.SelectedReleaseId | Should -Be 111
+        $result.HomoglyphNote | Should -Not -BeNullOrEmpty
+        ($calls | Where-Object { $_.Path -eq '/database/search' -and $_.Query.type -eq 'master' } | Select-Object -First 1).Query.artist | Should -Be 'Incubus Succubus'
+    }
+
+    It 'does not treat a genuinely Cyrillic artist name as homoglyph-corrupted' {
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            [pscustomobject]@{ results = @() }
+        }
+
+        $result = InModuleScope Reshelf.EditProposal -Parameters @{ dataHome = $script:dataHome } {
+            param($dataHome)
+            Resolve-ReshelfDiscogsMatch -ArtistName 'Кино' -Title 'Группа крови' -Year 1988 -DataHome $dataHome
+        }
+
+        $result.HomoglyphNote | Should -BeNullOrEmpty
+    }
+
     It 'falls back to the artist master list when a release_title master search finds nothing (real Grails "Red Light"/"Redlight" case, plan/12)' {
         $artistMasterSearch = [pscustomobject]@{
             results = @([pscustomobject]@{ id = 91049; type = 'master'; title = 'Grails - Redlight'; year = '2004'; format = @('CD', 'Album') })
@@ -1628,6 +1680,35 @@ Describe 'Sort-ReshelfDiscogsVersions / Get-ReshelfDiscogsVersionRank (private)'
             # which of the two ties for first.
             $sorted[-1].id | Should -Be 1
             @($sorted[0].id, $sorted[1].id) | Sort-Object | Should -Be @(2, 3)
+        }
+    }
+
+    It 'matches an edition hint against Discogs'' own comma-separated format descriptors, not a raw substring of format+title' {
+        InModuleScope Reshelf.EditProposal {
+            $versions = @(
+                [pscustomobject]@{ id = 1; title = 'X'; released = '2010'; format = 'CD, Album, Reissue'; major_formats = @('CD') }
+                [pscustomobject]@{ id = 2; title = 'X'; released = '2010'; format = 'CD, Album, Reissue, Deluxe Edition'; major_formats = @('CD') }
+            )
+
+            $sorted = Sort-ReshelfDiscogsVersions -Versions $versions -FolderYear $null -EditionHints @('Deluxe Edition')
+            $sorted[0].id | Should -Be 2
+        }
+    }
+
+    It 'does not false-positive an edition hint against an unrelated substring in format/title' {
+        InModuleScope Reshelf.EditProposal {
+            # "Limited" must not match a version whose format token is "Unlimited Access" (contains
+            # "Limited" as a substring but is not the same token) - a real-world style trap for the
+            # old blob-substring check.
+            $versions = @(
+                [pscustomobject]@{ id = 1; title = 'X'; released = '2010'; format = 'CD, Album, Unlimited Access'; major_formats = @('CD') }
+                [pscustomobject]@{ id = 2; title = 'X'; released = '2010'; format = 'CD, Album, Limited Edition'; major_formats = @('CD') }
+            )
+
+            $rank1 = Get-ReshelfDiscogsVersionRank -Version $versions[0] -FolderYear $null -EditionHints @('Limited')
+            $rank2 = Get-ReshelfDiscogsVersionRank -Version $versions[1] -FolderYear $null -EditionHints @('Limited Edition')
+            $rank1.EditionMatch | Should -Be $false
+            $rank2.EditionMatch | Should -Be $true
         }
     }
 }

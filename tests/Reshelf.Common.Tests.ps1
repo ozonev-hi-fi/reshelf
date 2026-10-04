@@ -80,6 +80,43 @@ Describe 'ConvertTo-ReshelfNormalizedText (private)' {
     }
 }
 
+Describe 'ConvertTo-ReshelfHomoglyphNormalizedText' {
+    It 'normalizes a single Cyrillic look-alike character mixed into otherwise-Latin text (real "Inсubus Succubus" case)' {
+        InModuleScope Reshelf.Common {
+            # The "c" here is U+0441 CYRILLIC SMALL LETTER ES, not Latin "c" - looks identical to a
+            # human but makes Discogs' server-side search return nothing for it.
+            $corrupted = [string]::Concat('In', [char]0x0441, 'ubus Succubus')
+            $result = ConvertTo-ReshelfHomoglyphNormalizedText -Text $corrupted
+            $result.Changed | Should -Be $true
+            $result.Text | Should -Be 'Incubus Succubus'
+        }
+    }
+
+    It 'leaves a genuinely Cyrillic name (no Latin letters at all) untouched' {
+        InModuleScope Reshelf.Common {
+            $result = ConvertTo-ReshelfHomoglyphNormalizedText -Text 'Кино'
+            $result.Changed | Should -Be $false
+            $result.Text | Should -Be 'Кино'
+        }
+    }
+
+    It 'leaves a genuinely Japanese title untouched' {
+        InModuleScope Reshelf.Common {
+            $result = ConvertTo-ReshelfHomoglyphNormalizedText -Text 'ロッキンポ殺し'
+            $result.Changed | Should -Be $false
+            $result.Text | Should -Be 'ロッキンポ殺し'
+        }
+    }
+
+    It 'is a no-op for plain ASCII text' {
+        InModuleScope Reshelf.Common {
+            $result = ConvertTo-ReshelfHomoglyphNormalizedText -Text 'Radiohead'
+            $result.Changed | Should -Be $false
+            $result.Text | Should -Be 'Radiohead'
+        }
+    }
+}
+
 Describe 'Test-ReshelfHasJapaneseScript' {
     It 'returns true for hiragana' {
         Test-ReshelfHasJapaneseScript -Text 'ひらがな' | Should -Be $true
