@@ -2982,4 +2982,39 @@ Describe 'Update-ReshelfReleaseForDiscogsSelection' {
         $updated.targetAction | Should -Be 'conflict'
         $updated.requiresReview | Should -Be $true
     }
+
+    It 'flags a target conflict when a sibling release with a DIFFERENT stable key already claimed the same proposed target path (real case: two source folders for one album that Discogs corrects to one folder)' {
+        $t1 = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Amagrama' '2005 Volumen 1' '01 - Track 1.flac') -Content 'release-bytes'
+        $tracks = @((New-TestTrack -SourceFilePath $t1 -OriginalFileName '01 - Track 1.flac' -DetectedTrackNumberInDisc 1))
+        $release = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Amagrama' -Album 'Volumen 1' -Year 2005) `
+            -RecognizedTitle 'Volumen 1' -RecognizedYear 2005 -SourceFolderPath (Split-Path $t1) -Tracks $tracks
+        $release | Add-Member -NotePropertyName discogsMatch -NotePropertyValue ([pscustomobject]@{
+                status = 'ambiguous'; selectedReleaseId = $null
+                candidates = @([pscustomobject]@{ releaseId = 265498; title = 'Radiohead - OK Computer'; year = 1997; format = 'CD, Album'; score = 0.7868 })
+            })
+
+        # Sibling's own source folder was recognized under a different year (1997 vs 2005), so its
+        # stableKey (derived from recognized Artist|Album|Year, not the Discogs-corrected one) is
+        # different from $release's - yet it already resolved, earlier in this same session, to the
+        # exact same corrected 'Radiohead\1997 OK Computer' folder this release is about to claim.
+        $siblingSourceFile = New-TestAudioFile -Path (Join-Path $script:sourceRoot 'Other Folder' 'sibling.flac') -Content 'different-bytes'
+        $siblingTracks = @((New-TestTrack -SourceFilePath $siblingSourceFile -OriginalFileName 'sibling.flac' -DetectedTrackNumberInDisc 1))
+        $sibling = New-TestRelease -StableKey (Get-TestStableKey -Artist 'Amagrama' -Album 'Volumen 1' -Year 1997) `
+            -RecognizedTitle 'Volumen 1' -RecognizedYear 1997 -SourceFolderPath (Split-Path $siblingSourceFile) -Tracks $siblingTracks
+        $sibling | Add-Member -NotePropertyName proposed -NotePropertyValue ([pscustomobject]@{
+                artistFolderName = 'Radiohead'; releaseFolderName = '1997 OK Computer'; year = 1997; album = 'OK Computer'; isCompilation = $false
+            })
+
+        Mock -ModuleName Reshelf.EditProposal Invoke-DiscogsRequest {
+            $script:ReleaseFixture
+        }
+
+        $updated = Update-ReshelfReleaseForDiscogsSelection -Release $release -SelectedReleaseId 265498 -SiblingReleases @($sibling) `
+            -ArtistName 'Amagrama' -TargetRoot $script:targetRoot -ReleaseFolderTemplate '{year} {album}' `
+            -TrackFileTemplate '{trackNumber} {title}' -CoverMaxDimension 600 -DataHome $script:dataHome
+
+        $updated.targetAction | Should -Be 'conflict'
+        $updated.requiresReview | Should -Be $true
+        $updated.notes -join '; ' | Should -BeLike '*target path collision*'
+    }
 }

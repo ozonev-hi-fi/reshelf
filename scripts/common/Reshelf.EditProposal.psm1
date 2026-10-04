@@ -2144,12 +2144,16 @@ function Resolve-ReshelfTargetComparison {
         [System.Collections.Generic.Dictionary[string, object]]$SessionSeen,
 
         [Parameter(Mandatory)]
+        [System.Collections.Generic.Dictionary[string, object]]$SessionSeenByPath,
+
+        [Parameter(Mandatory)]
         [object]$Names,
 
         [Parameter(Mandatory)]
         [string]$DataHome
     )
 
+    $normalizedProposedPath = $ProposedTargetPath.TrimEnd('\', '/')
     $sourcePaths = @($Release.tracks.sourceFilePath | Select-Object -Unique)
     $sourceHash = Get-ReshelfFileSetHash -FilePaths $sourcePaths
 
@@ -2169,8 +2173,21 @@ function Resolve-ReshelfTargetComparison {
     # before touching disk - this also means a target folder is never hashed twice in one run.
     $baseline = $null
     $appliedEntryMatchesSource = $false
+    $pathCollisionOwner = $null
     if ($SessionSeen.ContainsKey($StableKey)) {
         $baseline = $SessionSeen[$StableKey]
+    }
+    elseif ($SessionSeenByPath.ContainsKey($normalizedProposedPath)) {
+        # A *different* stableKey already claimed this exact proposed folder earlier in this same
+        # run - stableKey is derived from each release's own source folder name (see the comment
+        # below), so two source folders that Discogs corrects to the same target (real case: Alcest
+        # "2005 - Le Secret" and "2011 - Le Secret" both resolving to "Alcest\2005 Le Secret") can
+        # collide here without ever sharing a stableKey. Comparing against the earlier claimant's
+        # hash (instead of leaving $baseline null) lets the existing hash-compare logic below decide
+        # - identical content still collapses to skip-existing-identical, otherwise it correctly
+        # lands on 'conflict' instead of a second, silently-colliding 'create-new'.
+        $pathCollisionOwner = $SessionSeenByPath[$normalizedProposedPath]
+        $baseline = [pscustomobject]@{ Hash = $pathCollisionOwner.Hash; IsLossless = $pathCollisionOwner.IsLossless; Path = $null }
     }
     else {
         # Prefer apply-log.json's own record of what was actually applied over re-hashing the
@@ -2266,7 +2283,12 @@ function Resolve-ReshelfTargetComparison {
     }
     else {
         $targetAction = 'conflict'
-        $conflictNote = 'target conflict: existing target differs from source and is not a lossy-to-lossless upgrade'
+        $conflictNote = if ($pathCollisionOwner) {
+            "target path collision: '$($pathCollisionOwner.SourceFolderPath)' (stableKey $($pathCollisionOwner.StableKey), same session) already targets this same folder and differs from this release and is not a lossy-to-lossless upgrade; rename one of them to a different target"
+        }
+        else {
+            'target conflict: existing target differs from source and is not a lossy-to-lossless upgrade'
+        }
         $forcedReviewNote = if ($forcedReviewNote) { "$forcedReviewNote; $conflictNote" } else { $conflictNote }
     }
 
@@ -2311,6 +2333,17 @@ function Resolve-ReshelfTargetComparison {
     }
 
     $SessionSeen[$StableKey] = [pscustomobject]@{ Hash = $sourceHash; IsLossless = $sourceIsLossless }
+
+    # First claimant wins - a later release colliding on this same path always compares against the
+    # *first* one proposed for it, not whichever processed most recently.
+    if (-not $SessionSeenByPath.ContainsKey($normalizedProposedPath)) {
+        $SessionSeenByPath[$normalizedProposedPath] = [pscustomobject]@{
+            Hash             = $sourceHash
+            IsLossless       = $sourceIsLossless
+            StableKey        = $StableKey
+            SourceFolderPath = $Release.sourceFolderPath
+        }
+    }
 
     return [pscustomobject]@{
         TargetAction     = $targetAction
@@ -2399,6 +2432,9 @@ function New-ReshelfProposedRelease {
 
         [Parameter(Mandatory)]
         [System.Collections.Generic.Dictionary[string, object]]$SessionSeen,
+
+        [Parameter(Mandatory)]
+        [System.Collections.Generic.Dictionary[string, object]]$SessionSeenByPath,
 
         [Parameter(Mandatory)]
         [string]$DataHome,
@@ -2521,7 +2557,7 @@ function New-ReshelfProposedRelease {
 
     $proposedTargetPath = Join-Path $TargetRoot $names.ArtistFolderName $names.ReleaseFolderName
     $comparison = Resolve-ReshelfTargetComparison -Release $Release -StableKey $Release.stableKey -ProposedTargetPath $proposedTargetPath `
-        -TargetRoot $TargetRoot -TargetIndex $TargetIndex -SessionSeen $SessionSeen -Names $names -DataHome $DataHome
+        -TargetRoot $TargetRoot -TargetIndex $TargetIndex -SessionSeen $SessionSeen -SessionSeenByPath $SessionSeenByPath -Names $names -DataHome $DataHome
     if ($comparison.ForcedReviewNote) {
         $requiresReview = $true
         $notes.Add($comparison.ForcedReviewNote)
@@ -2706,21 +2742,38 @@ function Update-ReshelfReleaseForDiscogsSelection {
     # across every release - here there is only one release being recomputed, so every *other*
     # release's own Hash/IsLossless (same fields Resolve-ReshelfTargetComparison itself derives at
     # its own lines computing $sourceHash/$sourceIsLossless) is precomputed up front instead.
+    # Same stand-in, keyed by each sibling's own already-proposed target path instead of its
+    # stableKey - catches the same cross-stableKey collision a full propose run now also catches
+    # (see Resolve-ReshelfTargetComparison), e.g. re-picking this release's Discogs match onto a
+    # folder another sibling already claimed.
     $sessionSeen = [System.Collections.Generic.Dictionary[string, object]]::new()
+    $sessionSeenByPath = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($sibling in $SiblingReleases) {
         $siblingSourcePaths = @($sibling.tracks.sourceFilePath | Select-Object -Unique)
         $siblingHash = Get-ReshelfFileSetHash -FilePaths $siblingSourcePaths
         $siblingTotalTracks = $sibling.tracks.Count
         $siblingLosslessCount = @($sibling.tracks | Where-Object { $_.isLossless }).Count
+        $siblingIsLossless = ($siblingTotalTracks -gt 0 -and $siblingLosslessCount -eq $siblingTotalTracks)
         $sessionSeen[$sibling.stableKey] = [pscustomobject]@{
             Hash       = $siblingHash
-            IsLossless = ($siblingTotalTracks -gt 0 -and $siblingLosslessCount -eq $siblingTotalTracks)
+            IsLossless = $siblingIsLossless
+        }
+        if ($sibling.proposed) {
+            $siblingPath = (Join-Path $TargetRoot $sibling.proposed.artistFolderName $sibling.proposed.releaseFolderName).TrimEnd('\', '/')
+            if (-not $sessionSeenByPath.ContainsKey($siblingPath)) {
+                $sessionSeenByPath[$siblingPath] = [pscustomobject]@{
+                    Hash             = $siblingHash
+                    IsLossless       = $siblingIsLossless
+                    StableKey        = $sibling.stableKey
+                    SourceFolderPath = $sibling.sourceFolderPath
+                }
+            }
         }
     }
 
     $proposedTargetPath = Join-Path $TargetRoot $names.ArtistFolderName $names.ReleaseFolderName
     $comparison = Resolve-ReshelfTargetComparison -Release $Release -StableKey $Release.stableKey -ProposedTargetPath $proposedTargetPath `
-        -TargetRoot $TargetRoot -TargetIndex $targetIndex -SessionSeen $sessionSeen -Names $names -DataHome $DataHome
+        -TargetRoot $TargetRoot -TargetIndex $targetIndex -SessionSeen $sessionSeen -SessionSeenByPath $sessionSeenByPath -Names $names -DataHome $DataHome
     if ($comparison.ForcedReviewNote) {
         $requiresReview = $true
         $notes.Add($comparison.ForcedReviewNote)
@@ -2793,6 +2846,7 @@ function Invoke-ReshelfEditProposal {
 
     $targetIndex = Build-ReshelfTargetIndex -TargetRoot $TargetRoot
     $sessionSeen = [System.Collections.Generic.Dictionary[string, object]]::new()
+    $sessionSeenByPath = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     $artists = @(foreach ($artist in @($recognition.artists)) {
             # Every release's Discogs match is resolved once, up front, rather than inside
@@ -2811,7 +2865,7 @@ function Invoke-ReshelfEditProposal {
                     New-ReshelfProposedRelease -ArtistName $artist.recognizedName -Release $artist.releases[$i] -TargetRoot $TargetRoot `
                         -ReleaseFolderTemplate $ReleaseFolderTemplate -TrackFileTemplate $TrackFileTemplate -TrackNumberPadWidth $TrackNumberPadWidth `
                         -CoverMaxDimension $CoverMaxDimension -CacheTtlDays $CacheTtlDays -RateLimitPerMinute $RateLimitPerMinute `
-                        -TargetIndex $targetIndex -SessionSeen $sessionSeen -DataHome $DataHome `
+                        -TargetIndex $targetIndex -SessionSeen $sessionSeen -SessionSeenByPath $sessionSeenByPath -DataHome $DataHome `
                         -PrecomputedMatch $matches[$i] -ArtistDisplayName $artistDisplayName
                 })
 

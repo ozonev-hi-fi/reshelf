@@ -458,6 +458,13 @@ Describe 'Test-IsDiscFolder / Get-ReshelfDiscFolders (private)' {
         }
     }
 
+    It 'recognizes an underscore separator (real-world CD_1/CD_2 rip case)' {
+        InModuleScope Reshelf.Recognition {
+            Test-IsDiscFolder -Name 'CD_1' | Should -Be $true
+            Test-IsDiscFolder -Name 'CD_2' | Should -Be $true
+        }
+    }
+
     It 'recognizes a disc number followed by trailing text after a separator' {
         InModuleScope Reshelf.Recognition {
             Test-IsDiscFolder -Name 'CD1. Forwards' | Should -Be $true
@@ -495,6 +502,13 @@ Describe 'Get-ReshelfDiscNumber (private)' {
         InModuleScope Reshelf.Recognition {
             Get-ReshelfDiscNumber -Name 'LP#1' | Should -Be 1
             Get-ReshelfDiscNumber -Name 'LP#2' | Should -Be 2
+        }
+    }
+
+    It 'parses an underscore-separated name (real-world CD_1/CD_2 rip case)' {
+        InModuleScope Reshelf.Recognition {
+            Get-ReshelfDiscNumber -Name 'CD_1' | Should -Be 1
+            Get-ReshelfDiscNumber -Name 'CD_2' | Should -Be 2
         }
     }
 
@@ -1514,6 +1528,28 @@ FILE "Iron Maiden - The X Factor (BCD-0033).flac" WAVE
         $release.tracks.Count | Should -Be 5
         ($release.tracks | Where-Object { $_.discFolder -eq 'LP#1' }).Count | Should -Be 2
         ($release.tracks | Where-Object { $_.discFolder -eq 'LP#2' }).Count | Should -Be 3
+    }
+
+    It 'recognizes CD_1/CD_2 (underscore-separated) disc folders directly under the release folder as one multi-disc release, not two separate editions (real-world Rosetta "The Galilean Satellites" case)' {
+        $sourceRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Rosetta' '2005 The Galilean Satellites' 'CD_1' 'CD1-01-rosetta-departe.mp3') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Rosetta' '2005 The Galilean Satellites' 'CD_1' 'CD1-02-rosetta-europa.mp3') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Rosetta' '2005 The Galilean Satellites' 'CD_2' 'CD2-01-rosetta-deneb.mp3') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Rosetta' '2005 The Galilean Satellites' 'CD_2' 'CD2-02-rosetta-capella.mp3') -Force | Out-Null
+        New-Item -ItemType File -Path (Join-Path $sourceRoot 'Rosetta' '2005 The Galilean Satellites' 'CD_2' 'CD2-03-rosetta-beta_aquilae.mp3') -Force | Out-Null
+
+        $result = Invoke-ReshelfRecognition -SourceRoot $sourceRoot -SessionId 'session-34' -DataHome $dataHome
+
+        $artist = $result.artists | Where-Object { $_.recognizedName -eq 'Rosetta' }
+        $releases = @($artist.releases | Where-Object { $_.recognizedTitle -eq 'The Galilean Satellites' })
+        $releases.Count | Should -Be 1
+        $release = $releases[0]
+        $release.editionFolderName | Should -BeNullOrEmpty
+        $release.discFolderCount | Should -Be 2
+        $release.tracks.Count | Should -Be 5
+        ($release.tracks | Where-Object { $_.discFolder -eq 'CD_1' }).Count | Should -Be 2
+        ($release.tracks | Where-Object { $_.discFolder -eq 'CD_2' }).Count | Should -Be 3
+        $release.reviewReasons | Should -Not -Contain 'multiple-editions-in-album-folder'
     }
 }
 

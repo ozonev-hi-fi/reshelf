@@ -15,7 +15,7 @@ function Test-IsDiscFolder {
         [string]$Name
     )
 
-    return [bool]($Name -match '(?i)^(CD|Disc|Disk|LP)\s*#?\.?\s*(\d+)(\.|\s|-|$)')
+    return [bool]($Name -match '(?i)^(CD|Disc|Disk|LP)[\s_]*#?\.?[\s_]*(\d+)([\s_.-]|$)')
 }
 
 function Get-ReshelfDiscNumber {
@@ -25,7 +25,7 @@ function Get-ReshelfDiscNumber {
         [string]$Name
     )
 
-    if ($Name -match '(?i)^(CD|Disc|Disk|LP)\s*#?\.?\s*(\d+)(\.|\s|-|$)') {
+    if ($Name -match '(?i)^(CD|Disc|Disk|LP)[\s_]*#?\.?[\s_]*(\d+)([\s_.-]|$)') {
         return [int]$Matches[2]
     }
     return $null
