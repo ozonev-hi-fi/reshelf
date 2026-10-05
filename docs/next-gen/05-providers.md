@@ -1,12 +1,12 @@
 # 05 — Providers: Discogs, Bandcamp, Library
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Today vs next-gen
 
 | Topic | Today (legacy) | Next-gen |
 |---|---|---|
-| Providers | Discogs only. Bandcamp is planned but not implemented (`plan/13-bandcamp-fallback.md`). | Discogs (primary), Library, Bandcamp (Could) |
+| Providers | Discogs only. Bandcamp is planned but not implemented (`legacy/plan/13-bandcamp-fallback.md`). | Discogs (primary), Library, Bandcamp (Could) |
 | Candidates | Up to 5 kept in `discogsMatch.candidates`. The UI shows them only when the status is `ambiguous`. | Top 5 per provider, always visible, each with a link, a score and a reason |
 | Changing the choice | A picked candidate **cannot be undone** or changed to another candidate | The selection is reversible at any time |
 | Custom link | Not possible ("no way to paste a Discogs release URL", README) | Custom URL field |
@@ -94,3 +94,4 @@ Provider responses are cached, as in legacy. A re-run of propose after re-recogn
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-04 | Phase 0 done: fixed the legacy plan link after the move to `legacy/`. |

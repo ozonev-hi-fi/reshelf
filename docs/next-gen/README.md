@@ -15,7 +15,7 @@ The current (as-is) behavior is described later by the BR (business requirements
 | [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.1 |
 | [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.2 |
 | [04-data-layers.md](04-data-layers.md) | NG-LAY | Recognized / Proposed / User layers, track identity | Draft | 0.1 |
-| [05-providers.md](05-providers.md) | NG-PRV | Discogs, Bandcamp, Library, candidates, snapshots | Draft | 0.1 |
+| [05-providers.md](05-providers.md) | NG-PRV | Discogs, Bandcamp, Library, candidates, snapshots | Draft | 0.2 |
 | [06-review-page.md](06-review-page.md) | NG-REV | Sorting, filters, tree view, pictures | Draft | 0.1 |
 | [07-library-and-quality.md](07-library-and-quality.md) | NG-LIB | Library index, matching, quality, lossy manager | Draft | 0.2 |
 | [08-settings-templates-refdata.md](08-settings-templates-refdata.md) | NG-CFG | Settings, naming templates, reference data | Draft | 0.2 |

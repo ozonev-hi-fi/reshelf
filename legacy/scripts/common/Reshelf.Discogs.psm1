@@ -12,7 +12,7 @@ $script:DiscogsCachePrunedDataHomes = [System.Collections.Generic.HashSet[string
 function Get-DiscogsToken {
     [CmdletBinding()]
     param(
-        [string]$EnvFilePath = (Join-Path $PSScriptRoot '..' '..' '.env'),
+        [string]$EnvFilePath = (Join-Path $PSScriptRoot '..' '..' '..' '.env'),
 
         [string]$DataHome
     )

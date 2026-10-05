@@ -9,7 +9,7 @@ Describe the **current** behavior of the legacy app as business requirements. Re
 ## Rules
 
 - **Rule D2**: describe behavior only. When code looks buggy, write it under "Suspected defects" with `file:line`.
-- Do **not** read the Phase 1 output, the legacy README or the `plan/` files. Independence is the point of this phase.
+- Do **not** read the Phase 1 output, `legacy/README.md` or the `legacy/plan/` files. Independence is the point of this phase.
 - Follow the [doc rules](../README.md#doc-rules). Use the ID prefix `AS-CODE-<AREA>-NNN`.
 
 ## Inputs

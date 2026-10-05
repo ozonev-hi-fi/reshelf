@@ -1,5 +1,7 @@
 # Reshelf — Personal Music Collection Organizer
 
+> **Frozen since 2026-10-04.** No features, no bug fixes. Reference for the next-gen rewrite.
+
 Reshelf reorganizes a messy pile of music folders into a clean, consistent structure, one release
 at a time, using [Discogs](https://www.discogs.com) as the source of truth for names, tags and
 cover art.

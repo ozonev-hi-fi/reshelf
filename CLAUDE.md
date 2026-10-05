@@ -2,7 +2,7 @@
 
 Personal music-collection organizer. Two generations live in this repo:
 
-- **Legacy**: the working PowerShell app (`scripts/`, `ui/`, `tests/`, `schemas/`, `config/`, `plan/`). After roadmap Phase 0 it lives in `legacy/` and is **frozen**: no features, no bug fixes. It serves as executable reference for the rewrite.
+- **Legacy**: the working PowerShell app, in `legacy/` (`legacy/scripts/`, `legacy/ui/`, `legacy/tests/`, `legacy/schemas/`, `legacy/config/`, `legacy/plan/`). **Frozen**: no features, no bug fixes. It serves as executable reference for the rewrite.
 - **Next-gen**: the .NET rewrite, specified in `docs/next-gen/`. Goals and rules shared by both generations: `MANIFESTO.md`.
 
 ## Next-gen docs
