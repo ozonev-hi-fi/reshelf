@@ -1,0 +1,190 @@
+# Raw notes and decision log
+
+Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+
+This file holds:
+- **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
+- **Part 2**: the decision log of the grilling session of 2026-10-04 (Docs part A). Later sessions append new decisions with the next free number (D49, D50, ...).
+
+Requirements cite these entries as `Source: D<n>`, or `Source: RAW` for Part 1.
+
+## Part 1 — Raw notes (verbatim)
+
+The notes are split into two blocks at the "Paths twist" heading. The text itself is unchanged.
+
+### General things and implementation plan ideas
+
+```
+# Very raw and rought ideas
+
+## Next gen
+
+This is the "mindstream", not a structured requirements.
+Use this as points for the brainstorm session, no real implementation yet.
+---
+### General things
+
+I want to rewrite the application from powershell scripts to dotnet application.
+
+I want to to save cli functionality but in adition to it add full UI controll (web api or asp net mvc with static web site, prefer controllers rather than .MapPath(), or MAUI, I don't know). Not only UI reviewer part, but so user can navigate between stages using next and previous buttons, manage sessions, and do everything from UI without calling cli command. cli is for powerusers.
+Use dotnet/skill plugin functionality for analysis, planning, and implementation.
+prefer and use nuget packages rather than 3rd party tools (exe, dll, scripts, what ever), like, for example, ffmpeg.
+collection of supported media files (.flac, .mp3, .m4a, .wav, .ogg, .wma, .aac, .ape) and such other things are DB stored entries, which are seeded and verified on every startup if it needed to be updated (newer version of app can support more formats, for example)
+
+Instead of .data folder and json files use sqlite - 2 instanses in the development environment (1 for unit tests and end to end tests, 1 for developer) and 1 for published application.
+sqlite files are located in `data` directory in the root application folder near executable file in published application; and in configurable directory for dev env (by default it is gitignored `data` folder in the root directory of the repository.
+
+we assume that the current source code is source of truth, but take into account that there still could be loggical errors, bugs, and a lot of them, and many other problems.
+
+consider the work with removable storage devices, that can "disappear", be anmount, be ejected, be changed the disk letter, etc.
+
+UI for everything, so review page/screnn becomes separate thing. Lossy manager leaves separately, available from menu.
+review page:
+- order of releases is configurable - by artist, by status, by year, etc. - by default it is, status: more 'suspisious' releases first, "ready" latest
+- links to Discogs (and other providers) pages. Even when there were several options keep all of them on the page, so user can change opinion after and change source.
+- always leave the abbility to resync with provider again
+- add field to inseart custom provider page link (once app didn't find the correct option, but user did)
+
+don't utilize discogs and bandcamp search and match silently - show everything was found during `propose` command implementation right on the review page on UI, so user can confirm that source was right, or select other source, or force sync with other source (for example, once release is found in Discogs we don't search the release on Bandcamp since Discogs is primar source of truth, but if user wants to sync with Bandcamp, they need to have this abbility right on UI)
+same for pictures - show already existing metadata picture, 'in folder' pictures, and pictures from provider (discogs, bandcamp) as separate sections.
+
+show everything was found during the `recognize` command implementation as a folders/files tree on the review page, so user understans the 'before' structure better without visiting the release in file explorer.
+
+save recognized, proposed, and edited by user information separately. use override flow for the final version (user's version as a top priority, then proposed version, then originally recognized one). Splitting cue into separate files is a part of the original recognition, btw.
+
+---
+### Implementation plan ideas:
+
+move existing code to some folder inside the repo, keep it working, so user still will be able to use all the functionality. this folder will be a sort of interactive documentation for the new project.
+
+no new features in old version.
+
+new session: create detailed business requirements based on existing documents and test cases.
+
+new session: read the code and create another version of business specifications.
+
+new session: compare 2 business specifications, read everything required to clarify contraversial points, ask user questions if something is not clear. merge results in one specification.
+
+create detailed technical specification of the future solution based on received specification, code, used tools and their agreed replacement, and code logic.
+
+---
+Make detailed plans about things above, commit, update plans with things below
+---
+```
+
+### Paths twist
+
+```
+## Paths twist
+
+I have a better idea for paths in the config file and logic around:
+
+source: user can have different resourse folders (removable drive, memory cards, download folder, etc.), that's why we are using -SourceRoot param at the moment, but maybe some default path, that's why -SourceRoot is not required but releases will be taken from the default folder.
+
+target: user have relatively permanent place for the music collection storing. In my case it can be on D:\ or E:\ disc and it depends on which usb port i'm using for my portable ssd, and it needs to be taken into account... for example we can have an array of paths in config, which considered as the same folder but with alternative paths.
+maybe we need the disk identificator (some hardware thing, which can be detected, so once we detect the device we just use it's letter - D, or E, or another - and build paths relatevely from this letter)
+
+temp: user can have temporary folder, some folder where they can put results of the `apply` command to verify results manually before moving them target.
+
+source and target are read only.
+
+in case user wants to use target directly without temp, this means target == temp.
+
+app can't 'apply' to target, only to temp. but as it said above temp can contain the same value as target.
+
+lossy tracker keeps relative paths, which can be added to target or temp path to find real folders and files. check target first then temp while accessing.
+```
+
+## Part 2 — Decision log
+
+Each entry gives the final answer, a short reason, and where the decision is recorded (→). "Superseded" entries are kept for history. Follow the link to the decision that replaced them.
+
+### Process
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D1 | Docs part A writes the roadmap, the next-gen **delta** requirements and the session briefs. It does not write the full BR. | The planned BR sessions describe current behavior. The notes describe changes. | [00](../00-roadmap.md), [README](../README.md) |
+| D2 | The as-is BR sessions describe current behavior only and mark suspected defects. To-be BR = merged as-is + delta. | Old and new behavior stay distinguishable. | [00](../00-roadmap.md) rule D2, NG-VIS-003, briefs |
+| D3 | Docs go in `docs/next-gen/`. `MANIFESTO.md` stays at the root. The legacy move is Phase 0, not part of Docs part A. | The move changes script paths and needs its own verification. | [00](../00-roadmap.md), [phase-0 brief](../sessions/phase-0-legacy-move.md) |
+| D4 | Each doc has a header (Status, Version), a changelog and stable requirement IDs. Claude must always update statuses, versions and links after work. | Traceability from tasks back to requirements. | [README doc rules](../README.md#doc-rules), D22 |
+| D5 | Two commits = two separate Claude sessions with a clean context: Docs part A, then Docs part B (paths). Both on `develop`. | Each step starts clean. The second diff shows only the paths changes. | [00](../00-roadmap.md) |
+| D9 | When NG development starts, the legacy app is fully frozen, **even for bug fixes**. From then on only the new app is used, even in alpha or beta. | A clean cut. Legacy is reference only. | [00](../00-roadmap.md) rule D9, NG-STO-009 |
+| D22 | A short root `CLAUDE.md` points to `docs/next-gen/README.md`, which holds the full doc rules. | CLAUDE.md is always loaded. Keep it short. | `CLAUDE.md`, [README](../README.md) |
+| D23 | This file holds the verbatim notes **and** all conclusions of this session. Part B grills paths itself. Part A marks path-dependent points as `→ Part B`. | The next grilling must know every direction agreed here. | this file, [11](../11-paths-and-devices.md) |
+| D41 | Doc set: roadmap, vision, area docs, paths stub, ADR template, briefs, inbox. (Numbering → D47.) | — | [README index](../README.md#index) |
+| D42 | Order: A → B → Phase 0 → BR from docs → BR from code → merge → tech spec → tasks. | The BR sessions read stable `legacy/` paths. | [00](../00-roadmap.md) |
+| D47 | Continuous file numbering `00`–`11`. | IDs use prefixes, so gaps are not needed. | [README index](../README.md#index) |
+| — | Use the dotnet skills plugin for analysis, planning and implementation (RAW). | User's request in the notes. | [00](../00-roadmap.md) working rules, [tech-spec brief](../sessions/tech-spec.md) |
+
+### Platform, storage, dependencies
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D6 | Windows-only v1. OS-specific logic sits behind interfaces, e.g. a path builder: `d:\music\here` (Windows) vs `/mnt/d/music/here` (Linux). | Keep a later port possible. | NG-PLT-001, NG-PLT-002 |
+| D7 | One user, UI on localhost only, no login. CLI and UI may run at the same time, with conflict detection instead of "last save wins". | Personal tool, but two front-ends share one DB. | NG-APP-006, NG-APP-007 |
+| D8 | Migrate **only** the lossy ledger. Sessions, apply log and settings start fresh. Converting absolute paths → Part B. | The ledger is the only long-lived valuable data. | NG-STO-008, NG-STO-009, NG-LIB-013 |
+| D19 | Reference data in the DB: formats, companion kinds, ignored extensions, category folders, reason codes. Built-in rows: upsert on startup, can be disabled but not deleted. User rows: app updates never touch them. Lossy/lossless comes from the codec. Plus library-quality scenarios (→ D29, D30, D32). | Newer versions can add formats. The `.m4a`/ALAC case. | NG-CFG-009…012, NG-LIB-006 |
+| D20 | SQLite for structured data, binaries on disk under `data/`. Auto-migrations with a backup first. DPAPI token in the DB, env var overrides it. **Portable zip only**, no installer (maybe one day). Unit tests use no DB. Integration/e2e tests use the test DB, reset per run. | Small DB. `data/` next to the exe must be writable. | NG-STO-001…007, NG-PLT-003 |
+| D21 | Every tool, NuGet or external, gets an ADR with pros and cons. The user should not need extra installs, and licenses must allow bundling. But better functionality comes first. (Exact order → D38.) | — | NG-PLT-004, NG-PLT-005 |
+| D33 | Reference data: **both** (a) a startup confirmation UI for pending built-in changes and (b) draft editing of user rows with Save/Cancel. | User wants to see changes before they reach the DB. | NG-CFG-010, NG-CFG-012 |
+| D34 | *Superseded by D38.* Dependency priority order "3, 4, 1, 2". | — | D38 |
+| D38 | Dependency rule: 1) compare functionality; 2) if equal, prefer NuGet; 3) if a third-party tool is better, check whether the license allows bundling; 4) if not, the app checks that it is installed and asks the user to install it. | Functionality first, zero install where possible. | NG-PLT-004, NG-PLT-006 |
+| D48 | The UI technology is chosen in a tech-spec ADR after analysis ("maybe it will be Blazor after all"). Candidates: Blazor, controllers + static site, MAUI. Preference: controllers over minimal APIs. | Needs real analysis. | NG-APP-008, [tech-spec brief](../sessions/tech-spec.md) |
+
+### Sessions and statuses
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D10 | Wizard stages Source → Recognize → Propose → Review → Apply → Done. Next runs or opens a stage. Previous only shows. Re-running a stage is explicit and invalidates all later stages, with a warning. Per-release status. Session actions: list, create, open, rename, archive, delete (app data only). Propose re-run is fast thanks to the cache. *The idea "a second recognize on the same folder updates the session" is superseded by D24.* | Full UI control of the pipeline. | NG-APP-004, NG-SES-003…005, NG-PRV-012 |
+| D14 | Reason codes with severity (Blocking/Warning/Info). Status order most suspicious first. Default sort: status, artist, year. Other sorts and filters. "OK for the first iteration." (Status list refined by D43.) | Today `propose` writes only free text. | NG-REV-002…005 |
+| D15 | Every release needs an explicit Approve. No auto-approve, no bulk approve, no `approve-all-ready` in the CLI. Session "approved" = all releases Approved or Rejected. | The user wants to check each release. | NG-SES-012, NG-SES-014, NG-APP-005 |
+| D18 | CLI scope: settings, session list/show/create, recognize, propose, re-sync, apply, lossy. Field editing is UI-only. One shared core. | CLI for power users and batch work. | NG-APP-001, NG-APP-005 |
+| D24 | Every `recognize` creates a **new** session. ("Let's not overcomplicate.") | Avoids conflicts between sessions on one folder. | NG-SES-001 |
+| D25 | On invalidation: user edits kept for existing source items, gone ones go to a visible "dropped edits" list. Approvals reset only for changed releases. Applied output is marked "outdated, apply again". | Losing edits because one folder changed would hurt. | NG-SES-008…010 |
+| D28 | Apply works per release. A release is finished when applied; the session is finished when every release is finished (including rejected). | Check results early. | NG-SES-013, NG-SES-014 |
+| D35 | Same as D24, plus an info message (not a block) when an open session overlaps. Recognize can also be re-run on a **subfolder** of the source root. | — | NG-SES-001, NG-SES-002, NG-SES-006 |
+| D39 | *Superseded by D43.* (Q39 was misunderstood: "step 2" meant Docs part B, not the pipeline stage.) | — | D43 |
+| D43 | Release statuses: needs attention (`Error`, `Not found`, `Ambiguous`, `Needs review`), `Ready` (no issues, waiting for Approve), `Approved`, `Applied`, `Rejected` (+ `Source missing`, D46). Milestones: **Reviewed** = all Approved/Rejected (end of stage 3). **Done** = all Applied/Rejected (end of stage 4). | Two different "done" points. | NG-SES-011, NG-SES-014 |
+| D46 | Subfolder re-recognize: only the affected releases are invalidated. New releases are added. Disappeared releases become `Source missing`, kept with their edits, removable by hand. | — | NG-SES-006, NG-SES-007 |
+
+### Data layers
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D11 | Per-field layers `User ?? Proposed ?? Recognized` for release and track fields. Reset per field. "No override" ≠ "override to empty". Overrides stay when Proposed changes and get a "stale" mark. | The user's version always wins, but stays visible. | NG-LAY-001…003, 006…008 |
+| D16 | Cue sheets become **virtual tracks** at recognize (Recognized layer). The physical split happens at apply. | Recognize stays fast and needs no extra disk space. | NG-LAY-005 |
+| D26 | A user edit follows its **source item** (file or cue track), not a tracklist position. The UI shows the user value with the provider suggestion next to it ("use suggestion"). | The edit describes this audio, not a slot. | NG-LAY-004, NG-LAY-009 |
+| D27 | Releases not yet applied use the current settings. Applied releases are never changed. Applies to every setting. | No retroactive changes to the library. | NG-CFG-007 |
+
+### Providers
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D12 | Top 5 candidates per provider, each with a link and a score. The selection is **reversible**: today a wrong click cannot be undone. Custom URL field. Snapshots per fetched source. Re-sync always possible. Discogs primary. Bandcamp is searched automatically only when Discogs finds nothing, or on demand. Bandcamp has no public API, so "think twice": Could, with a spike + ADR. | No silent matching. Fix the legacy dead end. | NG-PRV-001, 003…009 |
+| D32 | **Library** is a provider: names, tags and cover of the existing library copy. (Index design → D44.) | Reuse the library naming when you upgrade quality. | NG-PRV-010 |
+| D37 | *Superseded by D44.* Proposal: index by provider IDs in tags. Rejected, because the app must not depend on Discogs. | — | D44 |
+| D44 | Library matching: (1) a DB index from "Scan library" with a provider-independent key from tags (folder names as a fallback), plus track count, durations and audio properties; (2) after recognize, a fast DB match confirmed by track count and durations ±3 s; (3) after propose, a live check of the real library files and the proposed target path. **No-provider mode**: the app works only on names, structure and existing tags. | Discogs must not be an integral part of the app. | NG-LIB-001…005, NG-PRV-002 |
+| D45 | Apply writes provider IDs as optional tags (setting, default on). They are helpful information only, never identity. | — | NG-PRV-011, NG-CFG-008 |
+
+### Review page and pictures
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D13 | Picture sections: embedded, in folder, per provider (selected candidate; others collapsed), manual upload. Each shows px and bytes, with a warning below the max size. Max cover dimension (default 600, longest side) is a setting, not hard-coded. It applies to new work only, not to already processed releases. | — | NG-REV-010…012, NG-CFG-002, NG-CFG-007 |
+| D17 | Tree view of the source per release and per session, including unrecognized folders. A manual "mark as release" action = **Should**. | Understand the "before" structure without a file explorer. | NG-REV-007…009 |
+
+### Library, quality, templates
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D29 | Quality is compared to decide replacements. Mixed releases count as their lowest track. A "better" source is a replacement candidate. (Order → D36: real numbers, no tiers.) | "If the library has 24/48 and the source has 24/96, I prefer 24/96." | NG-LIB-007, NG-LIB-008 |
+| D30 | Match actions: Identical → Skip (or Keep both); Lower → Skip (Overwrite, Keep both); Higher → Overwrite (Skip, Keep both); Same quality, different files → the user must choose. How Overwrite runs → Part B. | — | NG-LIB-009, NG-REV-013 |
+| D31 | Keep-both folder template `{year} {album} [{quality}]`, configurable. **All** templates configurable, not only the release name. (Details → D40.) | — | NG-LIB-010, NG-CFG-003 |
+| D36 | Comparison order: lossless > lossy, then bit depth (**bit depth beats sample rate**), then sample rate, then lossy bitrate. No "you decide" case for mixed trade-offs. | — | NG-LIB-007 |
+| D40 | Templates for artist folder, release folder, track file, keep-both suffix and companion rename. Placeholders, live preview, validation. MANIFESTO naming = default templates. Tag rules stay fixed. | The user may change templates, so matching must not depend on names. | NG-CFG-003…006 |
+
+## Changelog
+
+| Version | Date | Change |
+|---|---|---|
+| 0.1 | 2026-10-04 | Created in Docs part A: verbatim notes + decisions D1–D48. |
