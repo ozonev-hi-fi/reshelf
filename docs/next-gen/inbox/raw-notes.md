@@ -1,10 +1,10 @@
 # Raw notes and decision log
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-10-05
 
 This file holds:
 - **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
-- **Part 2**: the decision log. D1–D48 come from the grilling session of Docs part A, D49–D63 from Docs part B. Later sessions append new decisions with the next free number (D64, D65, ...).
+- **Part 2**: the decision log. D1–D48 come from the grilling session of Docs part A, D49–D63 from Docs part B, D64 from Phase 1. Later sessions append new decisions with the next free number (D64, D65, ...).
 
 Requirements cite these entries as `Source: D<n>`, or `Source: RAW` for Part 1.
 
@@ -115,6 +115,7 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 | D42 | Order: A → B → Phase 0 → BR from docs → BR from code → merge → tech spec → tasks. | The BR sessions read stable `legacy/` paths. | [00](../00-roadmap.md) |
 | D47 | Continuous file numbering `00`–`11`. | IDs use prefixes, so gaps are not needed. | [README index](../README.md#index) |
 | — | Use the dotnet skills plugin for analysis, planning and implementation (RAW). | User's request in the notes. | [00](../00-roadmap.md) working rules, [tech-spec brief](../sessions/tech-spec.md) |
+| D64 | As-is requirements (`AS-DOC-*`, `AS-CODE-*`) have no `Priority`. Their `Source:` names the legacy file and the test, function or section (`legacy/tests/X.Tests.ps1 › Describe`), not a `D` entry. One behavior rule per ID, with 1–3 examples. Phase 1 drafts the areas with parallel subagents, and the lead reviews and merges. | As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be BR. Fine-grained IDs make the keep / fix / drop decisions in Phase 3 easier. | [br/as-is-from-docs](../br/as-is-from-docs/README.md), [br-from-code brief](../sessions/br-from-code.md), [README doc rule 6](../README.md#doc-rules) |
 
 ### Platform, storage, dependencies
 
@@ -211,3 +212,4 @@ Grilling session of 2026-10-04, Docs part B (questions Q1–Q15 of that session)
 |---|---|---|
 | 0.1 | 2026-10-04 | Created in Docs part A: verbatim notes + decisions D1–D48. |
 | 0.2 | 2026-10-04 | Docs part B: decisions D49–D63 (paths and devices). D8 and D30 point to their resolutions. |
+| 0.3 | 2026-10-05 | Phase 1: decision D64 (format of as-is requirements). |
