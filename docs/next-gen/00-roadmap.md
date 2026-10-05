@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Goal
 
@@ -18,7 +18,7 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | Phase | What | Brief | Output | Status |
 |---|---|---|---|---|
 | A | Docs part A: general next-gen ideas | — (done in the grilling session) | This doc set, commit 1 | Done |
-| B | Docs part B: paths twist | [part-b-paths.md](sessions/part-b-paths.md) | [11-paths-and-devices.md](11-paths-and-devices.md) filled in, `→ Part B` markers resolved, commit 2 | Not started |
+| B | Docs part B: paths twist | [part-b-paths.md](sessions/part-b-paths.md) | [11-paths-and-devices.md](11-paths-and-devices.md) filled in, `→ Part B` markers resolved, commit 2 | Done |
 | 0 | Move legacy code to `legacy/` and freeze it | [phase-0-legacy-move.md](sessions/phase-0-legacy-move.md) | `legacy/` runnable and frozen | Not started |
 | 1 | BR from docs and tests (as-is) | [br-from-docs.md](sessions/br-from-docs.md) | As-is BR, version "docs" | Not started |
 | 2 | BR from code (as-is) | [br-from-code.md](sessions/br-from-code.md) | As-is BR, version "code" | Not started |
@@ -51,3 +51,4 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial roadmap (Docs part A). |
+| 0.2 | 2026-10-04 | Phase B done: paths model in doc 11, decisions D49–D63. |

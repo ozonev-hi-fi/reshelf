@@ -1,6 +1,6 @@
 # 08 — Settings, naming templates, reference data
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Today vs next-gen
 
@@ -9,6 +9,7 @@ Status: Draft | Version: 0.1 | Last updated: 2026-10-04
 | Settings | `settings.json`, edited through the CLI (`settings set` reaches only simple keys) | Settings UI page + CLI, stored in the DB |
 | Cover size | `coverMaxDimension` setting (600) | Same setting, edited in the UI. Never retroactive. |
 | Templates | `releaseFolder` `{year} {album}`, `trackFile` `{trackNumber} {title}`. The artist folder is hard-coded. | Every output name comes from a template, with preview and validation |
+| Paths | `defaultSourceRoot` and one absolute `targetRoot` | Default source, target and temp, stored as locations. Defined in NG-PTH-003. |
 | Formats and lists | Hard-coded in the PowerShell modules (for example the audio extensions in `Reshelf.Common.psm1:3`) | Reference data in the DB, seeded on startup, editable |
 
 ## Settings
@@ -34,7 +35,7 @@ Example: you change the cover size from 600 to 800. Releases you apply after the
 ## Naming templates
 
 ### NG-CFG-003 — Every output name is a template
-Priority: Must | Status: Draft | Source: D31, D40
+Priority: Must | Status: Draft | Source: D31, D40, D57
 
 These names come from configurable templates:
 
@@ -44,6 +45,7 @@ These names come from configurable templates:
 | Release folder | `{year} {album}` |
 | Track file | `{trackNumber} {title}` |
 | Keep-both release folder (NG-LIB-010) | `{year} {album} [{quality}]` |
+| Replacement release folder (NG-PTH-009) | `{year} {album} [replacement]` |
 | Loose companion file rename | starts with a letter (MANIFESTO §4.5); exact default set in the tech spec |
 
 ### NG-CFG-004 — Placeholders
@@ -124,3 +126,4 @@ On the Reference data page the user can add their own rows, for example the cate
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-04 | Docs part B: "Paths" row, replacement release folder template. |

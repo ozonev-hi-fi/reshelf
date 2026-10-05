@@ -1,10 +1,10 @@
 # Raw notes and decision log
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 This file holds:
 - **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
-- **Part 2**: the decision log of the grilling session of 2026-10-04 (Docs part A). Later sessions append new decisions with the next free number (D49, D50, ...).
+- **Part 2**: the decision log. D1–D48 come from the grilling session of Docs part A, D49–D63 from Docs part B. Later sessions append new decisions with the next free number (D64, D65, ...).
 
 Requirements cite these entries as `Source: D<n>`, or `Source: RAW` for Part 1.
 
@@ -122,7 +122,7 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 |---|---|---|---|
 | D6 | Windows-only v1. OS-specific logic sits behind interfaces, e.g. a path builder: `d:\music\here` (Windows) vs `/mnt/d/music/here` (Linux). | Keep a later port possible. | NG-PLT-001, NG-PLT-002 |
 | D7 | One user, UI on localhost only, no login. CLI and UI may run at the same time, with conflict detection instead of "last save wins". | Personal tool, but two front-ends share one DB. | NG-APP-006, NG-APP-007 |
-| D8 | Migrate **only** the lossy ledger. Sessions, apply log and settings start fresh. Converting absolute paths → Part B. | The ledger is the only long-lived valuable data. | NG-STO-008, NG-STO-009, NG-LIB-013 |
+| D8 | Migrate **only** the lossy ledger. Sessions, apply log and settings start fresh. Converting absolute paths → Part B (resolved by D55). | The ledger is the only long-lived valuable data. | NG-STO-008, NG-STO-009, NG-LIB-013, D55 |
 | D19 | Reference data in the DB: formats, companion kinds, ignored extensions, category folders, reason codes. Built-in rows: upsert on startup, can be disabled but not deleted. User rows: app updates never touch them. Lossy/lossless comes from the codec. Plus library-quality scenarios (→ D29, D30, D32). | Newer versions can add formats. The `.m4a`/ALAC case. | NG-CFG-009…012, NG-LIB-006 |
 | D20 | SQLite for structured data, binaries on disk under `data/`. Auto-migrations with a backup first. DPAPI token in the DB, env var overrides it. **Portable zip only**, no installer (maybe one day). Unit tests use no DB. Integration/e2e tests use the test DB, reset per run. | Small DB. `data/` next to the exe must be writable. | NG-STO-001…007, NG-PLT-003 |
 | D21 | Every tool, NuGet or external, gets an ADR with pros and cons. The user should not need extra installs, and licenses must allow bundling. But better functionality comes first. (Exact order → D38.) | — | NG-PLT-004, NG-PLT-005 |
@@ -178,13 +178,36 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 | ID | Decision | Reason | → |
 |---|---|---|---|
 | D29 | Quality is compared to decide replacements. Mixed releases count as their lowest track. A "better" source is a replacement candidate. (Order → D36: real numbers, no tiers.) | "If the library has 24/48 and the source has 24/96, I prefer 24/96." | NG-LIB-007, NG-LIB-008 |
-| D30 | Match actions: Identical → Skip (or Keep both); Lower → Skip (Overwrite, Keep both); Higher → Overwrite (Skip, Keep both); Same quality, different files → the user must choose. How Overwrite runs → Part B. | — | NG-LIB-009, NG-REV-013 |
+| D30 | Match actions: Identical → Skip (or Keep both); Lower → Skip (Overwrite, Keep both); Higher → Overwrite (Skip, Keep both); Same quality, different files → the user must choose. How Overwrite runs → Part B (resolved by D57). | — | NG-LIB-009, NG-REV-013, D57 |
 | D31 | Keep-both folder template `{year} {album} [{quality}]`, configurable. **All** templates configurable, not only the release name. (Details → D40.) | — | NG-LIB-010, NG-CFG-003 |
 | D36 | Comparison order: lossless > lossy, then bit depth (**bit depth beats sample rate**), then sample rate, then lossy bitrate. No "you decide" case for mixed trade-offs. | — | NG-LIB-007 |
 | D40 | Templates for artist folder, release folder, track file, keep-both suffix and companion rename. Placeholders, live preview, validation. MANIFESTO naming = default templates. Tag rules stay fixed. | The user may change templates, so matching must not depend on names. | NG-CFG-003…006 |
+
+### Paths and devices (Docs part B)
+
+Grilling session of 2026-10-04, Docs part B (questions Q1–Q15 of that session).
+
+| ID | Decision | Reason | → |
+|---|---|---|---|
+| D49 | One optional default source folder in settings. The UI "New session" page has an editable path field with a "Browse…" button, filled with the default. CLI `--source` overrides it. | Sources change often (download folder, SD card). A default saves typing. | NG-PTH-003 |
+| D50 | A location = volume serial number + path inside the volume. The app finds the mounted volume by serial and builds the path from its current letter. Not found → `Offline` + "Re-locate" with a folder picker. | Works for any drive letter and never picks a wrong drive with the same folder name. | NG-PTH-001, NG-PTH-002 |
+| D51 | Source, target and temp all use the same location model. A session stores its source as a location + relative path. | One model. The overlap message and old sessions survive a letter change. | NG-PTH-001, NG-SES-002 |
+| D52 | Roles: target = read only, temp = the only place where apply writes. Target and temp may have the same **value**, but the roles stay separate. The user moves results from temp to the target by hand. A "Move to library" action is a Could. | Keeps the rule from the raw notes simple and safe for v1. | NG-PTH-004…006 |
+| D53 | Temp is required. "Use the library as temp" is an explicit option, not an empty field. Temp may be inside the target; the library scan skips it. | An empty field must not silently mean "write into my library". | NG-PTH-003, NG-PTH-005 |
+| D54 | The library index covers target and temp. Each entry has a root role + a relative path. If both have the release, target wins. | Without temp in the index, the app proposes the same release again and creates duplicates. | NG-PTH-010, NG-LIB-001 |
+| D55 | The legacy lossy import strips the current target path, or a "legacy root" the user types in the import dialog (case-insensitive). An entry that matches no root is imported as `Path unresolved`. The lossy manager shows it, and the user can fix or delete it. | No data is lost, and the problem stays visible. | NG-STO-008, NG-LIB-013 |
+| D56 | A location disappears: recognize stops and keeps the state from before the run; the library scan stops and keeps the old index; offline ≠ deleted; apply builds in a staging folder in temp and moves once, a failed release gets `Error`, leftovers are cleaned on the next start. | Never corrupt data or leave half-written output. | NG-PTH-007, NG-PTH-012, NG-PLT-007 |
+| D57 | Overwrite: the app prepares, the user swaps. The new copy goes to temp, and the release shows "Replace pending". If the final name is taken (always when temp == target), the new copy gets a replacement suffix from a template. Keep both needs no special rule. | The app never deletes in the target role. | NG-PTH-009, NG-LIB-009, NG-CFG-003 |
+| D58 | The app may replace a temp folder only if it wrote that folder itself (DB record) and nobody changed it since (file list, sizes, modified times). Otherwise it is foreign and the D57 suffix rule applies. | Re-apply stays easy, and manual edits in temp are never lost. | NG-PTH-008, NG-SES-010 |
+| D59 | No new status after `Applied`; the Done milestone does not change. An applied release shows a computed Location: `Temp`, `Library`, `Missing` or `Offline`. It is found by relative path, target first, then temp. A renamed folder is found again by its release key after a library scan. | The move is manual and outside the app, so a stored status could become wrong. | NG-PTH-011, NG-SES-014 |
+| D60 | A lossy entry becomes `upgraded` when the better copy is applied. | The user has decided, and the new copy exists. Same as legacy. | NG-LIB-011 |
+| D61 | v1 has exactly one target and one temp. Several libraries are a Won't for v1. | The raw notes describe one collection on one portable SSD. | NG-PTH-003 |
+| D62 | The name-length budget counts from the longer of the temp and target roots. | The release must fit in temp and after the move to the target. | NG-PTH-013 |
+| D63 | UNC paths (`\\server\share`) are allowed for any root. They are stored as plain paths, without device identity. Offline = not reachable. | Low cost, and the offline rules still work. | NG-PTH-001, NG-PTH-002 |
 
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Created in Docs part A: verbatim notes + decisions D1–D48. |
+| 0.2 | 2026-10-04 | Docs part B: decisions D49–D63 (paths and devices). D8 and D30 point to their resolutions. |

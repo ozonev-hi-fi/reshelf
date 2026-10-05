@@ -1,6 +1,6 @@
 # 09 — Storage and environments
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Today vs next-gen
 
@@ -54,11 +54,20 @@ Priority: Must | Status: Draft | Source: D20
 - Integration and end-to-end tests use the test instance and reset it before every run.
 
 ### NG-STO-008 — Import of the legacy lossy ledger
-Priority: Must | Status: Draft | Source: D8
+Priority: Must | Status: Draft | Source: D8, D55
 
 A one-time import moves the legacy `lossy-tracking.json` into the DB.
 
-Open points → Part B: the legacy entries hold absolute `targetPath` values. Part B defines how they are converted to the new path model.
+The legacy entries hold absolute `targetPath` values. The new ledger stores paths relative to the library (NG-LIB-013). The import converts them like this:
+1. The import dialog has an optional "legacy root" field, for example `E:\Music`.
+2. For each entry, the import strips the first matching prefix: the current target path, or the legacy root. The comparison ignores case.
+3. An entry that matches no prefix is still imported. It gets the mark `Path unresolved`, and the lossy manager shows it (NG-LIB-013).
+
+| Legacy `targetPath` | Current target | Legacy root | Result |
+|---|---|---|---|
+| `E:\Music\ZZ Top\1999 XXX` | `D:\Music` | `E:\Music` | `ZZ Top\1999 XXX` |
+| `e:\music\ZZ Top\1999 XXX` | `E:\Music` | — | `ZZ Top\1999 XXX` |
+| `F:\Old\ZZ Top\1999 XXX` | `D:\Music` | `E:\Music` | `Path unresolved` |
 
 ### NG-STO-009 — Nothing else is imported
 Priority: Must | Status: Draft | Source: D8, D9
@@ -70,3 +79,4 @@ Legacy sessions, the apply log and the settings are not imported. The new app st
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-04 | Docs part B: lossy path conversion rule in NG-STO-008. |

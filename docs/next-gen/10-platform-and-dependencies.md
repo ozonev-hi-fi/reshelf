@@ -1,6 +1,6 @@
 # 10 — Platform and dependencies
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Today vs next-gen
 
@@ -9,7 +9,7 @@ Status: Draft | Version: 0.1 | Last updated: 2026-10-04
 | Platform | Windows, PowerShell 7.4+ | Windows v1, OS logic behind interfaces |
 | Delivery | Clone the repo | Portable zip |
 | External tools | The user installs ffmpeg (cue split, cover resize) and copies `TagLibSharp.dll` by hand | Every dependency is chosen by an ADR. The user installs nothing when that is possible. |
-| Removable drives | No handling. Absolute paths break when the drive letter changes. | Handled (details → Part B) |
+| Removable drives | No handling. Absolute paths break when the drive letter changes. | Roots are stored by volume serial number, offline state, re-locate (NG-PTH-001, NG-PTH-002) |
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Priority: Must | Status: Draft | Source: D6
 Code that depends on the OS sits behind interfaces, so another OS can be added later. Examples:
 - a **path builder** that builds `d:\music\here` on Windows and `/mnt/d/music/here` on Linux;
 - secret storage (DPAPI on Windows);
-- drive and device detection (→ Part B).
+- drive and device detection: find a mounted volume by its serial number (NG-PTH-001).
 
 ### NG-PLT-003 — Portable zip only
 Priority: Must | Status: Draft | Source: D20
@@ -59,11 +59,11 @@ Priority: Must | Status: Draft | Source: D38
 If a dependency cannot be shipped in the zip, the app checks that it is installed. If it is missing, the app tells the user how to install it. The features that need it stay unavailable until then.
 
 ### NG-PLT-007 — Removable storage robustness
-Priority: Must | Status: Draft | Source: RAW
+Priority: Must | Status: Draft | Source: RAW, D50, D56
 
 A source or library location can disappear: unplugged, ejected, or the drive letter changed. The app detects this. It shows a clear state and never corrupts its data or half-written output because of it.
 
-Open points → Part B: device identity, drive-letter changes, alternative paths.
+The details are in doc 11: device identity and drive-letter changes (NG-PTH-001), the `Offline` state and "Re-locate" (NG-PTH-002), and the rules per operation (NG-PTH-012).
 
 ## Open points
 
@@ -74,3 +74,4 @@ Open points → Part B: device identity, drive-letter changes, alternative paths
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-04 | Docs part B: removable drives linked to doc 11. Open points of NG-PLT-002 and NG-PLT-007 resolved. |

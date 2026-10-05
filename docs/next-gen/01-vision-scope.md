@@ -1,6 +1,6 @@
 # 01 — Vision and scope
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-04
 
 ## Vision
 
@@ -29,11 +29,12 @@ Priority: Must | Status: Draft | Source: RAW, D2
 The legacy code is the main source for current behavior. It can still contain logic errors and bugs. A behavior that looks wrong is recorded as a "suspected defect". It is not copied blindly and not fixed silently.
 
 ### NG-VIS-004 — Core principles
-Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44
+Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 
 | Principle | Meaning |
 |---|---|
 | Source is read-only | Nothing in the app ever changes or deletes a source file. This is kept from legacy (MANIFESTO §7). |
+| Library is read-only | The app never writes, moves or deletes anything in the library. Apply writes only to temp, and the user moves the results (NG-PTH-004). |
 | The user's version wins | User edits have the top priority over proposed and recognized data (NG-LAY-002). |
 | No silent matching | Everything a provider found is visible and can be changed (NG-PRV-003). |
 | Works without providers | The app works only on folder names, structure and existing tags when no provider is set up or when a provider finds nothing (NG-PRV-002). |
@@ -56,7 +57,9 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44
 | **Session** | One run of the pipeline over one source folder. Created by `recognize`. |
 | **Stage** | A pipeline step: Recognize, Propose, Review, Apply. |
 | **Source** | A folder with unorganized music. Read-only to the app. |
-| **Target / library** | The organized music collection. See [11-paths-and-devices.md](11-paths-and-devices.md) for target vs temp (→ Part B). |
+| **Target / library** | The organized music collection. Read-only to the app (NG-PTH-004). See [11-paths-and-devices.md](11-paths-and-devices.md). |
+| **Temp** | The folder where apply writes its results. The user checks them there and moves them to the library. May be the same folder as the target (NG-PTH-005). |
+| **Location** | How the app stores a root folder: volume serial number + path inside the volume, so a drive-letter change does not break it (NG-PTH-001). |
 | **Provider** | An external or internal metadata source: Discogs, Bandcamp, Library. |
 | **Candidate** | One possible match found by a provider for a release. |
 | **Snapshot** | The stored data that one candidate gave, kept so you can switch back without a new request. |
@@ -81,3 +84,4 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-04 | Docs part B: "Library is read-only" principle; glossary entries Target, Temp, Location. |
