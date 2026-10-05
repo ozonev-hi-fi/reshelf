@@ -1,0 +1,32 @@
+{
+  "id": 265498,
+  "title": "OK Computer",
+  "year": 1997,
+  "country": "UK",
+  "artists": [
+    {
+      "name": "Radiohead",
+      "id": 4429
+    }
+  ],
+  "formats": [
+    {
+      "name": "CD",
+      "qty": "1",
+      "descriptions": ["Album"]
+    }
+  ],
+  "images": [
+    {
+      "type": "primary",
+      "uri": "https://i.discogs.com/example/full-265498.jpg",
+      "width": 600,
+      "height": 600
+    }
+  ],
+  "tracklist": [
+    { "position": "1", "title": "Airbag", "duration": "4:44" },
+    { "position": "2", "title": "Paranoid Android", "duration": "6:23" },
+    { "position": "3", "title": "Subterranean Homesick Alien", "duration": "4:27" }
+  ]
+}

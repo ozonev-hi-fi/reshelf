@@ -1,0 +1,32 @@
+{
+  "pagination": {
+    "page": 1,
+    "pages": 1,
+    "per_page": 50,
+    "items": 2
+  },
+  "results": [
+    {
+      "id": 265498,
+      "type": "release",
+      "title": "Radiohead - OK Computer",
+      "year": "1997",
+      "format": ["CD", "Album"],
+      "label": ["Parlophone"],
+      "country": "UK",
+      "thumb": "https://i.discogs.com/example/thumb-265498.jpg",
+      "resource_url": "https://api.discogs.com/releases/265498"
+    },
+    {
+      "id": 895372,
+      "type": "release",
+      "title": "Radiohead - OK Computer",
+      "year": "1997",
+      "format": ["Vinyl", "LP", "Album"],
+      "label": ["Parlophone"],
+      "country": "Germany",
+      "thumb": "https://i.discogs.com/example/thumb-895372.jpg",
+      "resource_url": "https://api.discogs.com/releases/895372"
+    }
+  ]
+}
