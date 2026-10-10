@@ -1,6 +1,6 @@
 # 08 — Settings, naming templates, reference data
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-10-07
 
 ## Today vs next-gen
 
@@ -121,9 +121,17 @@ Priority: Must | Status: Draft | Source: D19, D33
 
 On the Reference data page the user can add their own rows, for example the category folder `Studio Albums`. Edits are a draft until the user presses Save. Cancel drops the draft. App updates never change user rows.
 
+### NG-CFG-013 — WavPack (.wv) is a built-in audio format
+Priority: Should | Status: Draft | Source: D65
+
+The built-in audio-formats reference data (NG-CFG-009) includes WavPack (`.wv`), in addition to the legacy set. A single `.wv` file with a matching `.cue` sheet is recognized as a release, the same as `.flac` + cue or `.ape` + cue (NG-LAY-005).
+
+Example: legacy's hard-coded extension list (`legacy/scripts/common/Reshelf.Common.psm1:3`) does not include `.wv`, so a release folder holding only `35007 - Liquid.wv` + `.cue` is invisible to recognize today.
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: "Paths" row, replacement release folder template. |
+| 0.3 | 2026-10-07 | NG-CFG-013: WavPack (`.wv`) as a built-in audio format (D65). |

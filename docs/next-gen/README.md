@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-05
+Status: Draft | Version: 0.4 | Last updated: 2026-10-07
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -18,7 +18,7 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | [05-providers.md](05-providers.md) | NG-PRV | Discogs, Bandcamp, Library, candidates, snapshots | Draft | 0.2 |
 | [06-review-page.md](06-review-page.md) | NG-REV | Sorting, filters, tree view, pictures | Draft | 0.1 |
 | [07-library-and-quality.md](07-library-and-quality.md) | NG-LIB | Library index, matching, quality, lossy manager | Draft | 0.2 |
-| [08-settings-templates-refdata.md](08-settings-templates-refdata.md) | NG-CFG | Settings, naming templates, reference data | Draft | 0.2 |
+| [08-settings-templates-refdata.md](08-settings-templates-refdata.md) | NG-CFG | Settings, naming templates, reference data | Draft | 0.3 |
 | [09-storage-and-environments.md](09-storage-and-environments.md) | NG-STO | SQLite, instances, migrations, data import | Draft | 0.2 |
 | [10-platform-and-dependencies.md](10-platform-and-dependencies.md) | NG-PLT | Windows v1, OS abstraction, dependency rule | Draft | 0.2 |
 | [11-paths-and-devices.md](11-paths-and-devices.md) | NG-PTH | Source / target / temp paths, removable drives | Draft | 0.2 |
@@ -70,3 +70,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.1 | 2026-10-04 | Docs part A: initial doc set. |
 | 0.2 | 2026-10-04 | Docs part B: doc 11 filled in (NG-PTH), decisions D49–D63, open points resolved. Doc rule 9 no longer names Part B. |
 | 0.3 | 2026-10-05 | Phase 1: index row for `br/as-is-from-docs/`; doc rule 6 names the D64 exception for as-is requirements. |
+| 0.4 | 2026-10-07 | Index row for doc 08 bumped to 0.3 (NG-CFG-013, WavPack `.wv` support, D65). |

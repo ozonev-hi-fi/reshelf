@@ -1,6 +1,6 @@
 # Raw notes and decision log
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-05
+Status: Draft | Version: 0.4 | Last updated: 2026-10-07
 
 This file holds:
 - **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
@@ -125,6 +125,7 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 | D7 | One user, UI on localhost only, no login. CLI and UI may run at the same time, with conflict detection instead of "last save wins". | Personal tool, but two front-ends share one DB. | NG-APP-006, NG-APP-007 |
 | D8 | Migrate **only** the lossy ledger. Sessions, apply log and settings start fresh. Converting absolute paths → Part B (resolved by D55). | The ledger is the only long-lived valuable data. | NG-STO-008, NG-STO-009, NG-LIB-013, D55 |
 | D19 | Reference data in the DB: formats, companion kinds, ignored extensions, category folders, reason codes. Built-in rows: upsert on startup, can be disabled but not deleted. User rows: app updates never touch them. Lossy/lossless comes from the codec. Plus library-quality scenarios (→ D29, D30, D32). | Newer versions can add formats. The `.m4a`/ALAC case. | NG-CFG-009…012, NG-LIB-006 |
+| D65 | WavPack (`.wv`) must be in the built-in audio-formats list, same as `.flac`/`.ape`, including the single-file + `.cue` case. | Legacy's hard-coded extension list (`legacy/scripts/common/Reshelf.Common.psm1:3`) does not include `.wv`. Real user collection (session 2026-10-07-0004, `D:\MusicToOrganize\Stoner\35007`) has 3 albums as `.wv` + `.cue` that recognize silently skips (no error, not even in `unrecognized[]`). | NG-CFG-013 |
 | D20 | SQLite for structured data, binaries on disk under `data/`. Auto-migrations with a backup first. DPAPI token in the DB, env var overrides it. **Portable zip only**, no installer (maybe one day). Unit tests use no DB. Integration/e2e tests use the test DB, reset per run. | Small DB. `data/` next to the exe must be writable. | NG-STO-001…007, NG-PLT-003 |
 | D21 | Every tool, NuGet or external, gets an ADR with pros and cons. The user should not need extra installs, and licenses must allow bundling. But better functionality comes first. (Exact order → D38.) | — | NG-PLT-004, NG-PLT-005 |
 | D33 | Reference data: **both** (a) a startup confirmation UI for pending built-in changes and (b) draft editing of user rows with Save/Cancel. | User wants to see changes before they reach the DB. | NG-CFG-010, NG-CFG-012 |
@@ -213,3 +214,4 @@ Grilling session of 2026-10-04, Docs part B (questions Q1–Q15 of that session)
 | 0.1 | 2026-10-04 | Created in Docs part A: verbatim notes + decisions D1–D48. |
 | 0.2 | 2026-10-04 | Docs part B: decisions D49–D63 (paths and devices). D8 and D30 point to their resolutions. |
 | 0.3 | 2026-10-05 | Phase 1: decision D64 (format of as-is requirements). |
+| 0.4 | 2026-10-07 | Decision D65 (WavPack `.wv` must be a built-in audio format). |
