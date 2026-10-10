@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.4 | Last updated: 2026-10-05
+Status: Draft | Version: 0.5 | Last updated: 2026-10-10
 
 ## Goal
 
@@ -21,7 +21,7 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | B | Docs part B: paths twist | [part-b-paths.md](sessions/part-b-paths.md) | [11-paths-and-devices.md](11-paths-and-devices.md) filled in, `→ Part B` markers resolved, commit 2 | Done |
 | 0 | Move legacy code to `legacy/` and freeze it | [phase-0-legacy-move.md](sessions/phase-0-legacy-move.md) | `legacy/` runnable and frozen | Done |
 | 1 | BR from docs and tests (as-is) | [br-from-docs.md](sessions/br-from-docs.md) | [br/as-is-from-docs/](br/as-is-from-docs/README.md): 744 `AS-DOC-*` requirements, suspected defects, coverage | Done |
-| 2 | BR from code (as-is) | [br-from-code.md](sessions/br-from-code.md) | As-is BR, version "code" | Not started |
+| 2 | BR from code (as-is) | [br-from-code.md](sessions/br-from-code.md) | [br/as-is-from-code/](br/as-is-from-code/README.md): 676 `AS-CODE-*` requirements, suspected defects, coverage | Done |
 | 3 | Merge into the to-be BR | [br-merge.md](sessions/br-merge.md) | To-be BR (Agreed) | Not started |
 | 4 | Technical specification + ADRs | [tech-spec.md](sessions/tech-spec.md) | Tech spec (Agreed), ADRs | Not started |
 | 5 | Task breakdown | defined at the end of phase 4 | Implementation tasks and milestones | Not started |
@@ -54,3 +54,4 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | 0.2 | 2026-10-04 | Phase B done: paths model in doc 11, decisions D49–D63. |
 | 0.3 | 2026-10-04 | Phase 0 done: legacy code moved to `legacy/` and frozen. |
 | 0.4 | 2026-10-05 | Phase 1 done: as-is BR from docs and tests in `br/as-is-from-docs/`. Format decision D64. |
+| 0.5 | 2026-10-10 | Phase 2 done: as-is BR from code in `br/as-is-from-code/`. |
