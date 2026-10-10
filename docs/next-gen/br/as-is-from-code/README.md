@@ -1,6 +1,6 @@
 # As-is BR from code (Phase 2)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-10
+Status: Draft | Version: 0.2 | Last updated: 2026-10-10
 
 This folder describes the **current** behavior of the legacy PowerShell app as business requirements
 (BR), read **only** from `legacy/scripts/**`, `legacy/ui/*` and `legacy/config/settings.default.json`.
@@ -9,7 +9,7 @@ Roadmap phase 2, brief: [../../sessions/br-from-code.md](../../sessions/br-from-
 Phase 1 wrote a first, independent view from the legacy docs and tests (`AS-DOC-*`,
 [../as-is-from-docs/](../as-is-from-docs/README.md)). This folder is the second, independent view, read
 from code alone, with no access to phase 1's output or to `legacy/README.md`/`legacy/plan/`. Phase 3
-compares the two and decides every suspected defect.
+compares the two, resolves contradictions, and consolidates suspected defects for phase 4 to decide.
 
 ## Requirement format
 
@@ -27,7 +27,7 @@ Example: <concrete input> → <concrete output>.
 
 - **ID**: `AS-CODE-<AREA>-NNN`. Numbers start at 001 per area. They never change and are never reused
   (doc rule 5).
-- **No `Priority`.** As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be
+- **No `Priority`.** As-is behavior is a fact, not a decision. Phase 4 sets the priorities in the to-be
   BR.
 - **`Source:`** = `legacy/scripts/<file>:<line> › <function>` (or `legacy/ui/<file>:<line>` for the
   client-side review UI, or a CLI param-block/switch-case location for `12-cli.md`). Several sources are
@@ -100,3 +100,4 @@ cross-linked.
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Phase 2 draft: 676 `AS-CODE-*` requirements across 13 area files, 34 suspected defects, full function coverage. |
+| 0.2 | 2026-10-10 | Reworded phase 3/phase 4 references to match the phase split (phase 3 reconciles facts; phase 4 decides defect disposition and priorities). |

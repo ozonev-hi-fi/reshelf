@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.5 | Last updated: 2026-10-10
+Status: Draft | Version: 0.6 | Last updated: 2026-10-10
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -10,7 +10,7 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 
 | File | Prefix | Topic | Status | Version |
 |---|---|---|---|---|
-| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.4 |
+| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.7 |
 | [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.2 |
 | [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.1 |
 | [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.2 |
@@ -22,11 +22,12 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | [09-storage-and-environments.md](09-storage-and-environments.md) | NG-STO | SQLite, instances, migrations, data import | Draft | 0.2 |
 | [10-platform-and-dependencies.md](10-platform-and-dependencies.md) | NG-PLT | Windows v1, OS abstraction, dependency rule | Draft | 0.2 |
 | [11-paths-and-devices.md](11-paths-and-devices.md) | NG-PTH | Source / target / temp paths, removable drives | Draft | 0.2 |
-| [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.1 |
-| [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.1 |
+| [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.2 |
+| [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.2 |
+| [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Draft | 0.2 |
 | [adr/](adr/0000-template.md) | — | Architecture decision records | — | — |
 | [sessions/](sessions/) | — | Briefs for the planned sessions | — | — |
-| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D64 | Draft | 0.3 |
+| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D66 | Draft | 0.5 |
 
 ## Doc rules
 
@@ -73,3 +74,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.3 | 2026-10-05 | Phase 1: index row for `br/as-is-from-docs/`; doc rule 6 names the D64 exception for as-is requirements. |
 | 0.4 | 2026-10-07 | Index row for doc 08 bumped to 0.3 (NG-CFG-013, WavPack `.wv` support, D65). |
 | 0.5 | 2026-10-10 | Index row for `br/as-is-from-code/` (Phase 2 done). |
+| 0.6 | 2026-10-10 | Index rows fixed: 00-roadmap.md (0.7), br/as-is-from-docs/ (0.2), br/as-is-from-code/ (0.2), inbox/raw-notes.md (0.5, D1–D66); added missing index row for br/as-is-merged/. |

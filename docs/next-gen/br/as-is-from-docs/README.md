@@ -1,10 +1,10 @@
 # As-is BR from docs and tests (Phase 1)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-05
+Status: Draft | Version: 0.2 | Last updated: 2026-10-10
 
 This folder describes the **current** behavior of the legacy PowerShell app as business requirements (BR). It uses only the legacy documents and tests. Roadmap phase 1, brief: [../../sessions/br-from-docs.md](../../sessions/br-from-docs.md).
 
-Phase 2 writes a second, independent view from the code (`AS-CODE-*`). Phase 3 compares the two and decides every suspected defect.
+Phase 2 writes a second, independent view from the code (`AS-CODE-*`). Phase 3 compares the two, resolves contradictions, and consolidates suspected defects for phase 4 to decide.
 
 > **Phase 2 session:** you may read the [Requirement format](#requirement-format) section of this file. Do not read anything else in this folder.
 
@@ -22,7 +22,7 @@ Example: <real input from a test or fixture> → <real result>.
 ```
 
 - **ID**: `AS-DOC-<AREA>-NNN` (`AS-CODE-<AREA>-NNN` in Phase 2). Numbers start at 001 per area. They never change and are never reused (doc rule 5).
-- **No `Priority`.** As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be BR.
+- **No `Priority`.** As-is behavior is a fact, not a decision. Phase 4 sets the priorities in the to-be BR.
 - **`Source:`** = path from the repo root, ` › `, then the Describe / Context / test name or the doc section. Several sources are separated by `; `. Phase 2 writes `legacy/scripts/<file>:<line> › <function>`.
 - **One behavior rule per ID**, with 1–3 examples. Examples come from tests and fixtures where possible. An invented example is marked `Example (illustration):`.
 - Behavior words in the text. Function names appear only in `Source:`. UI labels, HTTP routes, CLI parameters and file names are user-visible behavior, so the text names them.
@@ -86,3 +86,4 @@ Some rules appear in two or three areas, because each area read a different inpu
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-05 | Phase 1 draft. |
+| 0.2 | 2026-10-10 | Reworded phase 3/phase 4 references to match the phase split (phase 3 reconciles facts; phase 4 decides defect disposition and priorities). |

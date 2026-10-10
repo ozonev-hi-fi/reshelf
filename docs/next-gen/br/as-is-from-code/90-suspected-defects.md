@@ -1,10 +1,10 @@
 # As-is (from code): Suspected defects
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-10
+Status: Draft | Version: 0.2 | Last updated: 2026-10-10
 
 Every suspected defect found while writing the Phase 2 (`AS-CODE-*`) area files, consolidated here
 and renumbered sequentially (`AS-CODE-DEF-NNN`, flat, no sub-area) so IDs never collide across files.
-Per rule D2, these describe behavior that looks wrong; none of them were fixed. Phase 3 decides what
+Per rule D2, these describe behavior that looks wrong; none of them were fixed. Phase 4 decides what
 happens to each one, alongside the phase 1 (`AS-DOC-DEF-*`) list.
 
 Each entry keeps the area it came from and the per-area label the drafting agent originally used
@@ -147,3 +147,4 @@ No suspected defects — these two sections describe absence/confirmation facts 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Phase 2 merge: consolidated 34 suspected defects from the 13 area files, renumbered flat. |
+| 0.2 | 2026-10-10 | "Phase 3" → "Phase 4" for defect disposition, matching roadmap rule D2. |

@@ -1,10 +1,10 @@
 # 90 — Suspected defects and contradictions (as-is, from docs and tests)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-05
+Status: Draft | Version: 0.2 | Last updated: 2026-10-10
 
 ## How to read this file
 
-This file lists everything in the legacy docs and tests that looks odd. Phase 3 decides each item: keep the behavior, fix it, or drop the item. Rule D2 applies: this file describes, it never fixes. It has no next-gen ideas.
+This file lists everything in the legacy docs and tests that looks odd. Phase 4 decides each item: keep the behavior, fix it, or drop the item. Rule D2 applies: this file describes, it never fixes. It has no next-gen ideas.
 
 There are two types:
 
@@ -894,3 +894,4 @@ Sources: legacy/README.md › Pipeline (L53); legacy/README.md › Requirements 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-05 | Phase 1 draft: merged from the six area drafts. |
+| 0.2 | 2026-10-10 | "Phase 3" → "Phase 4" for defect disposition, matching roadmap rule D2. |

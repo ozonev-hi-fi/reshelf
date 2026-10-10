@@ -1,6 +1,6 @@
 # 02 — Application shape: CLI, UI, navigation
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-10-10
 
 ## Today vs next-gen
 
@@ -81,10 +81,11 @@ The BR stays technology-neutral: "a local UI with full control of the pipeline".
 
 ## Open points
 
-- Long operations (recognize over a large source, propose with many Discogs requests): should the UI show progress and allow cancel? Not discussed. Decide in the BR merge (phase 3).
+- Long operations (recognize over a large source, propose with many Discogs requests): should the UI show progress and allow cancel? Not discussed. Decide in phase 4 ([br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) step 4).
 
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-10-10 | Open point's phase pointer corrected from phase 3 to phase 4 (long-operation progress/cancel now decided in br-apply-ng-vision.md step 4). |
