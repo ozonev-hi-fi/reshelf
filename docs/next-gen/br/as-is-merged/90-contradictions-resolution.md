@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.4 | Last updated: 2026-10-11
+Status: Draft | Version: 0.6 | Last updated: 2026-10-11
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -224,6 +224,120 @@ SES-owned fact to resolve, only a related suspected defect for the CLI merge
 pass to carry forward. No change to the merged `AS-SES-*` content beyond
 stating the resolved fact plainly in `AS-SES-009`.
 
+## REC
+
+### Carried from phase 1: `AS-DOC-DEF-018` (plan's release-folder definition is narrower than tests/code)
+
+Re-read `legacy/scripts/common/Reshelf.Recognition.psm1:52-81`
+(`Test-IsReleaseFolder`): a folder qualifies with direct audio
+(`AS-REC-013`), or with no direct audio but at least one disc-named
+subfolder holding audio (`AS-REC-015`) — nothing in the code requires
+"sequential-looking numbering" or restricts the folder name's own shape.
+**Resolved: tests/code are right.** Plan 05's definition ("looks like `yyyy
+Name` or `Name`, directly contains audio files with sequential-looking
+numbering") is stale — it misses the disc-subfolder-only release
+(`Wrapper Band\2004 - LP Reissue`) and the unnumbered-files release
+(`Unnumbered\2015 No Numbers`), both of which tests and code agree are
+releases. Merged as `AS-REC-013`–`016`, following tests/code.
+
+### Carried from phase 1: `AS-DOC-DEF-019` (several plan documents still describe the removed `overrides.json` design)
+
+Re-read `Reshelf.Recognition.psm1` in full: no function reads, writes or
+references an `overrides.json` file anywhere. Grouping folders are walked
+automatically (`Invoke-ReshelfFolderWalk`'s `'grouping'` case,
+`legacy/scripts/common/Reshelf.Recognition.psm1:1433-1444`), every release
+found this way forced into review via `grouping-folder-auto-resolved` —
+there is no branch that instead writes an unrecognized entry with reason
+`grouping-folder-suspected` pending an override file. **Resolved:
+README/tests/code are right — no override file exists anywhere in the
+current implementation.** The plan texts (05, 07, 10, 12, 02) describing
+`overrides.json` predate the pivot to auto-walking and were never updated;
+no change to the merged `AS-REC-*` content beyond stating the current
+behavior in `AS-REC-010` and `AS-REC-039`.
+
+### Carried from phase 1: `AS-DOC-DEF-020` (category list: "configurable" or "fixed"?)
+
+Re-read `Reshelf.Recognition.psm1:6` and `:83-94`
+(`Test-IsCategorySubfolder`): the category names are a literal array,
+`$script:ReshelfCategoryFolderNames = @('EPs', 'Singles', 'Lives', 'Live',
+'Compilations', 'Bootlegs')`, matched case-insensitively against a fixed
+`[string[]]` default parameter — there is no settings lookup anywhere in
+the function. **Resolved: README/code are right — the list is fixed in
+code, not configurable.** Plan 05's "a configurable list" and a test name's
+"configured category names" describe how the list *reads*, not an actual
+settings-driven feature; no corresponding key exists in the merged settings
+area (`03-settings-and-secrets.md`) or its schema. Merged as `AS-REC-027`.
+
+### Carried from phase 1: `AS-DOC-DEF-021` (plan's disc-folder pattern is narrower than tests/code)
+
+Re-read `Reshelf.Recognition.psm1:18`: the actual pattern is
+`(?i)^(CD|Disc|Disk|LP)[\s_]*#?\.?[\s_]*(\d+)([\s_.-]|$)` — it explicitly
+allows `_` and accepts trailing text after the number when a separator
+precedes it. Plan 05's `^(CD|Disc|Disk|LP)\s*#?\.?\s*(\d+)$` has neither.
+**Resolved: tests/code are right.** Merged as `AS-REC-062`.
+
+### Carried from phase 1: `AS-DOC-DEF-022` (plan's track-number patterns are fewer than tests/code)
+
+Re-read `Reshelf.Common.psm1:329-347` (`ConvertFrom-ReshelfTrackFileName`,
+documented from code as `AS-CODE-TXT-014`/`015`): besides the three dash/
+space forms plan 05 lists, the function also accepts a bracketed number
+(`[NNN]`/`(NNN)`, capped at 1-3 digits specifically so a 4-digit year in
+parentheses is never misread), and always additionally tests the resulting
+title for an `"Artist - Title"` shape. **Resolved: tests/code are right —
+plan 05's list is incomplete.** Merged as `AS-REC-056`–`059`.
+
+### Carried from phase 1: `AS-DOC-DEF-023` ("exactly one audio file and one .cue" (plan) vs more in tests/code)
+
+Re-read `Reshelf.Recognition.psm1:351-365` (`Test-IsCueSheetRelease`,
+still exactly one audio file) and `:321-349`
+(`Get-ReshelfCueSheetPathForAudio`, name-matching with one or more cue
+files) and `:367-409` (`Get-ReshelfFlatDiscCuePairs`, 2+ audio files each
+with its own cue). **Resolved: both plan and tests/code are right, at
+different levels — plan's "exactly one audio and one cue" correctly
+describes the single-file cue-release shape's audio-file count
+(`AS-REC-067`), but is wrong to generalize it to the cue-file count: an
+extra, unused cue file for a different rip is tolerated as long as one cue
+matches the audio file by name (`AS-REC-075`), and a second, entirely
+different shape — flat multi-disc cue pairs, several audio files each with
+its own cue, no disc folders at all — exists and plan 05 never mentions it
+(`AS-REC-077`).** Merged as `AS-REC-067`, `075`, `077`–`079`.
+
+### Carried from phase 1: `AS-DOC-DEF-024` (companion kind of `back.jpg`: "scan" (plan) vs "booklet" (tests))
+
+Re-read `Reshelf.Recognition.psm1:606-635`
+(`Resolve-ReshelfCompanionKind`): an image name is checked for `"photo"`
+first, then `"booklet"`/`"back"`/`"insert"` → kind `booklet`; there is no
+`"scan"` kind anywhere in the function. **Resolved: tests/code are right —
+the kind is `booklet`** (matched via the file name `back`, not the folder
+name `scans` — the inputs did not say which one decided it; the code shows
+it is the file name). Merged as `AS-REC-081`.
+
+### Carried from phase 1: `AS-DOC-DEF-025` ("empty release folder → no-audio-files" (plan) vs an entry at artist level (test))
+
+Re-read `Reshelf.Recognition.psm1:821-876`
+(`Resolve-ReshelfFolderKind`) and `:1299-1456`
+(`Invoke-ReshelfFolderWalk`): the walk calls `Resolve-ReshelfFolderKind`
+once per folder and, once a folder is classified `unrecognized`, never
+descends into it to look for a more specific empty subfolder. **Resolved:
+plan and tests/code are consistent, not contradictory, once "which level"
+is explained by the walk's top-down short-circuiting** — recognize reports
+the *outermost* folder that already has zero audio anywhere below it; for
+`Empty Artist\2010 Nothing Here`, the top-level `Empty Artist` folder
+itself fails every specific shape (not a release, not an album-wrapper, not
+a grouping folder — only one subfolder, `AS-REC-037` needs two) and is
+reported directly, without the walk ever separately visiting (or
+reporting) `2010 Nothing Here`. Merged as `AS-REC-019`.
+
+### Carried from phase 1: `AS-DOC-DEF-038` (plan 05's "Reading existing tags" is still an open recommendation re: TagLibSharp)
+
+Re-read `legacy/README.md` › Requirements (lists `TagLibSharp.dll` as a
+plain dependency) and `Reshelf.Recognition.psm1:725-781`
+(`Get-ReshelfAudioTags`, built entirely on `[TagLib.File]::Create`).
+**Resolved: README/code are right — TagLibSharp is the tool actually used.**
+Plan 05's "a deviation from the user's mp3tag decision — please confirm" is
+a stale open question; the decision was made and implemented. No change to
+the merged content beyond stating the current behavior in `AS-REC-088`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -233,3 +347,4 @@ stating the resolved fact plainly in `AS-SES-009`.
 | 0.3 | 2026-10-11 | Area TXT: one new contradiction found and resolved (`AS-DOC-DEF-009`, MANIFESTO "SP" vs the `recognizedReleaseType` enum — both right, at different levels). Three phase-1 contradictions (`AS-DOC-DEF-010`, `011`, `013`) re-verified against the code-only view and schema/DAT cross-references, confirmed already correctly resolved. |
 | 0.4 | 2026-10-11 | Area SET: three phase-1 contradictions (`AS-DOC-DEF-014`–`016`) re-verified against the code and confirmed already correctly resolved. One new contradiction found in already-merged DAT content (`AS-CODE-DAT-024` vs `AS-DOC-SET-047` — `Protect-ReshelfSecret` does not actually accept an empty string) and corrected retroactively in `01-data-and-storage.md`. |
 | 0.5 | 2026-10-11 | Area SES: one phase-1 contradiction (`AS-DOC-DEF-017`) re-verified against the code and confirmed already correctly resolved; its related design consequence left cross-referenced to the not-yet-merged CLI area (`AS-DOC-DEF-104`). |
+| 0.6 | 2026-10-11 | Area REC: nine phase-1 contradictions (`AS-DOC-DEF-018`–`025`, `038`) re-verified directly against `Reshelf.Recognition.psm1`, all confirmed already correctly resolved (tests/code right in every case except `AS-DOC-DEF-023` and `AS-DOC-DEF-025`, where plan and tests/code turned out both right at different levels once the mechanism was traced). |

@@ -33,10 +33,11 @@ rule.
 file, but whose behavior (parsing a track number and an Artist/Title hint out
 of a track's file name) is the same rule already described from docs and
 tests under area REC: `AS-DOC-REC-055`–`058` in
-[05-recognition.md](../as-is-from-docs/05-recognition.md). Rather than
-duplicate it here under a TXT number, it is left for the REC merge pass,
-which should cite `AS-CODE-TXT-014`/`015` alongside `AS-DOC-REC-055`–`058`
-when it writes `AS-REC-*`. See the coverage file.
+[05-recognition.md](../as-is-from-docs/05-recognition.md). They were not
+duplicated here under a TXT number; the REC merge (now done) cited them
+alongside `AS-DOC-REC-055`–`059` as `AS-REC-056`–`059` in
+[../as-is-merged/05-recognition.md](05-recognition.md). See the coverage
+file.
 
 ## Normalized text for comparison
 

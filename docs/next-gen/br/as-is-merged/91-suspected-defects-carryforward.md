@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.4 | Last updated: 2026-10-11
+Status: Draft | Version: 0.5 | Last updated: 2026-10-11
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -179,6 +179,212 @@ else that calls the no-id form, e.g. the UI's session list) fails completely
 because of one bad session, with no indication in the error of which session
 caused it.
 
+## REC
+
+### CF-REC-001 — A full release date's day is only checked 1–31, regardless of the month
+Sources: `AS-CODE-DEF-REC-001`. No `AS-DOC` counterpart (the docs-and-tests
+view had no test exercising an impossible day-of-month).
+
+`Split-ReshelfLeadingYear`'s full-date form (`AS-REC-051`) bounds-checks
+year 1900–2100, month 1–12 and day 1–31 independently — the day is never
+checked against what the specific month actually allows. An impossible
+date such as `2024.02.30` would still be accepted as a valid release date.
+
+### CF-REC-002 — The with-disc-folders branch never checks for a nested, non-disc release subfolder
+Sources: `AS-CODE-DEF-REC-002`. No `AS-DOC` counterpart (the docs-and-tests
+view had no test combining named disc subfolders with an extra, unrelated
+nested release).
+
+The no-disc-folders branch flags `nested-release-suspected` when it built
+tracks directly and a subfolder also independently qualifies as its own
+release (`AS-REC-017`). The with-disc-folders branch (`AS-REC-092`) has no
+equivalent check: a multi-disc release (`CD1`/`CD2`-style subfolders) that
+also happens to have an unrelated nested release subfolder gets no flag at
+all.
+
+### CF-REC-003 — Grouping-folder detection is stricter than band-member-folder detection for a structurally similar shape
+Sources: `AS-CODE-DEF-REC-005`. No `AS-DOC` counterpart (the docs-and-tests
+view described each heuristic's own tests without comparing their rigor).
+
+Grouping-folder detection (`AS-REC-037`) requires *every* subfolder to fail
+the release/disc/category/album-wrapper checks. Band-member-folder
+detection (`AS-REC-034`) only requires *at least one* subfolder to qualify
+as a release folder, without excluding subfolders that look like disc,
+category or album-wrapper folders mixed in alongside it. The two "pure
+container of releases" heuristics apply different levels of rigor to
+structurally similar shapes.
+
+### CF-REC-004 — The no-artist-yet "Artist - Title" folder-name split only recognizes the ASCII hyphen
+Sources: `AS-CODE-DEF-REC-004`. No `AS-DOC` counterpart (the docs-and-tests
+view's examples for this split all happen to use a plain hyphen).
+
+The pattern used when no artist name is known yet (`AS-REC-023`) matches
+only a literal `" - "` (space, ASCII hyphen, space) — not an en-dash or
+em-dash — unlike other heuristics in the same module (the leading-year
+split, the artist-name-prefix strip) that explicitly treat en-dash/em-dash
+as equivalent separators.
+
+### CF-REC-005 — After a root "Artist - Album" split, the artist's one source path is the whole source root
+Sources: `AS-DOC-DEF-032`. No `AS-CODE` counterpart (the code-only view
+documents `Merge-ReshelfArtistBucket`'s "keyed by the release folder's own
+parent path" rule — `AS-CODE-REC-095` — without separately flagging this
+consequence for the root-level split case).
+
+For `PULSAR OLYMP - 94Shine` and `Isidor - 3218 (…)` sitting directly in
+the source root, the golden file gives the artist `sourcePaths` =
+`["<SOURCE_ROOT>"]` — that same folder holds every other artist too, not
+only this one.
+
+### CF-REC-006 — A test's own comment disagrees with its own assertion for an invalid full date
+Sources: `AS-DOC-DEF-026`. No `AS-CODE` counterpart (the code-only view
+documents the actual bounds-check behavior — `AS-CODE-REC-068` — without
+remarking on the test's comment wording).
+
+The test comment for `"2006.13.01 - X"` (month 13) says the name "falls
+back to the plain `yyyy - Title` form" — which would keep year 2006 — but
+the test's own assertion is year `null`, title `2006.13.01 - X` (the whole
+name, unparsed). The comment and the assertion do not agree; re-reading
+`Split-ReshelfLeadingYear` confirms the assertion (full behavior: `AS-REC-050`)
+is what the code actually does.
+
+### CF-REC-007 — One unnumbered file drops the numeric order of every other file in the same folder
+Sources: `AS-DOC-DEF-035`. Confirmed by `AS-CODE-REC-026`.
+
+When one file in a folder has no track number, *all* files are sorted A–Z
+by name and renumbered from 1 — the individually-parsed numbers of the
+other files are discarded, not used as a tiebreak or a partial order.
+
+Example (illustration): `2 - B.flac`, `10 - A.flac`, `Bonus.flac` → order `10 - A.flac`, `2 - B.flac`, `Bonus.flac`.
+
+### CF-REC-008 — A cue track's computed duration can go negative
+Sources: `AS-DOC-DEF-030`. No `AS-CODE` counterpart (the code-only view
+documents the duration formula — `AS-CODE-REC-044` — without flagging the
+unguarded subtraction).
+
+A cue track's duration is "the next track's start minus its own start",
+and the last track's is "the whole file's duration minus its own start"
+(`AS-REC-072`). If the whole-file duration (from the audio properties
+reader) is shorter than the last track's own start, this subtraction goes
+negative. No guard, flag or review reason exists for this — e.g. after a
+wrong duration from the tag reader or a malformed cue sheet.
+
+### CF-REC-009 — `discFolder` holds a non-folder label for flat multi-disc cue pairs
+Sources: `AS-DOC-DEF-033`. No `AS-CODE` counterpart (the code-only view
+documents the sort heuristic — `AS-CODE-REC-035` — without flagging the
+field-name mismatch).
+
+Flat multi-disc cue pairs (`AS-REC-077`) have no disc *folder* at all, yet
+each of their tracks' `discFolder` field holds a label built from the
+audio file's own base name (containing the catalog-number hint). The field
+name implies a folder; the value here is not one, and its exact shape
+(beyond "contains the catalog number") is not documented anywhere.
+
+### CF-REC-010 — Embedded-cover cache extension is chosen from declared MIME type only, not the actual bytes
+Sources: `AS-CODE-DEF-REC-006`. No `AS-DOC` counterpart (the docs-and-tests
+view does not exercise embedded-cover caching at all).
+
+`Save-ReshelfEmbeddedCoverToCache`'s extension choice (`AS-REC-086`) is a
+2-way switch on the picture's *declared* MIME type (`.png` for
+`image/png`, `.jpg` for everything else). A picture whose actual bytes are
+a different format than its declared/assumed type (e.g. a mislabeled GIF
+or WEBP) would be cached with a `.jpg` extension that does not match its
+real content.
+
+### CF-REC-011 — Only one of several tag-reading call sites guards against an unreadable file
+Sources: `AS-CODE-DEF-REC-007`. No `AS-DOC` counterpart (the docs-and-tests
+view's mock tag reader never throws, so this path is untested either way).
+
+Only `Get-ReshelfReleaseFolderMetadataArtist` (`AS-REC-031`) wraps its call
+to `Get-ReshelfAudioTags` in a try/catch. Every other call site (cue
+virtual tracks, tag-agreement, release-record track building) invokes it
+unguarded, so any exception other than TagLib's own "corrupt file" case
+(already handled inside `Get-ReshelfAudioTags` itself, `AS-REC-088`) — e.g.
+an unsupported format — would propagate up and abort the *whole*
+recognition run, instead of being recorded as a per-track review flag.
+
+### CF-REC-012 — Recognition confidence can go stale once later review reasons are added
+Sources: `AS-DOC-DEF-031`; `AS-CODE-DEF-REC-003`.
+
+`recognitionConfidence` (`AS-REC-093`) is computed once, inside
+`New-ReshelfReleaseRecord`, before it returns. Callers
+(`Invoke-ReshelfFolderWalk`, and the inherited-review-reasons step) can
+subsequently force `needsReview` = `true` and append review reasons
+(`artist-name-split-from-folder-name`, `artist-and-album-from-tags`,
+`multiple-editions-in-album-folder`, `grouping-folder-auto-resolved`)
+without ever recalculating the confidence — so a release can end up
+`needsReview` = `true` while `recognitionConfidence` still reads 1.0 or 0.8
+instead of 0.5. This is the same gap the docs-and-tests view spotted from
+the golden file's own numbers (a release needing review with a *higher*
+confidence than one that does not); the code-only view explains the
+mechanism.
+
+### CF-REC-013 — It is not checked whether a zero-release "filler" artist bucket leaks into the output
+Sources: `AS-DOC-DEF-034`. No `AS-CODE` counterpart (the code-only view
+documents bucket merging in general — `AS-CODE-REC-066`/`067` — without
+exercising this specific filler-folder scenario).
+
+In the artist-merge test, two plain filler ("genre") folders each wrap one
+differently-named artist subfolder; each inner folder is recognized as a
+band-member folder of its genre folder, i.e. the genre folders are walked
+as parent artists in their own right. The test does not check whether a
+zero-release artist bucket for the genre folder's own name (`Genre A`/
+`Genre B`) ends up in the output `artists[]`.
+
+### CF-REC-014 — The band-member "same normalized name" test doesn't actually test that rule
+Sources: `AS-DOC-DEF-027`. Kind: test quality.
+
+The test "rejects a subfolder whose normalized name matches the parent
+artist" uses `Talking Heads\1980 Remain In Light` with parent
+`Talking Heads` — the names do not match. The test really checks that a
+*release* folder is not a band-member folder (it is excluded earlier, by
+already being classified `release`); the "same normalized name"
+rule (`AS-REC-035`) itself has no real test.
+
+### CF-REC-015 — The "sorts disc folders numerically" test doesn't prove a numeric sort
+Sources: `AS-DOC-DEF-028`. Kind: test quality.
+
+The test uses only `CD 1` and `CD 2` (`AS-REC-064`) — a plain text sort
+gives the same order. A case that would distinguish numeric from lexical
+sorting (e.g. `CD 2` vs `CD 10`) is missing.
+
+### CF-REC-016 — The "all disc subfolders" release-folder test doesn't isolate the rule it names
+Sources: `AS-DOC-DEF-029`. Kind: test quality.
+
+The test uses `ZZ Top\2003 Mescalero`, which also has a `scans` folder and
+a loose `Stray Bonus Track.mp3`. The loose audio file alone already makes
+the folder a release (`AS-REC-013`), so this test does not actually
+exercise the disc-folder rule (`AS-REC-015`) on its own; only the separate
+LP#-numbered fixture (`2004 - LP Reissue`) does.
+
+### CF-REC-017 — A companion-file test checks far less than its name promises
+Sources: `AS-DOC-DEF-036`. Kind: test quality.
+
+The test "classifies loose and nested companions, routing playlists to
+ignored" uses only `ZZ Top\1999 XXX` and checks one loose `cover.jpg`. It
+checks no nested companion (`AS-REC-084`) and no playlist (`AS-REC-082`) in
+that same test.
+
+### CF-REC-018 — Three documented recognition rules have no test at all
+Sources: `AS-DOC-DEF-037`. Kind: test quality.
+
+(a) Plan 05 names a companion kind `text` for `.txt`/`.pdf`/`.nfo` files
+with words like `lyrics`/`article`/`interview` in the name — no test
+covers it, and the actual code (`AS-REC-081`) only ever produces `lyrics`
+or `other` for these extensions, never a `text` kind. (b) The README says
+the metadata-confirmed category check (`AS-REC-033`) uses the cue
+`PERFORMER` first, "then the audio file's artist tag", and needs "most"
+releases to agree — the tests cover only the cue-`PERFORMER`, all-agree
+case. (c) The README says a band-member folder holds "only release
+folders, no loose files" — no test covers a band-member folder that *does*
+have loose files (the code-only view confirms the rule directly from
+source, `AS-CODE-REC-019`, but the legacy Pester suite still has no case
+for it).
+
+Also cross-referenced here: `CF-TXT-003` above (a mismatched bracket/paren
+pair in `ConvertFrom-ReshelfTrackFileName` is still accepted as a track
+number) concerns this area's `AS-REC-057`, but stays filed under TXT — see
+the scope note in [02-text-and-naming.md](02-text-and-naming.md).
+
 ## Changelog
 
 | Version | Date | Change |
@@ -188,3 +394,4 @@ caused it.
 | 0.3 | 2026-10-11 | Area TXT: 3 items carried forward (`CF-TXT-001`–`003`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. `CF-TXT-003` concerns a REC-owned function, cross-referenced for that area's merge. |
 | 0.4 | 2026-10-11 | Area SET: 2 items carried forward (`CF-SET-001`–`002`); both `AS-CODE-DEF-*` only, no `AS-DOC-DEF-*` suspected defects exist for this area (only the 3 contradictions resolved in `90-contradictions-resolution.md`). |
 | 0.5 | 2026-10-11 | Area SES: 2 items carried forward (`CF-SES-001`–`002`). `CF-SES-001` is `AS-CODE-DEF-*` only (no `AS-DOC-DEF-*` suspected defect for this area — only the one contradiction resolved in `90-contradictions-resolution.md`). `CF-SES-002` is a new suspected defect found directly while merging, with no original phase-1/phase-2 source id. |
+| 0.6 | 2026-10-11 | Area REC: 18 items carried forward (`CF-REC-001`–`018`), covering all 7 `AS-CODE-DEF-REC-*` entries and all 12 REC-area `AS-DOC-DEF-*` suspected defects (`AS-DOC-DEF-026`–`037`). `CF-REC-012` merges `AS-DOC-DEF-031` and `AS-CODE-DEF-REC-003` — the docs-and-tests view spotted the same recognition-confidence inconsistency from the golden file's numbers that the code-only view explains by mechanism. `CF-TXT-003` (filed under TXT) is cross-referenced as concerning this area's `AS-REC-057`. |

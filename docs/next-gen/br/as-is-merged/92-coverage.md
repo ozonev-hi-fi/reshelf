@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.4 | Last updated: 2026-10-11
+Status: Draft | Version: 0.5 | Last updated: 2026-10-11
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -327,6 +327,157 @@ Note: `CF-SES-002` has no original `AS-DOC`/`AS-CODE` source id — found
 directly while re-reading the code during this merge pass; see its entry in
 `91-suspected-defects-carryforward.md`.
 
+## REC
+
+Unlike the other areas above, this table is organized by **merged id**
+(`AS-REC-NNN`, in file order) rather than by source id — REC's two views
+don't align 1:1 (`AS-CODE-REC-*` is far more granular than `AS-DOC-REC-*`),
+so grouping by source id would split single facts across many rows. Every
+`AS-DOC-REC-*`/`AS-CODE-REC-*`/`AS-CODE-TXT-*` id still appears exactly
+once below (or in the defects/contradictions rows further down).
+
+| Merged | AS-DOC-REC | AS-CODE-REC / AS-CODE-TXT |
+|---|---|---|
+| AS-REC-001 | AS-DOC-REC-001 | — |
+| AS-REC-002 | AS-DOC-REC-002 | AS-CODE-REC-110 |
+| AS-REC-003 | AS-DOC-REC-003 | AS-CODE-REC-110 |
+| AS-REC-004 | AS-DOC-REC-004 | AS-CODE-REC-106, AS-CODE-REC-107 |
+| AS-REC-005 | AS-DOC-REC-005 | — |
+| AS-REC-006 | AS-DOC-REC-006 | — |
+| AS-REC-007 | AS-DOC-REC-007 | AS-CODE-REC-092 |
+| AS-REC-008 | AS-DOC-REC-008 | — |
+| AS-REC-009 | AS-DOC-REC-009 | AS-CODE-REC-064 |
+| AS-REC-010 | AS-DOC-REC-010 | — |
+| AS-REC-011 | — | AS-CODE-REC-108 |
+| AS-REC-012 | — | AS-CODE-REC-109 |
+| AS-REC-013 | AS-DOC-REC-011 | AS-CODE-REC-005 |
+| AS-REC-014 | AS-DOC-REC-014 | AS-CODE-REC-006 |
+| AS-REC-015 | AS-DOC-REC-012 | AS-CODE-REC-007 |
+| AS-REC-016 | AS-DOC-REC-013 | — |
+| AS-REC-017 | AS-DOC-REC-015 | AS-CODE-REC-086 |
+| AS-REC-018 | AS-DOC-REC-016 | AS-CODE-REC-059–063 |
+| AS-REC-019 | AS-DOC-REC-017 | — |
+| AS-REC-020 | AS-DOC-REC-018 | — |
+| AS-REC-021 | AS-DOC-REC-019 | AS-CODE-REC-066 |
+| AS-REC-022 | AS-DOC-REC-020 | — |
+| AS-REC-023 | AS-DOC-REC-021 | AS-CODE-REC-096, AS-CODE-REC-098 |
+| AS-REC-024 | AS-DOC-REC-022 | — |
+| AS-REC-025 | AS-DOC-REC-023 | AS-CODE-REC-057, AS-CODE-REC-058, AS-CODE-REC-097 |
+| AS-REC-026 | AS-DOC-REC-024 | AS-CODE-REC-097 |
+| AS-REC-027 | AS-DOC-REC-025 | AS-CODE-REC-008 |
+| AS-REC-028 | — | AS-CODE-REC-059 |
+| AS-REC-029 | AS-DOC-REC-026 | AS-CODE-REC-101 |
+| AS-REC-030 | AS-DOC-REC-027 | — |
+| AS-REC-031 | — | AS-CODE-REC-022, AS-CODE-REC-023 |
+| AS-REC-032 | — | AS-CODE-REC-024 |
+| AS-REC-033 | AS-DOC-REC-028 | AS-CODE-REC-016, AS-CODE-REC-021 |
+| AS-REC-034 | AS-DOC-REC-029 | AS-CODE-REC-017–020 |
+| AS-REC-035 | AS-DOC-REC-030 | AS-CODE-REC-017 |
+| AS-REC-036 | AS-DOC-REC-031 | AS-CODE-REC-018 |
+| AS-REC-037 | AS-DOC-REC-032, AS-DOC-REC-033 | AS-CODE-REC-013–015 |
+| AS-REC-038 | AS-DOC-REC-034, AS-DOC-REC-035 | — |
+| AS-REC-039 | AS-DOC-REC-036 | AS-CODE-REC-103 |
+| AS-REC-040 | AS-DOC-REC-037, AS-DOC-REC-038 | AS-CODE-REC-009–011 |
+| AS-REC-041 | AS-DOC-REC-039 | AS-CODE-REC-012 |
+| AS-REC-042 | AS-DOC-REC-040, AS-DOC-REC-041 | — |
+| AS-REC-043 | AS-DOC-REC-042 | — |
+| AS-REC-044 | AS-DOC-REC-043 | — |
+| AS-REC-045 | — | AS-CODE-REC-099, AS-CODE-REC-100 |
+| AS-REC-046 | AS-DOC-REC-044 | — |
+| AS-REC-047 | AS-DOC-REC-045 | — |
+| AS-REC-048 | AS-DOC-REC-046, AS-DOC-REC-047 | — |
+| AS-REC-049 | AS-DOC-REC-048 | AS-CODE-REC-068 |
+| AS-REC-050 | AS-DOC-REC-049 | — |
+| AS-REC-051 | — | AS-CODE-REC-068–071 |
+| AS-REC-052 | AS-DOC-REC-050, AS-DOC-REC-051 | AS-CODE-REC-072–074 |
+| AS-REC-053 | AS-DOC-REC-052, AS-DOC-REC-053 | AS-CODE-REC-075 |
+| AS-REC-054 | — | AS-CODE-REC-080 |
+| AS-REC-055 | AS-DOC-REC-054 | AS-CODE-REC-076, AS-CODE-REC-077 |
+| AS-REC-056 | AS-DOC-REC-055 | AS-CODE-TXT-014 (first form) |
+| AS-REC-057 | AS-DOC-REC-056, AS-DOC-REC-057 | AS-CODE-TXT-014 (second form) |
+| AS-REC-058 | AS-DOC-REC-058 | AS-CODE-TXT-014 (fallback) |
+| AS-REC-059 | AS-DOC-REC-059 | AS-CODE-TXT-015 |
+| AS-REC-060 | AS-DOC-REC-060 | AS-CODE-REC-025 |
+| AS-REC-061 | AS-DOC-REC-061 | AS-CODE-REC-026 |
+| AS-REC-062 | AS-DOC-REC-062, AS-DOC-REC-063 | AS-CODE-REC-001 |
+| AS-REC-063 | AS-DOC-REC-064 | AS-CODE-REC-002 |
+| AS-REC-064 | AS-DOC-REC-065 | AS-CODE-REC-003, AS-CODE-REC-004 |
+| AS-REC-065 | AS-DOC-REC-066 | — |
+| AS-REC-066 | AS-DOC-REC-067 | AS-CODE-REC-088 |
+| AS-REC-067 | AS-DOC-REC-068 | AS-CODE-REC-031 |
+| AS-REC-068 | AS-DOC-REC-069 | AS-CODE-REC-038 |
+| AS-REC-069 | AS-DOC-REC-070 | AS-CODE-REC-038 |
+| AS-REC-070 | AS-DOC-REC-071 | AS-CODE-REC-036, AS-CODE-REC-037 |
+| AS-REC-071 | AS-DOC-REC-072 | AS-CODE-REC-039, AS-CODE-REC-040 |
+| AS-REC-072 | AS-DOC-REC-073 | AS-CODE-REC-044 |
+| AS-REC-073 | AS-DOC-REC-074 | AS-CODE-REC-042 |
+| AS-REC-074 | AS-DOC-REC-090 | AS-CODE-REC-041, AS-CODE-REC-043 |
+| AS-REC-075 | AS-DOC-REC-075, AS-DOC-REC-076 | AS-CODE-REC-027–030 |
+| AS-REC-076 | AS-DOC-REC-077, AS-DOC-REC-078 | — |
+| AS-REC-077 | AS-DOC-REC-079 | AS-CODE-REC-032, AS-CODE-REC-033 |
+| AS-REC-078 | AS-DOC-REC-080, AS-DOC-REC-081 | AS-CODE-REC-034, AS-CODE-REC-035 |
+| AS-REC-079 | AS-DOC-REC-082 | — |
+| AS-REC-080 | AS-DOC-REC-083, AS-DOC-REC-087 | AS-CODE-REC-047 |
+| AS-REC-081 | AS-DOC-REC-084, AS-DOC-REC-085 | AS-CODE-REC-045, AS-CODE-REC-046 |
+| AS-REC-082 | AS-DOC-REC-086 | AS-CODE-REC-049 |
+| AS-REC-083 | AS-DOC-REC-088 | AS-CODE-REC-048, AS-CODE-REC-090 |
+| AS-REC-084 | AS-DOC-REC-083 | AS-CODE-REC-050 |
+| AS-REC-085 | — | AS-CODE-REC-051 |
+| AS-REC-086 | — | AS-CODE-REC-052 |
+| AS-REC-087 | — | AS-CODE-REC-053 |
+| AS-REC-088 | AS-DOC-REC-089 | AS-CODE-REC-054, AS-CODE-REC-055, AS-CODE-REC-056 |
+| AS-REC-089 | AS-DOC-REC-090 | — |
+| AS-REC-090 | AS-DOC-REC-092 | AS-CODE-REC-078, AS-CODE-REC-079, AS-CODE-REC-080, AS-CODE-REC-081, AS-CODE-REC-082 |
+| AS-REC-091 | — | AS-CODE-REC-083, AS-CODE-REC-084, AS-CODE-REC-085 |
+| AS-REC-092 | — | AS-CODE-REC-087, AS-CODE-REC-088, AS-CODE-REC-089 |
+| AS-REC-093 | AS-DOC-REC-093 | AS-CODE-REC-091 |
+| AS-REC-094 | — | AS-CODE-REC-093, AS-CODE-REC-094 |
+| AS-REC-095 | — | AS-CODE-REC-065 |
+| AS-REC-096 | — | AS-CODE-REC-066, AS-CODE-REC-067 |
+| AS-REC-097 | — | AS-CODE-REC-095 |
+| AS-REC-098 | — | AS-CODE-REC-101, AS-CODE-REC-102, AS-CODE-REC-104 |
+| AS-REC-099 | — | AS-CODE-REC-064, AS-CODE-REC-105 |
+| AS-REC-100 | AS-DOC-REC-091 | — |
+
+Contradictions and suspected defects (not covered by the table above):
+
+| AS-DOC-REC / AS-CODE-DEF-REC | Merged |
+|---|---|
+| AS-DOC-DEF-018 | `90` contradiction, resolved (release-folder definition — tests/code right) |
+| AS-DOC-DEF-019 | `90` contradiction, resolved (no override file exists — README/tests/code right) |
+| AS-DOC-DEF-020 | `90` contradiction, resolved (category list fixed, not configurable — README/code right) |
+| AS-DOC-DEF-021 | `90` contradiction, resolved (disc-folder pattern — tests/code right) |
+| AS-DOC-DEF-022 | `90` contradiction, resolved (track-number patterns — tests/code right) |
+| AS-DOC-DEF-023 | `90` contradiction, resolved (cue file/audio count — both right, at different levels) |
+| AS-DOC-DEF-024 | `90` contradiction, resolved (companion kind of `back.jpg` is `booklet` — tests/code right) |
+| AS-DOC-DEF-025 | `90` contradiction, resolved (empty-folder unrecognized level — both consistent once explained) |
+| AS-DOC-DEF-026 | `91` CF-REC-006 (suspected defect, carried forward) |
+| AS-DOC-DEF-027 | `91` CF-REC-014 (suspected defect, carried forward) |
+| AS-DOC-DEF-028 | `91` CF-REC-015 (suspected defect, carried forward) |
+| AS-DOC-DEF-029 | `91` CF-REC-016 (suspected defect, carried forward) |
+| AS-DOC-DEF-030 | `91` CF-REC-008 (suspected defect, carried forward) |
+| AS-DOC-DEF-031 | `91` CF-REC-012 (suspected defect, carried forward — merged with AS-CODE-DEF-REC-003) |
+| AS-DOC-DEF-032 | `91` CF-REC-005 (suspected defect, carried forward) |
+| AS-DOC-DEF-033 | `91` CF-REC-009 (suspected defect, carried forward) |
+| AS-DOC-DEF-034 | `91` CF-REC-013 (suspected defect, carried forward) |
+| AS-DOC-DEF-035 | `91` CF-REC-007 (suspected defect, carried forward) |
+| AS-DOC-DEF-036 | `91` CF-REC-017 (suspected defect, carried forward) |
+| AS-DOC-DEF-037 | `91` CF-REC-018 (suspected defect, carried forward) |
+| AS-DOC-DEF-038 | `90` contradiction, resolved (TagLibSharp — README/code right) |
+| AS-CODE-DEF-REC-001 | `91` CF-REC-001 (suspected defect, carried forward) |
+| AS-CODE-DEF-REC-002 | `91` CF-REC-002 (suspected defect, carried forward) |
+| AS-CODE-DEF-REC-003 | `91` CF-REC-012 (suspected defect, carried forward — merged with AS-DOC-DEF-031) |
+| AS-CODE-DEF-REC-004 | `91` CF-REC-004 (suspected defect, carried forward) |
+| AS-CODE-DEF-REC-005 | `91` CF-REC-003 (suspected defect, carried forward) |
+| AS-CODE-DEF-REC-006 | `91` CF-REC-010 (suspected defect, carried forward) |
+| AS-CODE-DEF-REC-007 | `91` CF-REC-011 (suspected defect, carried forward) |
+
+Note: `CF-TXT-003` (`AS-CODE-DEF-TXT-002`, mismatched bracket/paren pair in
+`ConvertFrom-ReshelfTrackFileName`) concerns this area's `AS-REC-057` but
+stays filed under TXT's own coverage table — see
+[02-text-and-naming.md](02-text-and-naming.md)'s scope note and
+`91-suspected-defects-carryforward.md`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -336,3 +487,4 @@ directly while re-reading the code during this merge pass; see its entry in
 | 0.3 | 2026-10-11 | Area TXT: 72 AS-DOC-TXT, 26 AS-CODE-TXT, 5 AS-DOC-DEF (3 contradictions + resolution of DEF-009 + DEF-012 carried forward), 2 AS-CODE-DEF suspected defects — all 105 source IDs covered by AS-TXT-001–074, the TXT contradiction entries, and CF-TXT-001–003. `AS-CODE-TXT-014`/`015` explicitly deferred to the REC merge pass rather than merged here. |
 | 0.4 | 2026-10-11 | Area SET: 47 AS-DOC-SET, 24 AS-CODE-SET, 3 AS-DOC-DEF contradictions, 2 AS-CODE-DEF suspected defects — all 76 source IDs covered by AS-SET-002–043 and AS-SET-048–050, the SET contradiction entries, and CF-SET-001–002. `AS-DOC-SET-001`/`045`–`047` redirected to the already-merged `AS-DAT-092`/`093` (DAT section rows updated accordingly); `AS-DOC-SET-044` deferred to the DSC merge pass. |
 | 0.5 | 2026-10-11 | Area SES: 23 AS-DOC-SES, 12 AS-CODE-SES, 1 AS-DOC-DEF contradiction, 1 AS-CODE-DEF suspected defect — all 37 source IDs covered by AS-SES-001–025 and the SES contradiction entry and CF-SES-001. One additional suspected defect (`CF-SES-002`) found directly while merging, with no original source id. |
+| 0.6 | 2026-10-11 | Area REC: 93 AS-DOC-REC, 110 AS-CODE-REC, plus the 2 AS-CODE-TXT items deferred here from the TXT merge, 9 AS-DOC-DEF contradictions, 12 AS-DOC-DEF + 7 AS-CODE-DEF-REC suspected defects — all 223 source IDs covered by AS-REC-001–100, the REC contradiction entries, and CF-REC-001–018 (one of which, CF-REC-012, merges one AS-DOC-DEF and one AS-CODE-DEF-REC id found to be the same underlying issue). This area's table is organized by merged id rather than source id; see the note above it. |
