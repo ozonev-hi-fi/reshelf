@@ -5,3 +5,4 @@ legacy/config/settings.json
 legacy/tests/ui/node_modules/
 legacy/tests/ui/test-results/
 legacy/tests/ui/.tmp/
+local/

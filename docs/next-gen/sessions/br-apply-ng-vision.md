@@ -1,6 +1,6 @@
 # Brief — Phase 4: apply the NG vision to the merged as-is BR
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-10
+Status: Draft | Version: 0.2 | Last updated: 2026-10-11
 
 Roadmap phase: 4 | Output: `docs/next-gen/br/to-be/`, status Agreed
 
@@ -16,12 +16,13 @@ This is where forward design decisions get made. Phase 3 ([br-as-is-merge.md](br
 - `docs/next-gen/br/as-is-merged/` (phase 3 output): the reconciled `AS-<AREA>-NNN` requirements and the suspected-defect carry-forward list.
 - The delta docs [01](../01-vision-scope.md)–[11](../11-paths-and-devices.md).
 - The decision log in [../inbox/raw-notes.md](../inbox/raw-notes.md).
+- [../00-roadmap.md](../00-roadmap.md#phase-4-input-real-world-library-maps): `local/maps/before.library-map.json` / `local/maps/after.library-map.json` and any `local/matches/<run-id>/match-report.json`, generated via [tools/library-mapper](../../../tools/library-mapper/docs/00-overview.md), if present. Real-world before/after test cases and already-flagged suspected mistakes — not committed, regenerate per [`02-generating-a-map.md`](../../../tools/library-mapper/docs/02-generating-a-map.md) if missing or stale.
 
 ## Steps
 
 1. For each area, take the reconciled `AS-<AREA>-NNN` requirements and find which NG delta requirements (01-11) touch it.
-2. For each suspected defect in `br/as-is-merged/91-suspected-defects-carryforward.md`, decide with the user: keep, fix, or drop. Use the `grilling` skill and ask in rounds.
-3. Apply the delta. Each relevant NG requirement replaces or extends the matching as-is requirement. Every to-be requirement links to its sources (`AS-<AREA>` / original `AS-DOC` / `AS-CODE` / NG IDs).
+2. For each suspected defect in `br/as-is-merged/91-suspected-defects-carryforward.md`, decide with the user: keep, fix, or drop. Use the `grilling` skill and ask in rounds. Where a `local/matches/<run-id>/match-report.json` exists, check it for a matching `discogsVerification` result (`wrong-release` / `typo-found` / `wrong-year`) — real evidence beats a guess.
+3. Apply the delta. Each relevant NG requirement replaces or extends the matching as-is requirement. Every to-be requirement links to its sources (`AS-<AREA>` / original `AS-DOC` / `AS-CODE` / NG IDs). For the matching-logic requirements (area 07 / MAT), use `local/maps/before.library-map.json` and `local/maps/after.library-map.json` real release pairs as concrete test cases, where available.
 4. Resolve the open points the delta docs left for the merge:
    - NG-LIB-003 (incremental rescan) in [07-library-and-quality.md](../07-library-and-quality.md);
    - the NG-APP open point (long-operation progress/cancel) in [02-app-shape.md](../02-app-shape.md);
@@ -43,3 +44,4 @@ This is where forward design decisions get made. Phase 3 ([br-as-is-merge.md](br
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | New brief for phase 4, split out of the former phase 3 brief (`br-merge.md`, now `br-as-is-merge.md`, scoped to reconciliation only). Covers the forward design decisions: defect disposition, NG delta application, open-point resolution, to-be BR, archiving the legacy as-is docs. |
+| 0.2 | 2026-10-11 | Added `tools/library-mapper/` output (`local/maps/`, `local/matches/`) to "Read first" and to steps 2–3: real-world test cases for area 07/MAT, real evidence for suspected-defect disposition. |

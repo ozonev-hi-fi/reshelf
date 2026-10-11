@@ -1,0 +1,9 @@
+{
+  "beforeRoot": "",
+  "afterRoot": "",
+  "dataHomeRoot": "local/.data",
+  "discogsTokenEnvVar": "DISCOGS_ACCESS_TOKEN",
+  "rateLimitPerMinute": 55,
+  "cacheTtlDays": 30,
+  "taglibSharpPath": ""
+}

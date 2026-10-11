@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reshelf.local/tools/library-mapper/schemas/match-report.schema.json",
+  "title": "Reshelf library-mapper match-report document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "generatedAtUtc",
+    "beforeMapPath",
+    "afterMapPath",
+    "matches",
+    "ambiguousGroups",
+    "nearMissCandidates",
+    "unmatchedBefore",
+    "unmatchedAfter"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "generatedAtUtc": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$" },
+    "beforeMapPath": { "type": "string", "minLength": 1 },
+    "afterMapPath": { "type": "string", "minLength": 1 },
+    "matches": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/matchPair" }
+    },
+    "ambiguousGroups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ambiguousGroup" }
+    },
+    "nearMissCandidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nearMissCandidate" }
+    },
+    "unmatchedBefore": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/releaseRef" }
+    },
+    "unmatchedAfter": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/releaseRef" }
+    }
+  },
+  "$defs": {
+    "releaseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artistName", "recognizedTitle", "recognizedYear", "sourceFolderPath", "stableKey"],
+      "properties": {
+        "artistName": { "type": "string", "minLength": 1 },
+        "recognizedTitle": { "type": "string", "minLength": 1 },
+        "recognizedYear": {
+          "anyOf": [
+            { "type": "integer", "minimum": 1900, "maximum": 2100 },
+            { "type": "null" }
+          ]
+        },
+        "sourceFolderPath": { "type": "string", "minLength": 1 },
+        "stableKey": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+      }
+    },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trackCountBefore",
+        "trackCountAfter",
+        "discFolderCountBefore",
+        "discFolderCountAfter",
+        "comparedTrackCount",
+        "matchedWithinToleranceCount",
+        "isStrongMatch",
+        "notes"
+      ],
+      "properties": {
+        "trackCountBefore": { "type": "integer", "minimum": 0 },
+        "trackCountAfter": { "type": "integer", "minimum": 0 },
+        "discFolderCountBefore": { "type": "integer", "minimum": 1 },
+        "discFolderCountAfter": { "type": "integer", "minimum": 1 },
+        "comparedTrackCount": { "type": "integer", "minimum": 0 },
+        "matchedWithinToleranceCount": { "type": "integer", "minimum": 0 },
+        "isStrongMatch": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "discogsVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempted", "source", "discogsReleaseId", "verdict", "mismatches", "notes"],
+      "properties": {
+        "attempted": { "type": "boolean" },
+        "source": {
+          "type": "string",
+          "enum": ["legacy-session-artifact", "fresh-discogs-search", "skipped"]
+        },
+        "discogsReleaseId": { "type": ["string", "null"] },
+        "verdict": {
+          "type": "string",
+          "enum": ["match-confirmed", "wrong-release", "typo-found", "wrong-year", "not-checked"]
+        },
+        "mismatches": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    },
+    "matchPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after", "fingerprint", "suspiciousSignals", "discogsVerification", "overallVerdict"],
+      "properties": {
+        "before": { "$ref": "#/$defs/releaseRef" },
+        "after": { "$ref": "#/$defs/releaseRef" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "suspiciousSignals": { "type": "array", "items": { "type": "string" } },
+        "discogsVerification": { "$ref": "#/$defs/discogsVerification" },
+        "overallVerdict": {
+          "type": "string",
+          "enum": ["trusted-clean-pair", "needs-human-attention", "rejected"]
+        }
+      }
+    },
+    "ambiguousGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "candidates", "reason"],
+      "properties": {
+        "before": { "$ref": "#/$defs/releaseRef" },
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/releaseRef" }
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nearMissCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after", "missingOrExtraTracks", "notes"],
+      "properties": {
+        "before": { "$ref": "#/$defs/releaseRef" },
+        "after": { "$ref": "#/$defs/releaseRef" },
+        "missingOrExtraTracks": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

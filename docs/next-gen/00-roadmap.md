@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.7 | Last updated: 2026-10-10
+Status: Draft | Version: 0.8 | Last updated: 2026-10-11
 
 ## Goal
 
@@ -26,6 +26,30 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | 4 | Apply the NG vision to the merged as-is BR | [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) | `br/to-be/`: to-be BR (Agreed); every suspected defect decided keep/fix/drop; NG delta 01-11 applied; NG open points resolved; legacy as-is docs archived | Not started |
 | 5 | Technical specification + ADRs | [tech-spec.md](sessions/tech-spec.md) | Tech spec (Agreed), ADRs | Not started |
 | 6 | Task breakdown | defined at the end of phase 5 | Implementation tasks and milestones | Not started |
+
+### Phase 4 input: real-world library maps
+
+[`tools/library-mapper/`](../../tools/library-mapper/docs/00-overview.md) generates a structured
+map of a real music library (tags, companion files, recognition flags) without ever writing to
+the scanned storage. Two maps exist locally — `before` (not organized by legacy) and `after`
+(organized by legacy) — plus, once the matching/verification procedure has been run over them, a
+match report pairing before/after releases. All of it lives under `local/` at the repo root
+(gitignored, never committed): `local/maps/before.library-map.json`,
+`local/maps/after.library-map.json`, `local/matches/<run-id>/match-report.json`.
+
+Phase 4 must use these, where present, as real-world evidence:
+- as test cases for the MAT / area 07 matching logic (`br/as-is-merged/07-library-and-quality.md`
+  once merged) — a real "before" folder messy enough to need manual help, paired with its correct
+  "after" release, is exactly the kind of case next-gen's matching should be checked against;
+- as corroborating evidence when deciding a suspected defect's disposition (keep/fix/drop) —
+  `discogsVerification` in the match report can confirm a wrong match, a typo, or a wrong year that
+  was approved without being noticed.
+
+If the maps are missing or stale, regenerate per
+[`tools/library-mapper/docs/02-generating-a-map.md`](../../tools/library-mapper/docs/02-generating-a-map.md)
+before relying on them. The drive letters a contributor's library lives under (e.g. `D:`, `F:`)
+are not fixed — they depend on which USB port a portable drive is connected to, and must be
+re-confirmed each time, not assumed from an earlier session.
 
 ### Exit criteria
 
@@ -59,3 +83,4 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | 0.5 | 2026-10-10 | Phase 2 done: as-is BR from code in `br/as-is-from-code/`. |
 | 0.6 | 2026-10-10 | Phase 3 split into "merge as-is" (factual reconciliation, phase 3) and "apply NG vision" (forward decisions, defect disposition, to-be BR, now phase 4). Tech spec and task breakdown renumbered to phases 5 and 6. |
 | 0.7 | 2026-10-10 | Phase 3 status corrected to "In progress": `br/as-is-merged/` has real, committed partial work (areas 00/01 done, 3 trackers in progress). |
+| 0.8 | 2026-10-11 | Added "Phase 4 input: real-world library maps" — `tools/library-mapper/` output under `local/` must be used as real-world test cases for MAT/area 07 and for suspected-defect disposition. |

@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.6 | Last updated: 2026-10-10
+Status: Draft | Version: 0.7 | Last updated: 2026-10-11
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -10,7 +10,7 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 
 | File | Prefix | Topic | Status | Version |
 |---|---|---|---|---|
-| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.7 |
+| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.8 |
 | [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.2 |
 | [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.1 |
 | [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.2 |
@@ -75,3 +75,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.4 | 2026-10-07 | Index row for doc 08 bumped to 0.3 (NG-CFG-013, WavPack `.wv` support, D65). |
 | 0.5 | 2026-10-10 | Index row for `br/as-is-from-code/` (Phase 2 done). |
 | 0.6 | 2026-10-10 | Index rows fixed: 00-roadmap.md (0.7), br/as-is-from-docs/ (0.2), br/as-is-from-code/ (0.2), inbox/raw-notes.md (0.5, D1–D66); added missing index row for br/as-is-merged/. |
+| 0.7 | 2026-10-11 | Index row for 00-roadmap.md bumped to 0.8 (Phase 4 input: real-world library maps from `tools/library-mapper/`). |
