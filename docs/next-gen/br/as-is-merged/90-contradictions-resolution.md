@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.6 | Last updated: 2026-10-11
+Status: Draft | Version: 0.7 | Last updated: 2026-10-11
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -338,6 +338,47 @@ Plan 05's "a deviation from the user's mp3tag decision — please confirm" is
 a stale open question; the decision was made and implemented. No change to
 the merged content beyond stating the current behavior in `AS-REC-088`.
 
+## DSC
+
+### Carried from phase 1: `AS-DOC-DEF-039` (plan lists two token sources; tests/README/code have three)
+
+Re-read `legacy/scripts/common/Reshelf.Discogs.psm1:12-70` (`Get-DiscogsToken`):
+the function checks the environment variable, then `.env`, then
+`settings.json`'s `discogsTokenEncrypted` — three sources, matching the
+tests and the README's settings table, not plan 02's two. **Confirms phase
+1's resolution: tests/README/code are right.** Merged as `AS-DSC-002`.
+
+### Carried from phase 1: `AS-DOC-DEF-041` (the plan endpoint list is incomplete)
+
+Re-confirmed: the Discogs client itself (`Invoke-DiscogsRequest`) is generic
+over the path, so the endpoint catalog lives at the matching module's call
+sites, not in this module. The fuller list the matching tests exercise
+(`/database/search` with `type=master`/`type=artist`, `/masters/{id}`,
+`/masters/{id}/versions`, `/artists/{id}`, `/artists/{id}/releases`) was
+already folded into `AS-DOC-DSC-007` in phase 1. **Confirms phase 1's
+resolution: tests are right, plan 02's list is incomplete.** No change
+beyond restating it in `AS-DSC-007`.
+
+### New, found while merging: the `.env` inline-comment rule is narrower in the phase-1 text than in the code
+
+`AS-DOC-DSC-005` describes the unquoted-value rule as "removes an inline
+comment (from ` #` to the end of the line) and the space before it" — a
+precise description of the one test case available (`abc123 # personal
+token`), but not of the actual mechanism.
+
+Re-read `Reshelf.Discogs.psm1:50-56`: for an unquoted value, the code finds
+the **first** `#` anywhere in the raw value (`$rawValue.IndexOf('#')`, no
+check for a preceding space), substrings up to it, and trims trailing
+whitespace. `AS-CODE-DSC-003`'s "any trailing `# comment` stripped" already
+described this correctly, in looser words.
+
+**Resolved: AS-CODE-DSC-003 is factually more precise.** The rule is "cut at
+the first `#`, then trim", not "cut at a space-then-`#` sequence". The
+difference is observable for an unquoted value containing a `#` with no
+preceding space (e.g. `abc#123`), which the phase-1 wording would predict
+stays whole but the code actually still cuts. No test exercises this exact
+input either way. Merged with corrected wording in `AS-DSC-005`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -348,3 +389,4 @@ the merged content beyond stating the current behavior in `AS-REC-088`.
 | 0.4 | 2026-10-11 | Area SET: three phase-1 contradictions (`AS-DOC-DEF-014`–`016`) re-verified against the code and confirmed already correctly resolved. One new contradiction found in already-merged DAT content (`AS-CODE-DAT-024` vs `AS-DOC-SET-047` — `Protect-ReshelfSecret` does not actually accept an empty string) and corrected retroactively in `01-data-and-storage.md`. |
 | 0.5 | 2026-10-11 | Area SES: one phase-1 contradiction (`AS-DOC-DEF-017`) re-verified against the code and confirmed already correctly resolved; its related design consequence left cross-referenced to the not-yet-merged CLI area (`AS-DOC-DEF-104`). |
 | 0.6 | 2026-10-11 | Area REC: nine phase-1 contradictions (`AS-DOC-DEF-018`–`025`, `038`) re-verified directly against `Reshelf.Recognition.psm1`, all confirmed already correctly resolved (tests/code right in every case except `AS-DOC-DEF-023` and `AS-DOC-DEF-025`, where plan and tests/code turned out both right at different levels once the mechanism was traced). |
+| 0.7 | 2026-10-11 | Area DSC: two phase-1 contradictions (`AS-DOC-DEF-039`, `041`) re-verified against `Reshelf.Discogs.psm1` and confirmed already correctly resolved. One new contradiction found while merging: the `.env` inline-comment rule is a plain "cut at the first `#`" in the code, narrower/different from phase 1's "space then `#`" wording (`AS-DSC-005`, corrected). |

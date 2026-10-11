@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.5 | Last updated: 2026-10-11
+Status: Draft | Version: 0.7 | Last updated: 2026-10-11
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -478,6 +478,50 @@ stays filed under TXT's own coverage table — see
 [02-text-and-naming.md](02-text-and-naming.md)'s scope note and
 `91-suspected-defects-carryforward.md`.
 
+## DSC
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-DSC-001 | — | AS-DSC-001 |
+| AS-DOC-DSC-002 | AS-CODE-DSC-002, AS-CODE-DSC-003, AS-CODE-DSC-004 | AS-DSC-002 (also folds in `AS-DOC-SET-044`) |
+| AS-DOC-DSC-003 | AS-CODE-DSC-001 | AS-DSC-003 |
+| AS-DOC-DSC-004 | AS-CODE-DSC-003 | AS-DSC-004 |
+| AS-DOC-DSC-005 | AS-CODE-DSC-003 | AS-DSC-005 (`90` contradiction, resolved — wording corrected) |
+| AS-DOC-DSC-006 | AS-CODE-DSC-005 | AS-DSC-006 (→ also `91` CF-DSC-004) |
+| AS-DOC-DSC-007 | AS-CODE-DSC-024 | AS-DSC-007 (`90` contradiction, resolved — AS-DOC-DEF-041) |
+| AS-DOC-DSC-008 | AS-CODE-DSC-025 | AS-DSC-008 |
+| AS-DOC-DSC-009 | AS-CODE-DSC-006 | AS-DSC-009 |
+| AS-DOC-DSC-010 | AS-CODE-DSC-006 | AS-DSC-010 |
+| AS-DOC-DSC-011 | AS-CODE-DSC-023, AS-CODE-DSC-024 | AS-DSC-011 |
+| AS-DOC-DSC-012 | AS-CODE-DSC-029 | AS-DSC-012 |
+| AS-DOC-DSC-013 | AS-CODE-DSC-026, AS-CODE-DSC-027, AS-CODE-DSC-030, AS-CODE-DSC-031 | AS-DSC-013 (→ also `91` CF-DSC-001) |
+| AS-DOC-DSC-014 | AS-CODE-DSC-020, AS-CODE-DSC-021, AS-CODE-DSC-022, AS-CODE-DSC-028 | AS-DSC-014 |
+| AS-DOC-DSC-015 | AS-CODE-DSC-028 | AS-DSC-015 (→ also `91` CF-DSC-001) |
+| AS-DOC-DSC-016 | AS-CODE-DSC-015 | AS-DSC-016 |
+| AS-DOC-DSC-017 | AS-CODE-DSC-016 | AS-DSC-017 (→ also `91` CF-DSC-003) |
+| AS-DOC-DSC-018 | AS-CODE-DSC-017, AS-CODE-DSC-018, AS-CODE-DSC-019 | AS-DSC-018 |
+| AS-DOC-DSC-019 | AS-CODE-DSC-007, AS-CODE-DSC-008, AS-CODE-DSC-032 | AS-DSC-019 |
+| AS-DOC-DSC-020 | AS-CODE-DSC-014 | AS-DSC-020 |
+| AS-DOC-DSC-021 | AS-CODE-DSC-009, AS-CODE-DSC-010 | AS-DSC-021 |
+| AS-DOC-DSC-022 | AS-CODE-DSC-013 | AS-DSC-022 |
+| AS-DOC-DSC-023 | AS-CODE-DSC-010 | AS-DSC-023 |
+| AS-DOC-DSC-024 | AS-CODE-DSC-011 | AS-DSC-024 |
+| AS-DOC-DSC-025 | — | AS-DSC-025 |
+| AS-DOC-DSC-026 | AS-CODE-DSC-012 | AS-DSC-026 |
+| AS-DOC-SET-044 | — | AS-DSC-002 (deferred here from SET — see `03-settings-and-secrets.md` scope note) |
+| AS-DOC-DEF-039 | — | `90` contradiction, resolved (plan's two sources vs tests/README/code's three — tests/code right) |
+| AS-DOC-DEF-040 | — | `91` CF-DSC-004 (suspected defect, carried forward; mechanism now explained, no gap found) |
+| AS-DOC-DEF-041 | — | `90` contradiction, resolved (plan's endpoint list incomplete — tests right) |
+| AS-DOC-DEF-042 | — | `91` CF-DSC-003 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-DSC-001 | `91` CF-DSC-001 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-DSC-002 | `91` CF-DSC-002 (suspected defect, carried forward) |
+
+Note: `AS-DOC-DEF-058` (Area: PRP, related to `AS-DOC-DSC-019`/`020`) and
+`AS-DOC-DEF-111` (Cross-cutting, related to `AS-DOC-DSC-002`) are not
+Area: DSC — they are left for the PRP merge pass and whichever pass owns
+Cross-cutting, respectively; see the note under DAT in
+`90-contradictions-resolution.md` for the Cross-cutting precedent.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -488,3 +532,4 @@ stays filed under TXT's own coverage table — see
 | 0.4 | 2026-10-11 | Area SET: 47 AS-DOC-SET, 24 AS-CODE-SET, 3 AS-DOC-DEF contradictions, 2 AS-CODE-DEF suspected defects — all 76 source IDs covered by AS-SET-002–043 and AS-SET-048–050, the SET contradiction entries, and CF-SET-001–002. `AS-DOC-SET-001`/`045`–`047` redirected to the already-merged `AS-DAT-092`/`093` (DAT section rows updated accordingly); `AS-DOC-SET-044` deferred to the DSC merge pass. |
 | 0.5 | 2026-10-11 | Area SES: 23 AS-DOC-SES, 12 AS-CODE-SES, 1 AS-DOC-DEF contradiction, 1 AS-CODE-DEF suspected defect — all 37 source IDs covered by AS-SES-001–025 and the SES contradiction entry and CF-SES-001. One additional suspected defect (`CF-SES-002`) found directly while merging, with no original source id. |
 | 0.6 | 2026-10-11 | Area REC: 93 AS-DOC-REC, 110 AS-CODE-REC, plus the 2 AS-CODE-TXT items deferred here from the TXT merge, 9 AS-DOC-DEF contradictions, 12 AS-DOC-DEF + 7 AS-CODE-DEF-REC suspected defects — all 223 source IDs covered by AS-REC-001–100, the REC contradiction entries, and CF-REC-001–018 (one of which, CF-REC-012, merges one AS-DOC-DEF and one AS-CODE-DEF-REC id found to be the same underlying issue). This area's table is organized by merged id rather than source id; see the note above it. |
+| 0.7 | 2026-10-11 | Area DSC: 26 AS-DOC-DSC, 32 AS-CODE-DSC, plus AS-DOC-SET-044 deferred here from SET, 2 AS-DOC-DEF contradictions, 2 AS-DOC-DEF + 2 AS-CODE-DEF-DSC suspected defects — all 63 source IDs covered by AS-DSC-001–026, the DSC contradiction entries, and CF-DSC-001–004. AS-DOC-DEF-058 and AS-DOC-DEF-111 (PRP/Cross-cutting, each naming a DSC id as related) noted as not DSC-owned. |

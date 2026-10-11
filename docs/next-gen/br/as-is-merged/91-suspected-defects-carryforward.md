@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.5 | Last updated: 2026-10-11
+Status: Draft | Version: 0.7 | Last updated: 2026-10-11
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -385,6 +385,54 @@ pair in `ConvertFrom-ReshelfTrackFileName` is still accepted as a track
 number) concerns this area's `AS-REC-057`, but stays filed under TXT — see
 the scope note in [02-text-and-naming.md](02-text-and-naming.md).
 
+## DSC
+
+### CF-DSC-001 — The third element of both retry-backoff arrays is unreachable
+Sources: `AS-CODE-DEF-DSC-001`. No `AS-DOC` counterpart (the docs-and-tests
+view only shows the backoff waits that actually happen, not the unused
+array element).
+
+With `$maxAttempts = 3`, the "attempt equals max attempts" check throws
+before a 3rd attempt ever reaches the backoff/sleep code, so only indices
+`0` and `1` of `$backoffSeconds = @(1, 2, 4)` and
+`$rateLimitBackoffSeconds = @(20, 40, 60)` are ever used (`AS-DSC-013`,
+`AS-DSC-015`). The `4` and `60` values are dead configuration.
+
+### CF-DSC-002 — The low-remaining throttle signal can be silently dropped
+Sources: `AS-CODE-DEF-DSC-002`. No `AS-DOC` counterpart (the docs-and-tests
+view did not exercise the timestamp-window-empty edge case).
+
+`Wait-DiscogsRateLimit` (`AS-DSC-018`) resets the low-remaining flag to
+`false` unconditionally on every call, even when the throttle condition
+itself was false because the tracked timestamp list was empty (the throttle
+needs both "at/over ceiling" and "at least one tracked timestamp"). A 429 or
+low-remaining signal received just before the timestamp window empties out
+(e.g. after a long idle gap) is discarded with zero delay enforced, instead
+of carrying over to the next request.
+
+### CF-DSC-003 — A rate limit of 0 is not "no limit" — it throttles every request after the first
+Sources: `AS-DOC-DEF-042`; mechanism explained by `AS-CODE-DSC-016`.
+
+The docs-and-tests view only showed that `RateLimitPerMinute = 0` doesn't
+crash, without saying what 0 means. Re-reading the code (`AS-DSC-017`)
+answers that: with a ceiling of 0, every request after the very first one in
+a process sleeps first (potentially up to 60 seconds), because the throttle
+condition `count >= ceiling` is true as soon as one timestamp is tracked. A
+user setting 0 expecting "unlimited" would get close to the opposite.
+
+### CF-DSC-004 — Does the "no token" error name all three sources, including a custom env var name?
+Sources: `AS-DOC-DEF-040`; mechanism explained by `AS-CODE-DSC-005`.
+
+The docs-and-tests view only asserted the error message contains
+`DISCOGS_ACCESS_TOKEN`, leaving open whether it also names the encrypted
+settings source or a custom `discogsTokenEnvVar` name. Re-reading the code
+(`AS-DSC-006`) answers that: the thrown message names the actually-resolved
+variable name (so a custom name appears correctly, not the literal
+`DISCOGS_ACCESS_TOKEN`), the `.env` path, and the `settings.json` path, and
+suggests `Reshelf.ps1 settings set-token`. No gap was found in what the
+message names — carried forward only because phase 3 does not itself decide
+to close out a phase-1 suspected defect.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -395,3 +443,4 @@ the scope note in [02-text-and-naming.md](02-text-and-naming.md).
 | 0.4 | 2026-10-11 | Area SET: 2 items carried forward (`CF-SET-001`–`002`); both `AS-CODE-DEF-*` only, no `AS-DOC-DEF-*` suspected defects exist for this area (only the 3 contradictions resolved in `90-contradictions-resolution.md`). |
 | 0.5 | 2026-10-11 | Area SES: 2 items carried forward (`CF-SES-001`–`002`). `CF-SES-001` is `AS-CODE-DEF-*` only (no `AS-DOC-DEF-*` suspected defect for this area — only the one contradiction resolved in `90-contradictions-resolution.md`). `CF-SES-002` is a new suspected defect found directly while merging, with no original phase-1/phase-2 source id. |
 | 0.6 | 2026-10-11 | Area REC: 18 items carried forward (`CF-REC-001`–`018`), covering all 7 `AS-CODE-DEF-REC-*` entries and all 12 REC-area `AS-DOC-DEF-*` suspected defects (`AS-DOC-DEF-026`–`037`). `CF-REC-012` merges `AS-DOC-DEF-031` and `AS-CODE-DEF-REC-003` — the docs-and-tests view spotted the same recognition-confidence inconsistency from the golden file's numbers that the code-only view explains by mechanism. `CF-TXT-003` (filed under TXT) is cross-referenced as concerning this area's `AS-REC-057`. |
+| 0.7 | 2026-10-11 | Area DSC: 4 items carried forward (`CF-DSC-001`–`004`). Two are `AS-CODE-DEF-DSC-*` only (`001`, `002`). Two are phase-1 `AS-DOC-DEF-*` items (`040`, `042`) whose mechanism is now fully explained by the code — `CF-DSC-003` (rate limit 0) looks like a real surprising-behavior candidate, `CF-DSC-004` (error message naming) found no actual gap — but both stay undecided here per the phase 3/phase 4 split. |
