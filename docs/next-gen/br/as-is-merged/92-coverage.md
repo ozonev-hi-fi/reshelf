@@ -291,6 +291,42 @@ for whichever pass owns Cross-cutting; see the note in
 | — | AS-CODE-DEF-005 (SET-001) | `91` CF-SET-001 (suspected defect, carried forward) |
 | — | AS-CODE-DEF-006 (SET-002) | `91` CF-SET-002 (suspected defect, carried forward) |
 
+## SES
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-SES-001 | — | AS-SES-001 |
+| AS-DOC-SES-002 | AS-CODE-SES-001 | AS-SES-002 |
+| AS-DOC-SES-003 | AS-CODE-SES-001 | AS-SES-003 |
+| AS-DOC-SES-004 | AS-CODE-SES-001 | AS-SES-004 |
+| AS-DOC-SES-005 | AS-CODE-SES-001 | AS-SES-005 |
+| AS-DOC-SES-006 | AS-CODE-SES-002, AS-CODE-SES-003 | AS-SES-006 |
+| AS-DOC-SES-007 | AS-CODE-SES-004, AS-CODE-SES-005 | AS-SES-007 |
+| AS-DOC-SES-008 | — | AS-SES-008 |
+| AS-DOC-SES-009 | AS-CODE-SES-005, AS-CODE-SES-010 | AS-SES-009 (`90` contradiction, resolved — AS-DOC-DEF-017) |
+| AS-DOC-SES-010 | AS-CODE-SES-011, AS-CODE-SES-012 | AS-SES-010 |
+| AS-DOC-SES-011 | AS-CODE-SES-009 | AS-SES-011 |
+| AS-DOC-SES-012 | AS-CODE-SES-009 | AS-SES-012 |
+| AS-DOC-SES-013 | AS-CODE-SES-009 | AS-SES-013 |
+| AS-DOC-SES-014 | AS-CODE-SES-009 | AS-SES-014 |
+| AS-DOC-SES-015 | AS-CODE-SES-009 | AS-SES-015 |
+| AS-DOC-SES-016 | AS-CODE-SES-009 | AS-SES-016 |
+| AS-DOC-SES-017 | AS-CODE-SES-007 | AS-SES-017 |
+| AS-DOC-SES-018 | AS-CODE-SES-008 | AS-SES-018 |
+| AS-DOC-SES-019 | AS-CODE-SES-007 | AS-SES-019 |
+| AS-DOC-SES-020 | AS-CODE-SES-007 | AS-SES-020 |
+| AS-DOC-SES-021 | AS-CODE-SES-007 | AS-SES-021 |
+| AS-DOC-SES-022 | AS-CODE-SES-006 | AS-SES-022 |
+| AS-DOC-SES-023 | — | AS-SES-023 |
+| — | AS-CODE-SES-009 | AS-SES-024 |
+| — | AS-CODE-SES-007 | AS-SES-025 (→ also `91` CF-SES-002) |
+| AS-DOC-DEF-017 | — | `90` contradiction, resolved (plan vs tests/code — tests/code right; no merged-file change beyond stating it in AS-SES-009) |
+| — | AS-CODE-DEF-007 (SES-001) | `91` CF-SES-001 (suspected defect, carried forward) |
+
+Note: `CF-SES-002` has no original `AS-DOC`/`AS-CODE` source id — found
+directly while re-reading the code during this merge pass; see its entry in
+`91-suspected-defects-carryforward.md`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -299,3 +335,4 @@ for whichever pass owns Cross-cutting; see the note in
 | 0.2 | 2026-10-10 | Area DAT: 87 AS-DOC-DAT, 38 AS-CODE-DAT, 4 AS-DOC-DEF contradictions, 3 AS-DOC-DEF + 2 AS-CODE-DEF suspected defects — all 134 source IDs covered by AS-DAT-001–097, the DAT contradiction note, and CF-DAT-001–005. |
 | 0.3 | 2026-10-11 | Area TXT: 72 AS-DOC-TXT, 26 AS-CODE-TXT, 5 AS-DOC-DEF (3 contradictions + resolution of DEF-009 + DEF-012 carried forward), 2 AS-CODE-DEF suspected defects — all 105 source IDs covered by AS-TXT-001–074, the TXT contradiction entries, and CF-TXT-001–003. `AS-CODE-TXT-014`/`015` explicitly deferred to the REC merge pass rather than merged here. |
 | 0.4 | 2026-10-11 | Area SET: 47 AS-DOC-SET, 24 AS-CODE-SET, 3 AS-DOC-DEF contradictions, 2 AS-CODE-DEF suspected defects — all 76 source IDs covered by AS-SET-002–043 and AS-SET-048–050, the SET contradiction entries, and CF-SET-001–002. `AS-DOC-SET-001`/`045`–`047` redirected to the already-merged `AS-DAT-092`/`093` (DAT section rows updated accordingly); `AS-DOC-SET-044` deferred to the DSC merge pass. |
+| 0.5 | 2026-10-11 | Area SES: 23 AS-DOC-SES, 12 AS-CODE-SES, 1 AS-DOC-DEF contradiction, 1 AS-CODE-DEF suspected defect — all 37 source IDs covered by AS-SES-001–025 and the SES contradiction entry and CF-SES-001. One additional suspected defect (`CF-SES-002`) found directly while merging, with no original source id. |

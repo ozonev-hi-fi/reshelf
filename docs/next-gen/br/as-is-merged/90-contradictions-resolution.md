@@ -204,6 +204,26 @@ behavioral defect. No change to the merged content beyond this note.
 See the entry under **DAT** above — discovered while merging this area, but
 the correction applies to the already-merged `AS-DAT-092`.
 
+## SES
+
+### Carried from phase 1: `AS-DOC-DEF-017` (a session is "recognized" from the moment it is created, not when recognition finishes)
+
+Re-read `legacy/scripts/common/Reshelf.Settings.psm1:253-307`
+(`New-ReshelfSession`): `stage = 'recognized'` is hardcoded in the record
+built right after the session directory is allocated (AS-SES-006/007) —
+there is no later step that runs recognition first and only then sets the
+stage. Confirms phase 1's resolution: the tests and the area file are right;
+plan 04's "once step 5 finishes" is stale.
+
+The design consequence plan 04's wording was dancing around — a session
+whose recognition step then fails or is interrupted is stage-indistinguishable
+from one that recognized cleanly, since there is no "recognition
+running"/"recognition failed" stage — is already captured as `AS-DOC-DEF-104`
+(Area: CLI, not yet merged); it is not duplicated here, since it is not a
+SES-owned fact to resolve, only a related suspected defect for the CLI merge
+pass to carry forward. No change to the merged `AS-SES-*` content beyond
+stating the resolved fact plainly in `AS-SES-009`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -212,3 +232,4 @@ the correction applies to the already-merged `AS-DAT-092`.
 | 0.2 | 2026-10-10 | Area DAT: one new contradiction found and resolved (`AS-DAT-005`, data-home writability — AS-CODE right). Four phase-1 contradictions (`AS-DOC-DEF-002`–`005`) re-verified against the actual schema files and confirmed already correctly resolved. `AS-DOC-DEF-111` noted as Cross-cutting, not DAT-owned. |
 | 0.3 | 2026-10-11 | Area TXT: one new contradiction found and resolved (`AS-DOC-DEF-009`, MANIFESTO "SP" vs the `recognizedReleaseType` enum — both right, at different levels). Three phase-1 contradictions (`AS-DOC-DEF-010`, `011`, `013`) re-verified against the code-only view and schema/DAT cross-references, confirmed already correctly resolved. |
 | 0.4 | 2026-10-11 | Area SET: three phase-1 contradictions (`AS-DOC-DEF-014`–`016`) re-verified against the code and confirmed already correctly resolved. One new contradiction found in already-merged DAT content (`AS-CODE-DAT-024` vs `AS-DOC-SET-047` — `Protect-ReshelfSecret` does not actually accept an empty string) and corrected retroactively in `01-data-and-storage.md`. |
+| 0.5 | 2026-10-11 | Area SES: one phase-1 contradiction (`AS-DOC-DEF-017`) re-verified against the code and confirmed already correctly resolved; its related design consequence left cross-referenced to the not-yet-merged CLI area (`AS-DOC-DEF-104`). |

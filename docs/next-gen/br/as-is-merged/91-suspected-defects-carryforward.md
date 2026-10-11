@@ -147,6 +147,38 @@ root, copy mode, and a first token prompt, `AS-SET-042`) before asking for
 the token a second time. This coupling is easy to trigger by accident and is
 not obviously intentional.
 
+## SES
+
+### CF-SES-001 — No validation that a stage change is a legal transition from the current stage
+Sources: `AS-CODE-DEF-007` (`AS-CODE-DEF-SES-001` in the original per-area
+numbering). No `AS-DOC` counterpart (the docs-and-tests view only states the
+five allowed values, `AS-SES-009`, without flagging the missing order check
+as a defect).
+
+`Set-ReshelfSessionStage` only checks that the requested `Stage` is one of
+the five known literal values (`AS-SES-009`). It does not look at the
+session's current stage at all, so any of the five can be set on top of any
+current stage — including moving an `applied` session back to `recognized`.
+The workflow implied by `Resume-ReshelfSession`'s stage-to-command mapping
+(`AS-SES-012`–`016`) is clearly sequential; nothing enforces that sequence on
+write.
+
+### CF-SES-002 — Listing fails entirely on one malformed session.json, instead of skipping it like a missing one
+Sources: found while merging this area, re-reading `Get-ReshelfSession`'s
+listing branch (`legacy/scripts/common/Reshelf.Settings.psm1:325-356`). No
+`AS-DOC` or `AS-CODE` source names this combination directly —
+`AS-CODE-SES-006`/`007` each describe one half of it in isolation; untested
+by the Pester suite (its schema-validation test, behind `AS-SES-022`, only
+exercises lookup by id).
+
+When listing all sessions, a subfolder with no `session.json` is silently
+skipped (`AS-SES-025`), but a subfolder whose `session.json` exists and
+fails schema validation is not — reading it throws, and that exception
+propagates out of the whole listing call. So `session list` (and anything
+else that calls the no-id form, e.g. the UI's session list) fails completely
+because of one bad session, with no indication in the error of which session
+caused it.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -155,3 +187,4 @@ not obviously intentional.
 | 0.2 | 2026-10-10 | Area DAT: 5 items carried forward (`CF-DAT-001`–`005`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. |
 | 0.3 | 2026-10-11 | Area TXT: 3 items carried forward (`CF-TXT-001`–`003`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. `CF-TXT-003` concerns a REC-owned function, cross-referenced for that area's merge. |
 | 0.4 | 2026-10-11 | Area SET: 2 items carried forward (`CF-SET-001`–`002`); both `AS-CODE-DEF-*` only, no `AS-DOC-DEF-*` suspected defects exist for this area (only the 3 contradictions resolved in `90-contradictions-resolution.md`). |
+| 0.5 | 2026-10-11 | Area SES: 2 items carried forward (`CF-SES-001`–`002`). `CF-SES-001` is `AS-CODE-DEF-*` only (no `AS-DOC-DEF-*` suspected defect for this area — only the one contradiction resolved in `90-contradictions-resolution.md`). `CF-SES-002` is a new suspected defect found directly while merging, with no original phase-1/phase-2 source id. |
