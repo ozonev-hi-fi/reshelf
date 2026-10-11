@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-10
+Status: Draft | Version: 0.3 | Last updated: 2026-10-11
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -143,9 +143,98 @@ move) names `AS-DOC-DAT-004` as related but is not Area: DAT — it is left
 for whichever pass owns Cross-cutting; see the note in
 `90-contradictions-resolution.md`.
 
+## TXT
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-TXT-001 | AS-CODE-TXT-001, AS-CODE-TXT-002 | AS-TXT-001 |
+| AS-DOC-TXT-002 | — | AS-TXT-002 |
+| AS-DOC-TXT-003 | AS-CODE-TXT-001 | AS-TXT-003 |
+| AS-DOC-TXT-004 | AS-CODE-TXT-003 | AS-TXT-004 |
+| AS-DOC-TXT-005 | AS-CODE-TXT-003 | AS-TXT-005 |
+| AS-DOC-TXT-006 | AS-CODE-TXT-003 | AS-TXT-006 |
+| AS-DOC-TXT-007 | AS-CODE-TXT-003 | AS-TXT-007 |
+| AS-DOC-TXT-008 | AS-CODE-TXT-005 | AS-TXT-008 |
+| AS-DOC-TXT-009 | AS-CODE-TXT-005, AS-CODE-TXT-006 | AS-TXT-009 |
+| AS-DOC-TXT-010 | AS-CODE-TXT-007, AS-CODE-TXT-008 | AS-TXT-010 (→ also `91` CF-TXT-001) |
+| AS-DOC-TXT-011 | AS-CODE-TXT-006 | AS-TXT-011 |
+| AS-DOC-TXT-012 | AS-CODE-TXT-009, AS-CODE-TXT-011 | AS-TXT-012 |
+| AS-DOC-TXT-013 | AS-CODE-TXT-009 | AS-TXT-013 |
+| AS-DOC-TXT-014 | AS-CODE-TXT-009 | AS-TXT-014 |
+| AS-DOC-TXT-015 | AS-CODE-TXT-010 | AS-TXT-015 |
+| AS-DOC-TXT-016 | AS-CODE-TXT-010 | AS-TXT-016 |
+| AS-DOC-TXT-017 | AS-CODE-TXT-012 | AS-TXT-017 |
+| AS-DOC-TXT-018 | AS-CODE-TXT-013 | AS-TXT-018 |
+| AS-DOC-TXT-019 | AS-CODE-TXT-013 | AS-TXT-019 |
+| AS-DOC-TXT-020 | AS-CODE-TXT-019 | AS-TXT-020 |
+| AS-DOC-TXT-021 | AS-CODE-TXT-016 | AS-TXT-021 |
+| AS-DOC-TXT-022 | AS-CODE-TXT-017 | AS-TXT-022 |
+| AS-DOC-TXT-023 | AS-CODE-TXT-017 | AS-TXT-023 |
+| AS-DOC-TXT-024 | AS-CODE-TXT-018 | AS-TXT-024 |
+| AS-DOC-TXT-025 | AS-CODE-TXT-018 | AS-TXT-025 |
+| AS-DOC-TXT-026 | AS-CODE-TXT-018 | AS-TXT-026 |
+| AS-DOC-TXT-027 | AS-CODE-TXT-016, AS-CODE-TXT-019 | AS-TXT-027 |
+| AS-DOC-TXT-028 | AS-CODE-TXT-016 | AS-TXT-028 |
+| AS-DOC-TXT-029 | — | AS-TXT-029 |
+| AS-DOC-TXT-030 | AS-CODE-TXT-020 | AS-TXT-030 |
+| AS-DOC-TXT-031 | AS-CODE-TXT-020 | AS-TXT-031 |
+| AS-DOC-TXT-032 | AS-CODE-TXT-021, AS-CODE-TXT-022 | AS-TXT-032 |
+| AS-DOC-TXT-033 | AS-CODE-TXT-022 | AS-TXT-033 |
+| AS-DOC-TXT-034 | AS-CODE-TXT-022 | AS-TXT-034 |
+| AS-DOC-TXT-035 | AS-CODE-TXT-021 | AS-TXT-035 |
+| AS-DOC-TXT-036 | AS-CODE-TXT-023 | AS-TXT-036 |
+| AS-DOC-TXT-037 | AS-CODE-TXT-024 | AS-TXT-037 |
+| AS-DOC-TXT-038 | AS-CODE-TXT-024 | AS-TXT-038 (→ also `91` CF-TXT-002) |
+| AS-DOC-TXT-039 | AS-CODE-TXT-025 | AS-TXT-039 |
+| AS-DOC-TXT-040 | — | AS-TXT-040 |
+| AS-DOC-TXT-041 | — | AS-TXT-041 |
+| AS-DOC-TXT-042 | — | AS-TXT-042 |
+| AS-DOC-TXT-043 | — | AS-TXT-043 |
+| AS-DOC-TXT-044 | — | AS-TXT-044 |
+| AS-DOC-TXT-045 | — | AS-TXT-045 (`90` contradiction, resolved — AS-DOC-DEF-009) |
+| AS-DOC-TXT-046 | — | AS-TXT-046 |
+| AS-DOC-TXT-047 | — | AS-TXT-047 |
+| AS-DOC-TXT-048 | — | AS-TXT-048 |
+| AS-DOC-TXT-049 | — | AS-TXT-049 |
+| AS-DOC-TXT-050 | — | AS-TXT-050 |
+| AS-DOC-TXT-051 | — | AS-TXT-051 |
+| AS-DOC-TXT-052 | — | AS-TXT-052 |
+| AS-DOC-TXT-053 | — | AS-TXT-053 |
+| AS-DOC-TXT-054 | — | AS-TXT-054 |
+| AS-DOC-TXT-055 | — | AS-TXT-055 |
+| AS-DOC-TXT-056 | — | AS-TXT-056 |
+| AS-DOC-TXT-057 | — | AS-TXT-057 |
+| AS-DOC-TXT-058 | — | AS-TXT-058 |
+| AS-DOC-TXT-059 | — | AS-TXT-059 |
+| AS-DOC-TXT-060 | — | AS-TXT-060 |
+| AS-DOC-TXT-061 | — | AS-TXT-061 |
+| AS-DOC-TXT-062 | — | AS-TXT-062 |
+| AS-DOC-TXT-063 | — | AS-TXT-063 |
+| AS-DOC-TXT-064 | — | AS-TXT-064 |
+| AS-DOC-TXT-065 | — | AS-TXT-065 |
+| AS-DOC-TXT-066 | — | AS-TXT-066 |
+| AS-DOC-TXT-067 | — | AS-TXT-067 |
+| AS-DOC-TXT-068 | — | AS-TXT-068 |
+| AS-DOC-TXT-069 | — | AS-TXT-069 |
+| AS-DOC-TXT-070 | — | AS-TXT-070 |
+| AS-DOC-TXT-071 | — | AS-TXT-071 |
+| AS-DOC-TXT-072 | — | AS-TXT-072 |
+| — | AS-CODE-TXT-004 | AS-TXT-073 |
+| — | AS-CODE-TXT-014 | Deferred to the REC merge pass (same rule as `AS-DOC-REC-055`–`057`; see the scope note in `02-text-and-naming.md`) |
+| — | AS-CODE-TXT-015 | Deferred to the REC merge pass (same rule as `AS-DOC-REC-058`) |
+| — | AS-CODE-TXT-026 | AS-TXT-074 |
+| AS-DOC-DEF-009 | — | `90` contradiction, resolved (MANIFESTO "SP" vs the `recognizedReleaseType` enum — both right, at different levels) |
+| AS-DOC-DEF-010 | — | `90` contradiction, resolved (tags vs sanitized names — confirmed, no change) |
+| AS-DOC-DEF-011 | — | `90` contradiction, resolved (cue "must be deleted" vs read-only source — confirmed, no change) |
+| AS-DOC-DEF-012 | — | `91` CF-TXT-002 (suspected defect, carried forward) |
+| AS-DOC-DEF-013 | — | `90` contradiction, resolved (wording only — confirmed, no change) |
+| — | AS-CODE-DEF-003 (TXT-001) | `91` CF-TXT-001 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-004 (TXT-002) | `91` CF-TXT-003 (suspected defect, carried forward; concerns the REC-owned `ConvertFrom-ReshelfTrackFileName`) |
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Started. Area GEN: 10 requirements + 1 suspected defect, fully covered. |
 | 0.2 | 2026-10-10 | Area DAT: 87 AS-DOC-DAT, 38 AS-CODE-DAT, 4 AS-DOC-DEF contradictions, 3 AS-DOC-DEF + 2 AS-CODE-DEF suspected defects — all 134 source IDs covered by AS-DAT-001–097, the DAT contradiction note, and CF-DAT-001–005. |
+| 0.3 | 2026-10-11 | Area TXT: 72 AS-DOC-TXT, 26 AS-CODE-TXT, 5 AS-DOC-DEF (3 contradictions + resolution of DEF-009 + DEF-012 carried forward), 2 AS-CODE-DEF suspected defects — all 105 source IDs covered by AS-TXT-001–074, the TXT contradiction entries, and CF-TXT-001–003. `AS-CODE-TXT-014`/`015` explicitly deferred to the REC merge pass rather than merged here. |

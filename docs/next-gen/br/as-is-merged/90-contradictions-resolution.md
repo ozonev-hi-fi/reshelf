@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-10
+Status: Draft | Version: 0.3 | Last updated: 2026-10-11
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -91,9 +91,57 @@ behavior, so there is no DAT-owned contradiction to resolve here. The
 broader "is the README's wording now misleading" question is Cross-cutting
 and is left for whichever merge pass owns that area.
 
+## TXT
+
+### New: AS-DOC-TXT-045 vs the `recognizedReleaseType` schema enum — Is "SP" a real release type?
+
+`AS-DOC-DEF-009` flags that MANIFESTO §4.3 lists the release types album
+(LP), EP, SP, single and maxi single, while the `recognizedReleaseType` enum
+has no `sp` value.
+
+Re-read `legacy/schemas/proposal.schema.json:80` and
+`legacy/schemas/recognition.schema.json:74`: both enums are exactly
+`["album", "mini-album", "ep", "single", "maxi-single", "lp", null]` — no
+`sp`.
+
+**Resolved: both are right, at different levels.** MANIFESTO's listing is a
+business-level category (SP is, historically, a Japanese single release),
+not a literal enum value. The schema has no separate `sp` value because the
+app classifies an SP release under `single`. No change needed beyond a
+clarifying note in the merged text — see `AS-TXT-045`.
+
+### Carried from phase 1: `AS-DOC-DEF-010` (tags "must match" names, but names are sanitized/shortened)
+
+Re-checked against the merged TXT content: `AS-TXT-072` already states that
+sanitizing touches only `artistFolderName`/`releaseFolderName`/
+`proposedFileName`, never `tags.*`; `AS-CODE-TXT-016`–`019` (the
+`ConvertTo-SafeFileName` facts) describe sanitation as a name-only operation,
+with nothing in the code-only view touching tag values. No new evidence
+contradicts phase 1's resolution (plan 03 is right: tags keep the raw text,
+only names are made safe and can be shortened). No change to the merged
+content; recorded here only for traceability.
+
+### Carried from phase 1: `AS-DOC-DEF-011` (MANIFESTO "cue file must be deleted" vs read-only source)
+
+Re-checked: the TXT code-only view (`Reshelf.Common.psm1`) has no function
+that deletes anything — consistent with the already-merged `AS-DAT-044`
+(source files are always read-only, copy mode only). Phase 1's resolution
+stands: the final structure simply never gets a copy of the `.cue` file;
+nothing is deleted. No change to the merged content.
+
+### Carried from phase 1: `AS-DOC-DEF-013` (wording-only: "renumbered continuously across discs")
+
+Re-checked: this was already fully resolved within phase 1 itself — all
+sources agree on both numbers (the zero-padded file number keeps counting
+across discs; the `Track` tag restarts at 1 per disc), and only one plan
+file's wording was ambiguous. The TXT code-only view adds nothing new (file
+numbering across discs is computed by propose/matching, outside
+`Reshelf.Common.psm1`). No change to the merged content.
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Started. Area GEN: no contradiction owned by this area. |
 | 0.2 | 2026-10-10 | Area DAT: one new contradiction found and resolved (`AS-DAT-005`, data-home writability — AS-CODE right). Four phase-1 contradictions (`AS-DOC-DEF-002`–`005`) re-verified against the actual schema files and confirmed already correctly resolved. `AS-DOC-DEF-111` noted as Cross-cutting, not DAT-owned. |
+| 0.3 | 2026-10-11 | Area TXT: one new contradiction found and resolved (`AS-DOC-DEF-009`, MANIFESTO "SP" vs the `recognizedReleaseType` enum — both right, at different levels). Three phase-1 contradictions (`AS-DOC-DEF-010`, `011`, `013`) re-verified against the code-only view and schema/DAT cross-references, confirmed already correctly resolved. |

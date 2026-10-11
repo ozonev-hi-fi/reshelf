@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-10
+Status: Draft | Version: 0.3 | Last updated: 2026-10-11
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -81,9 +81,47 @@ A standalone `.alac` file is never discovered as an audio file through the
 normal folder-scan path, making the "lossless" classification for that
 extension effectively unreachable in practice.
 
+## TXT
+
+### CF-TXT-001 — "Is romanized" accepts any non-Japanese letter, not just Latin/romanized text
+Sources: `AS-CODE-DEF-003` (`AS-CODE-DEF-TXT-001` in the original per-area
+numbering). No `AS-DOC` counterpart (the docs-and-tests view only noted that
+"tests do not cover other scripts, for example Cyrillic" — AS-TXT-010 —
+without flagging it as a defect).
+
+`Test-ReshelfIsRomanizedText` (AS-TXT-010) does not verify the text is
+actually Latin/romanized. It returns true for any non-Japanese string
+containing at least one Unicode letter of any script, so pure Cyrillic,
+Greek or Arabic text also counts as "romanized". This feeds directly into
+`Join-ReshelfBilingualName`'s decision to join (AS-TXT-015): a non-Japanese,
+non-Latin `Romanized` value could be accepted and joined as if it were a
+valid romanization.
+
+### CF-TXT-002 — A truncated segment can end up longer than the limit
+Sources: `AS-DOC-DEF-012`; confirmed by `AS-CODE-TXT-024`.
+
+When the limit is smaller than prefix + suffix, the truncation helper
+(AS-TXT-038) still keeps one body character. The result is then longer than
+the limit: limit 5 → `01 S.flac` (9 characters). Truncation exists to stay
+within a path length limit, so exceeding it defeats the purpose.
+
+### CF-TXT-003 — A mismatched bracket/parenthesis pair is still read as a track number
+Sources: `AS-CODE-DEF-004` (`AS-CODE-DEF-TXT-002` in the original per-area
+numbering). No `AS-DOC` counterpart (the docs-and-tests view had no test
+covering a mismatched pair). Concerns `ConvertFrom-ReshelfTrackFileName`,
+which is REC-owned content deferred to that area's merge (see the scope note
+in [02-text-and-naming.md](02-text-and-naming.md)) — carried forward here
+under TXT because that is where the code-phase agent filed it; cross-reference
+`AS-DOC-REC-056` when REC is merged.
+
+The bracket/paren pattern `^[\[\(](\d{1,3})[\]\)]\s*(?:[-–]\s*)?(.+)$` matches
+the opening and closing delimiters independently, so a mismatched pair like
+`"[01).mp3"` or `"(01].mp3"` is still accepted and yields track number `01`.
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Started. Area GEN: 1 item carried forward (`CF-GEN-001`). |
 | 0.2 | 2026-10-10 | Area DAT: 5 items carried forward (`CF-DAT-001`–`005`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. |
+| 0.3 | 2026-10-11 | Area TXT: 3 items carried forward (`CF-TXT-001`–`003`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. `CF-TXT-003` concerns a REC-owned function, cross-referenced for that area's merge. |
