@@ -1,6 +1,6 @@
 # 01 — Data and storage (as-is, merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-10
+Status: Draft | Version: 0.2 | Last updated: 2026-10-11
 
 ## Scope
 
@@ -1002,23 +1002,29 @@ TagLibSharp returns immediately without re-resolving a path or loading the
 assembly again — the assembly load for this DLL only ever runs once per
 process.
 
-### AS-DAT-092 — Secret protection uses Windows DPAPI, machine/user-bound
-Status: Draft | Source: AS-CODE-DAT-024
+### AS-DAT-092 — Secret protection uses Windows DPAPI, machine/user-bound, and always rejects an empty string
+Status: Draft | Source: AS-CODE-DAT-024; AS-DOC-SET-001, AS-DOC-SET-045, AS-DOC-SET-047
 
 A plaintext secret is encrypted via the built-in SecureString DPAPI flow,
 producing ciphertext that only the same Windows user account on the same
-machine can decrypt. An empty-string secret is explicitly allowed as input.
-This is the mechanism behind the Discogs token storage described in
-`03-settings-and-secrets.md` (AS-DOC-SET-001); it lives in
+machine can decrypt (`AS-DOC-SET-001`), and that does not contain the
+original plain text (`AS-DOC-SET-045`). The PowerShell parameter itself has
+`[AllowEmptyString()]`, but that only controls parameter binding — the
+function body still calls `ConvertTo-SecureString -AsPlainText`, which
+itself throws for an empty plain text, confirmed by
+`legacy/tests/Reshelf.Common.Tests.ps1`'s own test (`AS-DOC-SET-047`;
+corrected here — see `90-contradictions-resolution.md`, found while merging
+`03-settings-and-secrets.md`). This is the mechanism behind the Discogs
+token storage described in `03-settings-and-secrets.md`; it lives in
 `Reshelf.Common.psm1`, shared rather than settings-specific.
 
 ### AS-DAT-093 — Secret un-protection does not allow an empty string
-Status: Draft | Source: AS-CODE-DAT-025
+Status: Draft | Source: AS-CODE-DAT-025; AS-DOC-SET-046
 
-Reversing the DPAPI encryption recovers the original plaintext, but unlike
-protection (`AS-DAT-092`), the encrypted-text parameter has no
-"allow empty string" attribute, so passing an empty string fails parameter
-binding instead of being accepted.
+Reversing the DPAPI encryption recovers the original plaintext
+(`AS-DOC-SET-046`), but unlike protection (`AS-DAT-092`), the encrypted-text
+parameter has no "allow empty string" attribute, so passing an empty string
+fails parameter binding instead of being accepted.
 
 ### AS-DAT-094 — TagLibSharp context is stored, not validated
 Status: Draft | Source: AS-CODE-DAT-026
@@ -1056,3 +1062,4 @@ success.
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-10 | Phase 3: merged `AS-DOC-DAT-001`–`087` and `AS-CODE-DAT-001`–`038` into `AS-DAT-001`–`097`. One conflict resolved (`AS-DAT-005`, data-home writability). Five suspected defects carried forward, see `91-suspected-defects-carryforward.md`. |
+| 0.2 | 2026-10-11 | Corrected `AS-DAT-092`/`093` while merging area SET: added the `AS-DOC-SET-001`/`045`–`047` cross-references and fixed a wrong claim (`Protect-ReshelfSecret` does not actually accept an empty string — see `90-contradictions-resolution.md`). |

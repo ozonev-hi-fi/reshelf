@@ -1,6 +1,6 @@
 # As-is BR, merged (Phase 3)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-11
+Status: Draft | Version: 0.4 | Last updated: 2026-10-11
 
 This folder reconciles the two independent as-is views of the legacy app —
 [br/as-is-from-docs/](../as-is-from-docs/README.md) (744 `AS-DOC-*`
@@ -59,7 +59,7 @@ Example: <example from a source> → <result>.
 | [00-general.md](00-general.md) | GEN | 10 → — (no code counterpart) | 10 | Done |
 | [01-data-and-storage.md](01-data-and-storage.md) | DAT | 87 → 38 | 97 | Done |
 | [02-text-and-naming.md](02-text-and-naming.md) | TXT | 72 → 26 | 74 | Done |
-| 03-settings-and-secrets.md | SET | 47 → 24 | — | Not started |
+| [03-settings-and-secrets.md](03-settings-and-secrets.md) | SET | 47 → 24 | 45 | Done |
 | 04-sessions.md | SES | 23 → 12 | — | Not started |
 | 05-recognition.md | REC | 93 → 110 | — | Not started |
 | 06-discogs-client.md | DSC | 26 → 32 | — | Not started |
@@ -95,3 +95,4 @@ full steps.
 | 0.1 | 2026-10-10 | Phase 3 started. Area 00 (general) merged. |
 | 0.2 | 2026-10-10 | Area 01 (data-and-storage) merged: 97 `AS-DAT-*` requirements, 1 new conflict resolved, 4 phase-1 contradictions re-verified, 5 suspected defects carried forward. |
 | 0.3 | 2026-10-11 | Area 02 (text-and-naming) merged: 74 `AS-TXT-*` requirements, 1 new conflict resolved, 3 phase-1 contradictions re-verified, 3 suspected defects carried forward. `AS-CODE-TXT-014`/`015` (track-filename parsing) deferred to the REC merge pass. |
+| 0.4 | 2026-10-11 | Area 03 (settings-and-secrets) merged: 45 `AS-SET-*` requirements, 3 phase-1 contradictions re-verified, 2 suspected defects carried forward. One new contradiction found and corrected in already-merged DAT content (`AS-DAT-092` wrongly said an empty secret is accepted — `AS-DOC-SET-047`/tests say it throws). `AS-DOC-SET-001`/`045`–`047` redirected to `AS-DAT-092`/`093` (not SET items); `AS-DOC-SET-044` deferred to the not-yet-merged DSC area. |

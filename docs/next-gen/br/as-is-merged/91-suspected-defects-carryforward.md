@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-11
+Status: Draft | Version: 0.4 | Last updated: 2026-10-11
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -118,6 +118,35 @@ The bracket/paren pattern `^[\[\(](\d{1,3})[\]\)]\s*(?:[-–]\s*)?(.+)$` matches
 the opening and closing delimiters independently, so a mismatched pair like
 `"[01).mp3"` or `"(01].mp3"` is still accepted and yields track number `01`.
 
+## SET
+
+### CF-SET-001 — The `set-token` prompt doesn't say that Enter skips/clears it
+Sources: `AS-CODE-DEF-005` (`AS-CODE-DEF-SET-001` in the original per-area
+numbering). No `AS-DOC` counterpart (the docs-and-tests view only states the
+permissive behavior itself — `AS-SET-042` — without flagging the wording
+mismatch as a defect).
+
+`Set-ReshelfDiscogsToken`'s prompt text is plain `Discogs Personal Access
+Token`, with no mention that pressing Enter skips/clears it — but the code
+right below silently accepts an empty entry and stores `""` anyway,
+identical in effect to a "skip". The prompt wording doesn't match the
+actual (permissive) behavior. Compare `Initialize-ReshelfSettings`'s token
+prompt, whose wording does say "(press Enter to skip, set later with:
+Reshelf.ps1 settings set-token)" — `set-token`'s own prompt doesn't carry
+the same hint for itself.
+
+### CF-SET-002 — `set-token` on a data home with no settings file silently runs full init first
+Sources: `AS-CODE-DEF-006` (`AS-CODE-DEF-SET-002` in the original per-area
+numbering). No `AS-DOC` counterpart (the docs-and-tests view describes
+`set-token` only against an existing settings file).
+
+Running `settings set-token` against a data home that has no `settings.json`
+yet does not fail with a clear "run init first" message — it silently runs
+the *entire* interactive settings-initialization flow (target root, source
+root, copy mode, and a first token prompt, `AS-SET-042`) before asking for
+the token a second time. This coupling is easy to trigger by accident and is
+not obviously intentional.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -125,3 +154,4 @@ the opening and closing delimiters independently, so a mismatched pair like
 | 0.1 | 2026-10-10 | Started. Area GEN: 1 item carried forward (`CF-GEN-001`). |
 | 0.2 | 2026-10-10 | Area DAT: 5 items carried forward (`CF-DAT-001`–`005`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. |
 | 0.3 | 2026-10-11 | Area TXT: 3 items carried forward (`CF-TXT-001`–`003`); no duplicates found between the `AS-DOC-DEF-*` and `AS-CODE-DEF-*` sets for this area. `CF-TXT-003` concerns a REC-owned function, cross-referenced for that area's merge. |
+| 0.4 | 2026-10-11 | Area SET: 2 items carried forward (`CF-SET-001`–`002`); both `AS-CODE-DEF-*` only, no `AS-DOC-DEF-*` suspected defects exist for this area (only the 3 contradictions resolved in `90-contradictions-resolution.md`). |

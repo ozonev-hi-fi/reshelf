@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-11
+Status: Draft | Version: 0.4 | Last updated: 2026-10-11
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -121,8 +121,8 @@ Filled in area by area, alongside the area files.
 | — | AS-CODE-DAT-004 | AS-DAT-088 |
 | — | AS-CODE-DAT-017 | AS-DAT-089 |
 | — | AS-CODE-DAT-022 | AS-DAT-096 |
-| — | AS-CODE-DAT-024 | AS-DAT-092 |
-| — | AS-CODE-DAT-025 | AS-DAT-093 |
+| AS-DOC-SET-001, AS-DOC-SET-045, AS-DOC-SET-047 | AS-CODE-DAT-024 | AS-DAT-092 (corrected while merging SET — see `90` contradiction) |
+| AS-DOC-SET-046 | AS-CODE-DAT-025 | AS-DAT-093 |
 | — | AS-CODE-DAT-026 | AS-DAT-094 |
 | — | AS-CODE-DAT-027 | AS-DAT-090 |
 | — | AS-CODE-DAT-028 | AS-DAT-091 |
@@ -231,6 +231,66 @@ for whichever pass owns Cross-cutting; see the note in
 | — | AS-CODE-DEF-003 (TXT-001) | `91` CF-TXT-001 (suspected defect, carried forward) |
 | — | AS-CODE-DEF-004 (TXT-002) | `91` CF-TXT-003 (suspected defect, carried forward; concerns the REC-owned `ConvertFrom-ReshelfTrackFileName`) |
 
+## SET
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-SET-001 | — | `01` AS-DAT-092 (DAT-owned, not a SET item — see scope note) |
+| AS-DOC-SET-002 | — | AS-SET-002 |
+| AS-DOC-SET-003 | — | AS-SET-003 |
+| AS-DOC-SET-004 | — | AS-SET-004 |
+| AS-DOC-SET-005 | — | AS-SET-005 |
+| AS-DOC-SET-006 | AS-CODE-SET-010 | AS-SET-006 |
+| AS-DOC-SET-007 | — | AS-SET-007 |
+| AS-DOC-SET-008 | — | AS-SET-008 |
+| AS-DOC-SET-009 | — | AS-SET-009 |
+| AS-DOC-SET-010 | — | AS-SET-010 |
+| AS-DOC-SET-011 | — | AS-SET-011 |
+| AS-DOC-SET-012 | — | AS-SET-012 |
+| AS-DOC-SET-013 | — | AS-SET-013 |
+| AS-DOC-SET-014 | AS-CODE-SET-006 | AS-SET-014 |
+| AS-DOC-SET-015 | — | AS-SET-015 |
+| AS-DOC-SET-016 | — | AS-SET-016 |
+| AS-DOC-SET-017 | AS-CODE-SET-008, AS-CODE-SET-009, AS-CODE-SET-011 | AS-SET-017 |
+| AS-DOC-SET-018 | AS-CODE-SET-008, AS-CODE-SET-009, AS-CODE-SET-011 | AS-SET-018 |
+| AS-DOC-SET-019 | AS-CODE-SET-008 | AS-SET-019 |
+| AS-DOC-SET-020 | AS-CODE-SET-009 | AS-SET-020 |
+| AS-DOC-SET-021 | AS-CODE-SET-010 | AS-SET-021 |
+| AS-DOC-SET-022 | AS-CODE-SET-008 | AS-SET-022 |
+| AS-DOC-SET-023 | AS-CODE-SET-011 | AS-SET-023 |
+| AS-DOC-SET-024 | AS-CODE-SET-012 | AS-SET-024 |
+| AS-DOC-SET-025 | AS-CODE-SET-012 | AS-SET-025 |
+| AS-DOC-SET-026 | AS-CODE-SET-011 | AS-SET-026 |
+| AS-DOC-SET-027 | AS-CODE-SET-007 | AS-SET-027 |
+| AS-DOC-SET-028 | — | AS-SET-028 |
+| AS-DOC-SET-029 | AS-CODE-SET-010 | AS-SET-029 |
+| AS-DOC-SET-030 | AS-CODE-SET-010 | AS-SET-030 |
+| AS-DOC-SET-031 | AS-CODE-SET-002, AS-CODE-SET-003, AS-CODE-SET-013 | AS-SET-031 |
+| AS-DOC-SET-032 | AS-CODE-SET-015 | AS-SET-032 |
+| AS-DOC-SET-033 | AS-CODE-SET-004 | AS-SET-033 |
+| AS-DOC-SET-034 | AS-CODE-SET-005 | AS-SET-034 |
+| AS-DOC-SET-035 | AS-CODE-SET-019 | AS-SET-035 |
+| AS-DOC-SET-036 | AS-CODE-SET-021 | AS-SET-036 |
+| AS-DOC-SET-037 | AS-CODE-SET-019 | AS-SET-037 |
+| AS-DOC-SET-038 | AS-CODE-SET-020 | AS-SET-038 |
+| AS-DOC-SET-039 | AS-CODE-SET-022 | AS-SET-039 |
+| AS-DOC-SET-040 | AS-CODE-SET-023 | AS-SET-040 |
+| AS-DOC-SET-041 | — | AS-SET-041 |
+| AS-DOC-SET-042 | AS-CODE-SET-017, AS-CODE-SET-018 | AS-SET-042 |
+| AS-DOC-SET-043 | AS-CODE-SET-016 | AS-SET-043 |
+| AS-DOC-SET-044 | — | Deferred to the DSC merge pass (same rule as AS-DOC-DSC-002/003 and AS-CODE-DSC-001–005; see the scope note in `03-settings-and-secrets.md`) |
+| AS-DOC-SET-045 | — | `01` AS-DAT-092 (DAT-owned, not a SET item — see scope note) |
+| AS-DOC-SET-046 | — | `01` AS-DAT-093 (DAT-owned, not a SET item — see scope note) |
+| AS-DOC-SET-047 | — | `01` AS-DAT-092 (DAT-owned, not a SET item — corrected a wrong claim there, see `90` contradiction) |
+| — | AS-CODE-SET-001 | AS-SET-048 |
+| — | AS-CODE-SET-014 | AS-SET-049 |
+| — | AS-CODE-SET-024 | AS-SET-050 (AS-CODE-SET-015 also feeds AS-SET-050; see its own row via AS-DOC-SET-032) |
+| AS-DOC-DEF-014 | — | `90` contradiction, resolved (README "copy or move" — stale remnant, tests/plan right; no merged-file change) |
+| AS-DOC-DEF-015 | — | `90` contradiction, resolved (write-check timing — README/tests right, plan wrong; no merged-file change) |
+| AS-DOC-DEF-016 | — | `90` contradiction, resolved (targetRoot default vs schema — both right, at different levels; no merged-file change) |
+| — | AS-CODE-DEF-005 (SET-001) | `91` CF-SET-001 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-006 (SET-002) | `91` CF-SET-002 (suspected defect, carried forward) |
+
 ## Changelog
 
 | Version | Date | Change |
@@ -238,3 +298,4 @@ for whichever pass owns Cross-cutting; see the note in
 | 0.1 | 2026-10-10 | Started. Area GEN: 10 requirements + 1 suspected defect, fully covered. |
 | 0.2 | 2026-10-10 | Area DAT: 87 AS-DOC-DAT, 38 AS-CODE-DAT, 4 AS-DOC-DEF contradictions, 3 AS-DOC-DEF + 2 AS-CODE-DEF suspected defects — all 134 source IDs covered by AS-DAT-001–097, the DAT contradiction note, and CF-DAT-001–005. |
 | 0.3 | 2026-10-11 | Area TXT: 72 AS-DOC-TXT, 26 AS-CODE-TXT, 5 AS-DOC-DEF (3 contradictions + resolution of DEF-009 + DEF-012 carried forward), 2 AS-CODE-DEF suspected defects — all 105 source IDs covered by AS-TXT-001–074, the TXT contradiction entries, and CF-TXT-001–003. `AS-CODE-TXT-014`/`015` explicitly deferred to the REC merge pass rather than merged here. |
+| 0.4 | 2026-10-11 | Area SET: 47 AS-DOC-SET, 24 AS-CODE-SET, 3 AS-DOC-DEF contradictions, 2 AS-CODE-DEF suspected defects — all 76 source IDs covered by AS-SET-002–043 and AS-SET-048–050, the SET contradiction entries, and CF-SET-001–002. `AS-DOC-SET-001`/`045`–`047` redirected to the already-merged `AS-DAT-092`/`093` (DAT section rows updated accordingly); `AS-DOC-SET-044` deferred to the DSC merge pass. |

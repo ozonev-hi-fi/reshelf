@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-11
+Status: Draft | Version: 0.4 | Last updated: 2026-10-11
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -91,6 +91,32 @@ behavior, so there is no DAT-owned contradiction to resolve here. The
 broader "is the README's wording now misleading" question is Cross-cutting
 and is left for whichever merge pass owns that area.
 
+### Found while merging SET: AS-CODE-DAT-024 vs AS-DOC-SET-047 — Does `Protect-ReshelfSecret` accept an empty string?
+
+`AS-CODE-DAT-024`, already merged as `AS-DAT-092`, said "An empty-string
+secret is explicitly allowed as input" (based on the `[AllowEmptyString()]`
+parameter attribute on `Protect-ReshelfSecret`). `AS-DOC-SET-047`, sourced
+from `legacy/tests/Reshelf.Common.Tests.ps1`, says encrypting an empty text
+is an error.
+
+Re-read `legacy/scripts/common/Reshelf.Common.psm1:561-573`
+(`Protect-ReshelfSecret`) and the test at
+`legacy/tests/Reshelf.Common.Tests.ps1:511-516`: `[AllowEmptyString()]` only
+stops PowerShell's *parameter binder* from rejecting an empty argument
+before the function runs. The function body still calls
+`ConvertTo-SecureString -String $PlainText -AsPlainText -Force`, and that
+cmdlet itself throws for an empty plain text — a real `ConvertTo-SecureString`
+restriction, not a Reshelf-specific check (the test's own comment says so).
+The test proves it: `{ Protect-ReshelfSecret -PlainText '' } | Should -Throw`.
+
+**Resolved: AS-DOC-SET-047 is factually right.** `Protect-ReshelfSecret`
+always throws for an empty string; the parameter attribute only affects
+whether the *call* is allowed to be made, not whether it succeeds.
+`AS-DAT-092`'s text is corrected in `01-data-and-storage.md` (version 0.2)
+to remove the wrong claim and state the actual behavior, matching
+`AS-DOC-SET-025`'s note that callers must check for an empty/skipped token
+themselves before ever calling `Protect-ReshelfSecret`.
+
 ## TXT
 
 ### New: AS-DOC-TXT-045 vs the `recognizedReleaseType` schema enum — Is "SP" a real release type?
@@ -138,6 +164,46 @@ file's wording was ambiguous. The TXT code-only view adds nothing new (file
 numbering across discs is computed by propose/matching, outside
 `Reshelf.Common.psm1`). No change to the merged content.
 
+## SET
+
+### Carried from phase 1: `AS-DOC-DEF-014` (README "settings init" still offers "copy or move")
+
+Re-read `legacy/scripts/common/Reshelf.Settings.psm1:92-142`
+(`Initialize-ReshelfSettings`) and `:197-251` (`Set-ReshelfSettings`):
+neither function ever prompts for the copy mode, and both reject any value
+other than `copy` with a message naming `move` as "no longer supported".
+Confirms phase 1's resolution: the README's "Copy mode: copy or move" line
+(One-time setup) is a stale remnant contradicting the rest of the same
+README, the plan, and the tests. No change to the merged `AS-SET-*` content.
+
+### Carried from phase 1: `AS-DOC-DEF-015` (when is target-root write access checked?)
+
+Re-read `Get-ReshelfSettings` (`Reshelf.Settings.psm1:62-90`): it never calls
+`Assert-ReshelfPathWritable`. The check only runs in
+`Initialize-ReshelfSettings` and in `Set-ReshelfSettings` when `Key -eq
+'targetRoot'`. Confirms phase 1's resolution: the README and tests ("on
+set/init") are right; plan 04's "at settings load time" is wrong. No change
+to the merged content (`AS-SET-031`, `AS-SET-040`).
+
+### Carried from phase 1: `AS-DOC-DEF-016` (documented default of targetRoot vs the schema)
+
+Re-read `legacy/config/settings.default.json` (`"targetRoot": ""`) and
+`legacy/schemas/settings.schema.json` (`targetRoot` has `minLength: 1`) and
+`Initialize-ReshelfSettings`: `targetRoot` is one of the five fields always
+overwritten before a settings file is ever saved (`AS-SET-049`), and the
+function throws before saving if it would still be empty (`AS-SET-019`,
+`AS-SET-022`). **Resolved: both are right, at different levels.** The
+template's `""` is a placeholder that is never actually persisted; the
+schema's `minLength: 1` is the real invariant for any settings file that
+exists on disk, and it always holds. The README's "default" column is
+imprecise (there is no real usable default for a required field) but not a
+behavioral defect. No change to the merged content beyond this note.
+
+### Found while merging SET: AS-CODE-DAT-024 vs AS-DOC-SET-047
+
+See the entry under **DAT** above — discovered while merging this area, but
+the correction applies to the already-merged `AS-DAT-092`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -145,3 +211,4 @@ numbering across discs is computed by propose/matching, outside
 | 0.1 | 2026-10-10 | Started. Area GEN: no contradiction owned by this area. |
 | 0.2 | 2026-10-10 | Area DAT: one new contradiction found and resolved (`AS-DAT-005`, data-home writability — AS-CODE right). Four phase-1 contradictions (`AS-DOC-DEF-002`–`005`) re-verified against the actual schema files and confirmed already correctly resolved. `AS-DOC-DEF-111` noted as Cross-cutting, not DAT-owned. |
 | 0.3 | 2026-10-11 | Area TXT: one new contradiction found and resolved (`AS-DOC-DEF-009`, MANIFESTO "SP" vs the `recognizedReleaseType` enum — both right, at different levels). Three phase-1 contradictions (`AS-DOC-DEF-010`, `011`, `013`) re-verified against the code-only view and schema/DAT cross-references, confirmed already correctly resolved. |
+| 0.4 | 2026-10-11 | Area SET: three phase-1 contradictions (`AS-DOC-DEF-014`–`016`) re-verified against the code and confirmed already correctly resolved. One new contradiction found in already-merged DAT content (`AS-CODE-DAT-024` vs `AS-DOC-SET-047` — `Protect-ReshelfSecret` does not actually accept an empty string) and corrected retroactively in `01-data-and-storage.md`. |
