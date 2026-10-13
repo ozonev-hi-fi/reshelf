@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.8 | Last updated: 2026-10-13
+Status: Draft | Version: 0.9 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -636,6 +636,171 @@ coverage/contradiction entries (see `90-contradictions-resolution.md`).
 `AS-DOC-DEF-045`'s cross-reference, `AS-DOC-DEF-064` (Area: PRP), is left
 for the PRP merge pass.
 
+## PRP
+
+Like MAT, this table is organized by **merged id** (`AS-PRP-NNN`, in file
+order) rather than by source id. `AS-CODE-PRP-002` and `AS-CODE-PRP-021`–`032`
+are **not** listed here — they were already absorbed into `AS-MAT-*` during
+the MAT merge (see the note at the top of
+[08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md) and the
+`AS-MAT-057`–`065`/`076`/`077` rows in the MAT section above).
+
+| Merged | AS-DOC-PRP | AS-CODE-PRP |
+|---|---|---|
+| AS-PRP-001 | — | AS-CODE-PRP-097 |
+| AS-PRP-002 | AS-DOC-PRP-001 | — |
+| AS-PRP-003 | — | AS-CODE-PRP-098 |
+| AS-PRP-004 | AS-DOC-PRP-009, AS-DOC-PRP-017, AS-DOC-PRP-018, AS-DOC-PRP-056 | AS-CODE-PRP-095, AS-CODE-PRP-099 |
+| AS-PRP-005 | AS-DOC-PRP-002 | AS-CODE-PRP-102 |
+| AS-PRP-006 | AS-DOC-PRP-003 | AS-CODE-PRP-103 |
+| AS-PRP-007 | — | AS-CODE-PRP-100 |
+| AS-PRP-008 | — | AS-CODE-PRP-101 |
+| AS-PRP-009 | — | AS-CODE-PRP-104 |
+| AS-PRP-010 | AS-DOC-PRP-004 | AS-CODE-PRP-082 |
+| AS-PRP-011 | AS-DOC-PRP-005 | AS-CODE-PRP-085 |
+| AS-PRP-012 | — | — |
+| AS-PRP-013 | AS-DOC-PRP-007 | AS-CODE-PRP-089 |
+| AS-PRP-014 | AS-DOC-PRP-006 | AS-CODE-PRP-014, AS-CODE-PRP-015, AS-CODE-PRP-016 |
+| AS-PRP-015 | AS-DOC-PRP-013 | — |
+| AS-PRP-016 | AS-DOC-PRP-008 | AS-CODE-PRP-011 |
+| AS-PRP-017 | AS-DOC-PRP-014 | — |
+| AS-PRP-018 | AS-DOC-PRP-009 | AS-CODE-PRP-019 |
+| AS-PRP-019 | AS-DOC-PRP-010 | — |
+| AS-PRP-020 | AS-DOC-PRP-012 | — |
+| AS-PRP-021 | AS-DOC-PRP-011 | AS-CODE-PRP-017 |
+| AS-PRP-022 | — | AS-CODE-PRP-013 |
+| AS-PRP-023 | AS-DOC-PRP-015 | AS-CODE-PRP-018 |
+| AS-PRP-024 | AS-DOC-PRP-016 | — |
+| AS-PRP-025 | — | AS-CODE-PRP-001 |
+| AS-PRP-026 | — | AS-CODE-PRP-020 |
+| AS-PRP-027 | AS-DOC-PRP-044 | — |
+| AS-PRP-028 | AS-DOC-PRP-045 | AS-CODE-PRP-003, AS-CODE-PRP-004, AS-CODE-PRP-005 |
+| AS-PRP-029 | AS-DOC-PRP-046, AS-DOC-PRP-047 | AS-CODE-PRP-006, AS-CODE-PRP-007, AS-CODE-PRP-008, AS-CODE-PRP-009, AS-CODE-PRP-010 |
+| AS-PRP-030 | AS-DOC-PRP-048 | — |
+| AS-PRP-031 | AS-DOC-PRP-049 | — |
+| AS-PRP-032 | AS-DOC-PRP-044 | AS-CODE-PRP-012 |
+| AS-PRP-033 | — | AS-CODE-PRP-043 |
+| AS-PRP-034 | — | AS-CODE-PRP-048 |
+| AS-PRP-035 | AS-DOC-PRP-017 | AS-CODE-PRP-042 |
+| AS-PRP-036 | AS-DOC-PRP-018 | AS-CODE-PRP-041 |
+| AS-PRP-037 | AS-DOC-PRP-019 | AS-CODE-PRP-051 |
+| AS-PRP-038 | — | AS-CODE-PRP-033 |
+| AS-PRP-039 | AS-DOC-PRP-020, AS-DOC-PRP-021 | AS-CODE-PRP-035 |
+| AS-PRP-040 | AS-DOC-PRP-022 | — |
+| AS-PRP-041 | — | AS-CODE-PRP-034 |
+| AS-PRP-042 | AS-DOC-PRP-023 | AS-CODE-PRP-036 |
+| AS-PRP-043 | AS-DOC-PRP-024 | AS-CODE-PRP-037 |
+| AS-PRP-044 | AS-DOC-PRP-025 | AS-CODE-PRP-038 |
+| AS-PRP-045 | AS-DOC-PRP-028 | AS-CODE-PRP-039 |
+| AS-PRP-046 | AS-DOC-PRP-026, AS-DOC-PRP-027 | AS-CODE-PRP-040 |
+| AS-PRP-047 | AS-DOC-PRP-029 | — |
+| AS-PRP-048 | AS-DOC-PRP-030 | — |
+| AS-PRP-049 | AS-DOC-PRP-031 | — |
+| AS-PRP-050 | AS-DOC-PRP-032 | — |
+| AS-PRP-051 | AS-DOC-PRP-033 | AS-CODE-PRP-044, AS-CODE-PRP-045, AS-CODE-PRP-046 |
+| AS-PRP-052 | AS-DOC-PRP-034 | AS-CODE-PRP-086 |
+| AS-PRP-053 | AS-DOC-PRP-035 | — |
+| AS-PRP-054 | AS-DOC-PRP-036 | AS-CODE-PRP-050 |
+| AS-PRP-055 | AS-DOC-PRP-037 | AS-CODE-PRP-047 |
+| AS-PRP-056 | AS-DOC-PRP-038, AS-DOC-PRP-039, AS-DOC-PRP-040 | AS-CODE-PRP-049 |
+| AS-PRP-057 | AS-DOC-PRP-043 | — |
+| AS-PRP-058 | AS-DOC-PRP-041 | — |
+| AS-PRP-059 | AS-DOC-PRP-042 | AS-CODE-PRP-083, AS-CODE-PRP-084 |
+| AS-PRP-060 | AS-DOC-PRP-050 | — |
+| AS-PRP-061 | AS-DOC-PRP-051 | AS-CODE-PRP-054 |
+| AS-PRP-062 | AS-DOC-PRP-052 | AS-CODE-PRP-052, AS-CODE-PRP-053, AS-CODE-PRP-055 |
+| AS-PRP-063 | AS-DOC-PRP-053 | AS-CODE-PRP-058 |
+| AS-PRP-064 | — | AS-CODE-PRP-056 |
+| AS-PRP-065 | AS-DOC-PRP-054 | AS-CODE-PRP-057 |
+| AS-PRP-066 | — | AS-CODE-PRP-059 |
+| AS-PRP-067 | AS-DOC-PRP-055 | AS-CODE-PRP-087 |
+| AS-PRP-068 | AS-DOC-PRP-056 | — |
+| AS-PRP-069 | AS-DOC-PRP-057 | AS-CODE-PRP-079 |
+| AS-PRP-070 | AS-DOC-PRP-058 | — |
+| AS-PRP-071 | AS-DOC-PRP-059 | AS-CODE-PRP-081 |
+| AS-PRP-072 | — | AS-CODE-PRP-080 |
+| AS-PRP-073 | AS-DOC-PRP-060 | — |
+| AS-PRP-074 | AS-DOC-PRP-061, AS-DOC-PRP-062 | AS-CODE-PRP-065 |
+| AS-PRP-075 | AS-DOC-PRP-063 | AS-CODE-PRP-064 |
+| AS-PRP-076 | AS-DOC-PRP-064 | AS-CODE-PRP-067 |
+| AS-PRP-077 | AS-DOC-PRP-065 | AS-CODE-PRP-066 |
+| AS-PRP-078 | — | AS-CODE-PRP-060 |
+| AS-PRP-079 | — | AS-CODE-PRP-061 |
+| AS-PRP-080 | — | AS-CODE-PRP-062 |
+| AS-PRP-081 | — | AS-CODE-PRP-063 |
+| AS-PRP-082 | — | AS-CODE-PRP-088 |
+| AS-PRP-083 | AS-DOC-PRP-066 | — |
+| AS-PRP-084 | — | AS-CODE-PRP-068 |
+| AS-PRP-085 | AS-DOC-PRP-073 | AS-CODE-PRP-078 |
+| AS-PRP-086 | AS-DOC-PRP-067 | — |
+| AS-PRP-087 | AS-DOC-PRP-068 | — |
+| AS-PRP-088 | AS-DOC-PRP-069 | AS-CODE-PRP-070 |
+| AS-PRP-089 | — | AS-CODE-PRP-069 |
+| AS-PRP-090 | — | AS-CODE-PRP-071 |
+| AS-PRP-091 | AS-DOC-PRP-070 | — |
+| AS-PRP-092 | AS-DOC-PRP-071 | AS-CODE-PRP-073 |
+| AS-PRP-093 | AS-DOC-PRP-072 | AS-CODE-PRP-074 |
+| AS-PRP-094 | — | AS-CODE-PRP-073 |
+| AS-PRP-095 | AS-DOC-PRP-074 | — |
+| AS-PRP-096 | AS-DOC-PRP-075 | — |
+| AS-PRP-097 | — | AS-CODE-PRP-075, AS-CODE-PRP-076, AS-CODE-PRP-077 |
+| AS-PRP-098 | AS-DOC-PRP-076 | AS-CODE-PRP-090 |
+| AS-PRP-099 | — | AS-CODE-PRP-091 |
+| AS-PRP-100 | — | AS-CODE-PRP-092 |
+| AS-PRP-101 | — | AS-CODE-PRP-093 |
+| AS-PRP-102 | — | AS-CODE-PRP-095 |
+| AS-PRP-103 | — | AS-CODE-PRP-096 |
+| AS-PRP-104 | AS-DOC-PRP-077 | — |
+| AS-PRP-105 | AS-DOC-PRP-078 | — |
+
+`AS-CODE-PRP-073` is cited twice (`AS-PRP-092`, `AS-PRP-094`) — once for the
+specific renamed-lossy branch it adds beyond the docs/tests view, once as the
+authoritative full six-branch decision table. `AS-CODE-PRP-095` and
+`AS-CODE-PRP-099` are cited together at `AS-PRP-004`, and `AS-CODE-PRP-095`
+again alone at `AS-PRP-102` (the manual re-pick's own copy of the same
+defaults) — both are real, independent call sites, not a duplicate citation.
+`AS-PRP-012` and `AS-PRP-022`/`032`/`058`/`059`/`065` have no row entry of
+their own kind in one column because they either state a fact found only by
+re-reading the caller (`AS-PRP-012`, see `90-contradictions-resolution.md`)
+or primarily restate an already-merged `AS-MAT-*` rule from this area's own
+call site (`AS-PRP-022`, `058`, `059`, `065`; `AS-PRP-032`/`033` restate the
+bilingual convention, not a MAT rule).
+
+Contradictions and suspected defects (not covered by the table above):
+
+| AS-DOC-DEF / AS-CODE-DEF-PRP | Merged |
+|---|---|
+| AS-DOC-DEF-054 | `90` contradiction, resolved (embedded cover wins, not Discogs primary — tests/code right) |
+| AS-DOC-DEF-055 | `91` CF-PRP-002 (suspected defect, carried forward) |
+| AS-DOC-DEF-056 | `90` contradiction, resolved (target actions found through a richer chain than "stable key alone" — tests/code right) |
+| AS-DOC-DEF-057 | `90` contradiction, resolved (a renamed folder changes the stable key — tests/code/plan right; README overstates stability) |
+| AS-DOC-DEF-058 | `90` contradiction, resolved (Discogs is always queried, via the cache — already explained by AS-DSC-019/020) |
+| AS-DOC-DEF-059 | `90` contradiction, resolved (a third compilation trigger exists; Album Artist becomes "Various", not the folder name — tests/code right) |
+| AS-DOC-DEF-060 | `90` contradiction, resolved (a file-name artist step exists between the tag and the Album Artist fallback — tests/code right) |
+| AS-DOC-DEF-061 | `90` contradiction, resolved (a per-track Discogs credit applies to any release, not only compilations — tests/code right) |
+| AS-DOC-DEF-062 | `91` CF-PRP-003 (suspected defect, carried forward) |
+| AS-DOC-DEF-063 | `91` CF-PRP-004 (suspected defect, carried forward; confirmed, not contradicted, by AS-CODE-PRP-066) |
+| AS-DOC-DEF-064 | `91` CF-PRP-005 (suspected defect, carried forward; cross-referenced from AS-MAT-059's own resolution of the sibling AS-DOC-DEF-045) |
+| AS-DOC-DEF-065 | `91` CF-PRP-010 (suspected defect, carried forward) |
+| AS-DOC-DEF-066 | `90` contradiction, resolved (the romanized half does come from the source — README right; the ambiguity was a coincidental example) |
+| AS-DOC-DEF-067 | `91` CF-PRP-006 (suspected defect, carried forward) |
+| AS-DOC-DEF-068 | `90` contradiction, resolved (any track-set note forces review, confirmed one level up from either source's own excerpt — plan right) |
+| AS-CODE-DEF-PRP-001 | `91` CF-PRP-007 (suspected defect, carried forward) |
+| AS-CODE-DEF-PRP-002 | `91` CF-PRP-008 (suspected defect, carried forward) |
+| AS-CODE-DEF-PRP-003 | `91` CF-PRP-009 (suspected defect, carried forward) |
+| AS-CODE-DEF-PRP-004 | `91` CF-PRP-001 (suspected defect, carried forward) |
+
+Note: `AS-DOC-DEF-045`'s own cross-reference to `AS-DOC-DEF-064` (left open
+by the MAT merge, see the note at the end of the MAT section above) is
+resolved by this row — `AS-DOC-DEF-064` is carried forward as `CF-PRP-005`,
+not decided here, per the phase 3/phase 4 split. `AS-DOC-DEF-006` (Area:
+DAT) and `CF-DAT-001` (in `91-suspected-defects-carryforward.md`), which
+anticipated this area's `AS-DOC-DEF-057` resolution under the label
+"CF-PRP", are not re-listed here — `AS-DOC-DEF-057` is a Contradiction, so
+it is resolved in `90-contradictions-resolution.md`, not carried forward;
+see that file's PRP section for the resolution and the note correcting
+`CF-DAT-001`'s anticipated destination.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -648,3 +813,4 @@ for the PRP merge pass.
 | 0.6 | 2026-10-11 | Area REC: 93 AS-DOC-REC, 110 AS-CODE-REC, plus the 2 AS-CODE-TXT items deferred here from the TXT merge, 9 AS-DOC-DEF contradictions, 12 AS-DOC-DEF + 7 AS-CODE-DEF-REC suspected defects — all 223 source IDs covered by AS-REC-001–100, the REC contradiction entries, and CF-REC-001–018 (one of which, CF-REC-012, merges one AS-DOC-DEF and one AS-CODE-DEF-REC id found to be the same underlying issue). This area's table is organized by merged id rather than source id; see the note above it. |
 | 0.7 | 2026-10-11 | Area DSC: 26 AS-DOC-DSC, 32 AS-CODE-DSC, plus AS-DOC-SET-044 deferred here from SET, 2 AS-DOC-DEF contradictions, 2 AS-DOC-DEF + 2 AS-CODE-DEF-DSC suspected defects — all 63 source IDs covered by AS-DSC-001–026, the DSC contradiction entries, and CF-DSC-001–004. AS-DOC-DEF-058 and AS-DOC-DEF-111 (PRP/Cross-cutting, each naming a DSC id as related) noted as not DSC-owned. |
 | 0.8 | 2026-10-13 | Area MAT: 59 AS-DOC-MAT, 67 AS-CODE-MAT, plus 13 AS-CODE-PRP items absorbed here from PRP's not-yet-merged as-is-from-code (pad width, track/number alignment, position parsing), 6 AS-DOC-DEF contradictions, 5 AS-DOC-DEF + 2 AS-CODE-DEF-MAT suspected defects — all 152 source IDs covered by AS-MAT-001–077, the MAT contradiction entries, and CF-MAT-001–007. This area's table is organized by merged id rather than source id; see the note above it. AS-DOC-DEF-041 (DSC-owned) and AS-DOC-DEF-064 (PRP-owned), each naming a MAT id as related, noted as not MAT-owned. |
+| 0.9 | 2026-10-13 | Area PRP: 78 AS-DOC-PRP, 91 remaining AS-CODE-PRP (104 minus the 13 already absorbed into AS-MAT-*), 9 AS-DOC-DEF contradictions, 6 AS-DOC-DEF + 4 AS-CODE-DEF-PRP suspected defects — all 188 source IDs covered by AS-PRP-001–105, the PRP contradiction entries, and CF-PRP-001–010. This area's table is organized by merged id rather than source id, like MAT; see the note above it. AS-DOC-DEF-057's resolution also closes DAT's own forward cross-reference (CF-DAT-001). |

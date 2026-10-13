@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.8 | Last updated: 2026-10-13
+Status: Draft | Version: 0.9 | Last updated: 2026-10-13
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -469,6 +469,118 @@ Cartridge, Reel-to-Reel, MiniDisc, SACD). **Resolved: tests/code are right —
 README step 2's "CD/File over Vinyl/Cassette" omits the third, lowest
 group.** Merged as `AS-MAT-052`.
 
+## PRP
+
+### Carried from phase 1: `AS-DOC-DEF-054` (default cover: embedded wins, not the Discogs primary image)
+
+Re-read `New-ReshelfCoverArtProposal` (`Reshelf.EditProposal.psm1:1926-2028`,
+`AS-CODE-PRP-054`, `059`): the embedded candidate is added first,
+independent of any Discogs match, and the default-choice priority picks it
+ahead of anything else whenever it decoded successfully. **Resolved:
+tests/code are right — plan 06's "pre-select the Discogs primary image"
+describes only the no-embedded-cover case.** Merged as `AS-PRP-061`.
+
+### Carried from phase 1: `AS-DOC-DEF-056` (target actions are not decided by the stable key alone)
+
+Re-read `Resolve-ReshelfTargetComparison` (`:2158-2392`, `AS-CODE-PRP-070`,
+`073`): the baseline is found through a 4-branch priority chain (same-
+session duplicate, same-session path collision, apply-log entry, on-disk
+folder via apply-log path/proposed path/target-index lookup), and a
+lossless-over-lossy upgrade found at a *different* path from the proposed
+one gives `create-new`, not `update-existing` — a case the README's
+stable-key-only table has no row for. **Resolved: tests/code are right —**
+the README table is a simplification that only covers the common case.
+Merged as `AS-PRP-088`, `092`, `094`.
+
+### Carried from phase 1: `AS-DOC-DEF-057` (the stable key changes when the source folder has a different name)
+
+Re-read `Get-ReshelfStableKey` (already established in the DAT merge as
+`AS-DAT-064`–`066`): the key is a hash of the *normalized* artist, album and
+year text — not of anything path-related, but also not stable against a
+change to that text. A renamed source folder (or a correction recognition
+derives differently) changes the recognized artist/album/year text, which
+changes the stable key. **Resolved: plan 06, plan 09 and the tests are
+right — the README's "always the same across runs, even from a different
+source folder" overstates it.** This is exactly why the target-lookup chain
+(`AS-PRP-088`) tries several paths instead of relying on the stable key
+alone, and why the previous-lossy ledger has its own fuzzy fallback scan
+(`AS-PRP-080`). Merged as `AS-PRP-096`. Cross-referenced:
+`CF-DAT-001` (in `91-suspected-defects-carryforward.md`) anticipated this
+resolution under the label "CF-PRP" — since `AS-DOC-DEF-057` is a
+Contradiction, not a Suspected defect, it is resolved here instead of
+carried forward; `CF-DAT-001`'s own cross-reference stays correct in
+substance (same underlying id), only the destination file differs from what
+it guessed. See also `AS-DOC-DEF-006` (Area: DAT, the opposite case: two
+real editions colliding on one key).
+
+### Carried from phase 1: `AS-DOC-DEF-058` ("an organized release is never queried again" vs. "Discogs is always queried")
+
+Re-read the already-merged DSC rules `AS-DSC-019`/`020`
+([06-discogs-client.md](06-discogs-client.md)): every lookup checks the
+on-disk cache first, before the token is even resolved; a fresh cache entry
+answers with no HTTP call. **Resolved: plan 06/tests are right — Discogs is
+always "queried" in the sense of being checked (cache included); the
+README's "never queried again" describes the cache's practical effect in
+plain language, not a literal skip.** No `AS-PRP` item needed beyond the
+cross-reference — this is fully explained by the already-merged DSC rules.
+
+### Carried from phase 1: `AS-DOC-DEF-059` (compilation detection has a third trigger, and Album Artist is not the folder name)
+
+Re-read `Get-ReshelfVariousArtistsEvidence` and its caller
+(`Reshelf.EditProposal.psm1:2434-2653`, `AS-CODE-PRP-083`/`084`, and the
+already-merged `AS-MAT-072`–`075`): besides the two Discogs-identity
+triggers, a normal artist folder whose tracks show several different
+artists is retried under a literal `'Various'` search and reproposed as a
+compilation — and the compilation's Album Artist becomes `Various`, not the
+original folder name (`DIO`). **Resolved: tests/code are right — the
+README's two-trigger list and its "Album Artist stays the folder name"
+wording both undersell the real behavior.** Merged as `AS-PRP-059`.
+
+### Carried from phase 1: `AS-DOC-DEF-060` (compilation track artist: the file-name step is missing from the docs)
+
+Re-read `New-ReshelfProposedTrackSet`'s compilation fallback
+(`AS-CODE-PRP-049`): the cascade is tag artist → file-name-parsed artist →
+Album Artist with a review note — three steps, not the two the README and
+plan 06 list. **Resolved: tests/code are right — the file-name step exists
+and adds no note/review on its own.** Merged as `AS-PRP-056`.
+
+### Carried from phase 1: `AS-DOC-DEF-061` (the README says a per-track Artist exists only on compilations)
+
+Re-read `AS-CODE-PRP-047`: a Discogs per-track credit, when present, takes
+priority over every other source for the Artist tag on *any* release, not
+only a compilation — a split release that isn't a compilation still gets
+its own per-track credits. **Resolved: tests/code are right.** Merged as
+`AS-PRP-055`.
+
+### New, found while merging: where does the romanized half of a bilingual name actually come from? (`AS-DOC-DEF-066`)
+
+`AS-DOC-DEF-066` observed that the README says the romanized half "always
+comes from the source itself", yet the result for folder artist `Maximum
+the Hormone` (`Maximum The Hormone = …`) equals both the title-cased folder
+name *and* a Discogs name variation, leaving it unclear which one it
+actually came from. Re-read `Get-ReshelfLocalRomanizedTitle`/
+`Get-ReshelfBilingualArtistName` (`AS-CODE-PRP-003`–`010`): the romanized
+half is explicitly built from the source — the existing tag value (most
+frequent, picked via `Group-Object`), else the recognized folder/file title
+— Title Cased, and only ever compared against Discogs evidence to decide
+*whether* to go bilingual, never to supply the romanized text itself.
+**Resolved: the README is right, and the ambiguity was coincidental** — for
+a well-known act, the source's own (title-cased) name and the matching
+Discogs name variation read the same, which is why the single example
+couldn't distinguish the two candidate explanations. Merged as `AS-PRP-028`.
+
+### Carried from phase 1: `AS-DOC-DEF-068` (repeated source numbers: the plan says "force review", the test checks only the note)
+
+Re-read the caller of `New-ReshelfProposedTrackSet`
+(`Reshelf.EditProposal.psm1:2578-2581`, and the manual re-pick's equivalent
+at `:2766-2770`): any note returned by track-set building — the "renumbered
+sequentially" note included — unconditionally sets
+`requiresReview = $true`. Neither phase-1 nor phase-2 read this caller line
+directly: phase 1's test only asserted the note; phase 2's code reading
+covered `New-ReshelfProposedTrackSet` itself, which returns the note but
+never sets a review flag on its own (that's the caller's job). **Resolved:
+plan 06 is right — review is forced.** Merged as `AS-PRP-012`, `045`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -481,3 +593,4 @@ group.** Merged as `AS-MAT-052`.
 | 0.6 | 2026-10-11 | Area REC: nine phase-1 contradictions (`AS-DOC-DEF-018`–`025`, `038`) re-verified directly against `Reshelf.Recognition.psm1`, all confirmed already correctly resolved (tests/code right in every case except `AS-DOC-DEF-023` and `AS-DOC-DEF-025`, where plan and tests/code turned out both right at different levels once the mechanism was traced). |
 | 0.7 | 2026-10-11 | Area DSC: two phase-1 contradictions (`AS-DOC-DEF-039`, `041`) re-verified against `Reshelf.Discogs.psm1` and confirmed already correctly resolved. One new contradiction found while merging: the `.env` inline-comment rule is a plain "cut at the first `#`" in the code, narrower/different from phase 1's "space then `#`" wording (`AS-DSC-005`, corrected). |
 | 0.8 | 2026-10-13 | Area MAT: six phase-1 contradictions (`AS-DOC-DEF-043`–`045`, `049`, `051`, `052`) re-verified directly against `Reshelf.EditProposal.psm1` (and, for the pad-width one, the not-yet-merged PRP as-is-from-code), all confirmed already correctly resolved. One new contradiction found while merging: plan 02's "token-sort ratio" naming for string similarity vs the actual normalized-Levenshtein-distance formula (`AS-MAT-001`, corrected). |
+| 0.9 | 2026-10-13 | Area PRP: eight phase-1 contradictions (`AS-DOC-DEF-054`, `056`–`061`) re-verified directly against `Reshelf.EditProposal.psm1` (lines 1332–2928) and the already-merged DAT/DSC/MAT rules, all confirmed already correctly resolved. One new contradiction found while merging: the ambiguous "where does the romanized half come from" observation (`AS-DOC-DEF-066`) resolved as a coincidence — the README was right, the source's own title-cased name and the matching Discogs name variation just read the same for the example used. `AS-DOC-DEF-068` ("forces review" vs "note only") required reading one level above either phase-1 or phase-2's own excerpts (the caller that turns any track-set note into a forced review) — resolved in the plan's favor. |

@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.8 | Last updated: 2026-10-13
+Status: Draft | Version: 0.9 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -510,6 +510,116 @@ artists, and more than half the tracks differing from the folder artist.
 No gap was found in the actual behavior — carried forward only because
 phase 3 does not itself decide to close out a phase-1 suspected defect.
 
+## PRP
+
+### CF-PRP-001 — The 1×1 "undecodable" sentinel is indistinguishable from a genuine 1×1 embedded cover
+Sources: `AS-CODE-DEF-PRP-004`. No `AS-DOC` counterpart (the docs/tests view
+only shows the undecodable case, never a genuine 1×1 image).
+
+`Get-ReshelfImageDimensions` reports `{ Width = 1; Height = 1 }` both when an
+image genuinely is 1×1 and when it couldn't be decoded at all. Any embedded
+cover that really is exactly 1×1 would be silently dropped as if it were
+corrupt (`AS-PRP-062`).
+
+### CF-PRP-002 — An undecodable local companion cover is not checked and still becomes the chosen cover, unlike an undecodable embedded cover
+Sources: `AS-DOC-DEF-055`. No `AS-CODE` counterpart found in the excerpt for
+a decodability gate on local companion covers (`AS-CODE-PRP-058` reads
+dimensions the same way as the embedded check, `AS-CODE-PRP-052`/`053`, but
+nothing in this function drops a local candidate the way `AS-CODE-PRP-055`
+drops an embedded one).
+
+An undecodable embedded cover is removed from the candidates (`AS-PRP-062`).
+But a loose `cover.jpg` with content that isn't a real image stays a
+candidate and is chosen — the golden file shows it as `width 1, height 1`,
+the "could not decode" value (`AS-PRP-063`). A test comment notes such a
+cover fails the ffmpeg resize at apply time.
+
+### CF-PRP-003 — A stray track outside a release's disc folders is given a phantom extra disc number
+Sources: `AS-DOC-DEF-062`. No `AS-CODE` counterpart (the code's own disc-
+grouping rule, `AS-CODE-PRP-033`, mechanically explains *why* this happens —
+a stray track becomes its own new `discFolder` group — but was not flagged
+there as a defect).
+
+In the golden file, `ZZ Top\2003 Mescalero` has `discFolderCount = 2`. The
+stray `Stray Bonus Track.mp3` (outside the disc folders) gets disc 3, Track
+1 and file number `06` — a third disc that doesn't really exist
+(`AS-PRP-048`). Recognition flags the release
+(`track-outside-disc-folder-suspected`), but the proposed disc number may
+still be wrong.
+
+### CF-PRP-004 — A stable-key collision in the target index silently drops one folder, with no warning
+Sources: `AS-DOC-DEF-063`; confirmed by `AS-CODE-PRP-066` (same mechanism:
+first folder encountered wins, later duplicates silently dropped).
+
+`ZZ Top\1999 XXX` and `zz  top\1999 XXX` give one index entry
+(`AS-PRP-077`). The docs/tests view only checks "no error" and count 1; the
+code confirms the mechanism but neither source shows which folder is kept,
+and no warning or review note is produced either way. The other folder is
+invisible to the comparison.
+
+### CF-PRP-005 — The track-count-mismatch review test cannot tell which alignment method actually ran
+Sources: `AS-DOC-DEF-064`. Cross-referenced from `AS-MAT-059`'s own
+resolution of the sibling contradiction `AS-DOC-DEF-045` (Area: MAT).
+
+The test name says it "falls back to source titles", but title alignment
+would actually succeed for the fixture used (the source titles already
+equal the first two Discogs titles), so the Discogs titles are used instead,
+plus a "missing on source" note (`AS-PRP-040`, `052`). The asserted titles
+are the same either way, so the test cannot distinguish the two successful
+paths.
+
+### CF-PRP-006 — Title-casing an all-lowercase tag cannot restore a real name's inner capitals
+Sources: `AS-DOC-DEF-067`.
+
+The file Artist tag `johnny mcevoy` becomes `Johnny Mcevoy` (`AS-PRP-056`).
+The real name is "Johnny McEvoy" — title case on an all-lowercase tag cannot
+restore inner capitals, and the proposal writes the wrong name with no
+review note.
+
+### CF-PRP-007 — The fuzzy previous-lossy ledger fallback scan picks the first matching entry with no further disambiguation
+Sources: `AS-CODE-DEF-PRP-001`.
+
+The fallback scan (`AS-PRP-080`) picks the first `pending-upgrade` entry
+matching artist + year + fuzzy-album-variant overlap, with no further
+disambiguation. Two different pending-upgrade albums by the same artist in
+the same year, whose search-title variants happen to overlap, could cause
+the wrong previous-lossy folder to be reported.
+
+### CF-PRP-008 — A compilation's manual Discogs re-pick loses the file-name-artist fallback tier that the batch path has
+Sources: `AS-CODE-DEF-PRP-002`.
+
+`Update-ReshelfReleaseForDiscogsSelection` never computes Various-Artists
+evidence at all (`AS-PRP-098`), unlike the batch path
+(`New-ReshelfProposedRelease`, which passes file-name-parsed artists into
+track-set building). A compilation release that gets its Discogs match
+manually re-picked loses the file-name-artist fallback tier (`AS-PRP-056`)
+for tracks with no existing Artist tag and no Discogs per-track credit,
+unlike the same release processed through the normal batch-propose path.
+
+### CF-PRP-009 — A manual Discogs re-pick never forwards recognition's own review flag/reasons, unlike the batch path
+Sources: `AS-CODE-DEF-PRP-003`. Related: `AS-PRP-010` (the batch path's own
+code comment explicitly calls out fixing exactly this "previously silently
+dropped" gap).
+
+`Update-ReshelfReleaseForDiscogsSelection` never reads or forwards
+`Release.needsReview`/`reviewReasons` into its own `requiresReview`/`notes`
+output (`AS-PRP-098`). A release flagged for review at recognition time can
+have that flag effectively disappear once the user manually re-picks its
+Discogs match.
+
+### CF-PRP-010 — The manual re-pick's review output lands in different, flatter fields than the full proposal's `humanReview`
+Sources: `AS-DOC-DEF-065`. Related code evidence: `AS-CODE-PRP-096`
+(confirms the flatter return shape — `requiresReview`/`notes` as plain
+top-level fields, not nested under `humanReview`, and several other fields
+omitted entirely, `AS-PRP-103`).
+
+The selection-recompute tests read the review flag as `requiresReview` and
+the note as `notes` on the returned release. The full proposal document
+keeps them in `humanReview.required` and `humanReview.notes` instead. The
+tests don't show that a conflict flag and a `target path collision` note
+(`AS-PRP-104`/`105`) actually reach `humanReview` once this result is
+folded back into the stored proposal.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -522,3 +632,4 @@ phase 3 does not itself decide to close out a phase-1 suspected defect.
 | 0.6 | 2026-10-11 | Area REC: 18 items carried forward (`CF-REC-001`–`018`), covering all 7 `AS-CODE-DEF-REC-*` entries and all 12 REC-area `AS-DOC-DEF-*` suspected defects (`AS-DOC-DEF-026`–`037`). `CF-REC-012` merges `AS-DOC-DEF-031` and `AS-CODE-DEF-REC-003` — the docs-and-tests view spotted the same recognition-confidence inconsistency from the golden file's numbers that the code-only view explains by mechanism. `CF-TXT-003` (filed under TXT) is cross-referenced as concerning this area's `AS-REC-057`. |
 | 0.7 | 2026-10-11 | Area DSC: 4 items carried forward (`CF-DSC-001`–`004`). Two are `AS-CODE-DEF-DSC-*` only (`001`, `002`). Two are phase-1 `AS-DOC-DEF-*` items (`040`, `042`) whose mechanism is now fully explained by the code — `CF-DSC-003` (rate limit 0) looks like a real surprising-behavior candidate, `CF-DSC-004` (error message naming) found no actual gap — but both stay undecided here per the phase 3/phase 4 split. |
 | 0.8 | 2026-10-13 | Area MAT: 7 items carried forward (`CF-MAT-001`–`007`). Two are `AS-CODE-DEF-MAT-*` only (`001`, `002`). Five are phase-1 `AS-DOC-DEF-*` items (`046`–`048`, `050`, `053`) — three Kind: test quality (`046`, `047`, `050`), one a genuine behavior gap with no review flag (`048`), and one (`053`) whose mechanism is now fully explained by the code with no gap found, same pattern as `CF-DSC-004`. |
+| 0.9 | 2026-10-13 | Area PRP: 10 items carried forward (`CF-PRP-001`–`010`). Four are `AS-CODE-DEF-PRP-*` only (`001`, confirmed by code only; `002`, `003`, `004`); the other six are phase-1 `AS-DOC-DEF-*` items (`055`, `062`–`065`, `067`). `CF-PRP-004` is confirmed, not contradicted, by its matching code read (`AS-CODE-PRP-066`); `CF-PRP-010` cross-references `AS-CODE-PRP-096` as reinforcing code-side detail for the same shape-mismatch issue. |
