@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.7 | Last updated: 2026-10-11
+Status: Draft | Version: 0.8 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -522,6 +522,120 @@ Area: DSC — they are left for the PRP merge pass and whichever pass owns
 Cross-cutting, respectively; see the note under DAT in
 `90-contradictions-resolution.md` for the Cross-cutting precedent.
 
+## MAT
+
+Like REC, this table is organized by **merged id** (`AS-MAT-NNN`, in file
+order) rather than by source id — the two views don't align 1:1, and the
+PRP-owned `AS-CODE-PRP-*` ids absorbed here (see the scope note in
+[07-proposal-matching.md](07-proposal-matching.md)) don't fit a two-column
+source table at all. Every `AS-DOC-MAT-*`, `AS-CODE-MAT-*` and absorbed
+`AS-CODE-PRP-*` id appears exactly once below (or in the defects/
+contradictions rows further down).
+
+| Merged | AS-DOC-MAT | AS-CODE-MAT / AS-CODE-PRP |
+|---|---|---|
+| AS-MAT-001 | AS-DOC-MAT-001 | AS-CODE-MAT-001, AS-CODE-MAT-002 |
+| AS-MAT-002 | AS-DOC-MAT-002 | AS-CODE-MAT-003 |
+| AS-MAT-003 | AS-DOC-MAT-003 | AS-CODE-MAT-003, AS-CODE-MAT-006 |
+| AS-MAT-004 | AS-DOC-MAT-004 | AS-CODE-MAT-004 |
+| AS-MAT-005 | — | AS-CODE-MAT-005 |
+| AS-MAT-006 | AS-DOC-MAT-005 | AS-CODE-MAT-055 |
+| AS-MAT-007 | — | AS-CODE-MAT-007 |
+| AS-MAT-008 | — | AS-CODE-MAT-008 |
+| AS-MAT-009 | AS-DOC-MAT-015 | AS-CODE-MAT-009, AS-CODE-MAT-010 |
+| AS-MAT-010 | AS-DOC-MAT-021 | AS-CODE-MAT-011 |
+| AS-MAT-011 | AS-DOC-MAT-022 | AS-CODE-MAT-012 |
+| AS-MAT-012 | — | AS-CODE-MAT-013 |
+| AS-MAT-013 | AS-DOC-MAT-019, AS-DOC-MAT-020 | AS-CODE-MAT-014 |
+| AS-MAT-014 | — | AS-CODE-MAT-015 |
+| AS-MAT-015 | AS-DOC-MAT-015 | AS-CODE-MAT-016 |
+| AS-MAT-016 | AS-DOC-MAT-016 | AS-CODE-MAT-040 |
+| AS-MAT-017 | AS-DOC-MAT-017, AS-DOC-MAT-018 | — |
+| AS-MAT-018 | AS-DOC-MAT-011 | AS-CODE-MAT-046, AS-CODE-MAT-047, AS-CODE-MAT-048 |
+| AS-MAT-019 | AS-DOC-MAT-006 | AS-CODE-MAT-056, AS-CODE-MAT-057 |
+| AS-MAT-020 | AS-DOC-MAT-007, AS-DOC-MAT-008 | AS-CODE-MAT-058 |
+| AS-MAT-021 | AS-DOC-MAT-010 | AS-CODE-MAT-059 |
+| AS-MAT-022 | AS-DOC-MAT-009 | AS-CODE-MAT-060 |
+| AS-MAT-023 | AS-DOC-MAT-010 | AS-CODE-MAT-061, AS-CODE-MAT-062 |
+| AS-MAT-024 | AS-DOC-MAT-011 | AS-CODE-MAT-049, AS-CODE-MAT-063 |
+| AS-MAT-025 | — | AS-CODE-MAT-050 |
+| AS-MAT-026 | — | AS-CODE-MAT-051 |
+| AS-MAT-027 | AS-DOC-MAT-012 | AS-CODE-MAT-052 |
+| AS-MAT-028 | — | AS-CODE-MAT-053 |
+| AS-MAT-029 | — | AS-CODE-MAT-054 |
+| AS-MAT-030 | — | AS-CODE-MAT-019 |
+| AS-MAT-031 | — | AS-CODE-MAT-020 |
+| AS-MAT-032 | — | AS-CODE-MAT-021 |
+| AS-MAT-033 | AS-DOC-MAT-012, AS-DOC-MAT-013, AS-DOC-MAT-014 | AS-CODE-MAT-022 |
+| AS-MAT-034 | — | AS-CODE-MAT-023 |
+| AS-MAT-035 | AS-DOC-MAT-023 | — |
+| AS-MAT-036 | AS-DOC-MAT-024 | AS-CODE-MAT-064 |
+| AS-MAT-037 | AS-DOC-MAT-025 | AS-CODE-MAT-065 |
+| AS-MAT-038 | AS-DOC-MAT-026 | AS-CODE-MAT-066 |
+| AS-MAT-039 | — | AS-CODE-MAT-067 |
+| AS-MAT-040 | AS-DOC-MAT-027 | AS-CODE-MAT-037, AS-CODE-MAT-038 |
+| AS-MAT-041 | AS-DOC-MAT-028 | AS-CODE-MAT-039 |
+| AS-MAT-042 | AS-DOC-MAT-029 | AS-CODE-MAT-031 |
+| AS-MAT-043 | AS-DOC-MAT-030 | AS-CODE-MAT-042 |
+| AS-MAT-044 | AS-DOC-MAT-030 | AS-CODE-MAT-041 |
+| AS-MAT-045 | AS-DOC-MAT-037 | — |
+| AS-MAT-046 | AS-DOC-MAT-038 | — |
+| AS-MAT-047 | — | AS-CODE-MAT-043 |
+| AS-MAT-048 | — | AS-CODE-MAT-044 |
+| AS-MAT-049 | AS-DOC-MAT-036 | AS-CODE-MAT-045 |
+| AS-MAT-050 | AS-DOC-MAT-031 | AS-CODE-MAT-032, AS-CODE-MAT-035, AS-CODE-MAT-036 |
+| AS-MAT-051 | AS-DOC-MAT-032 | AS-CODE-MAT-034 |
+| AS-MAT-052 | AS-DOC-MAT-033 | AS-CODE-MAT-033 |
+| AS-MAT-053 | AS-DOC-MAT-034, AS-DOC-MAT-035 | AS-CODE-MAT-032 |
+| AS-MAT-054 | AS-DOC-MAT-039, AS-DOC-MAT-040 | AS-CODE-MAT-017 |
+| AS-MAT-055 | AS-DOC-MAT-041 | AS-CODE-MAT-017 |
+| AS-MAT-056 | — | AS-CODE-MAT-018 |
+| AS-MAT-057 | AS-DOC-MAT-042 | AS-CODE-PRP-030 |
+| AS-MAT-058 | AS-DOC-MAT-043 | AS-CODE-PRP-031, AS-CODE-PRP-032 |
+| AS-MAT-059 | AS-DOC-MAT-045 | AS-CODE-PRP-029 |
+| AS-MAT-060 | AS-DOC-MAT-044 | AS-CODE-PRP-021, AS-CODE-PRP-022 |
+| AS-MAT-061 | AS-DOC-MAT-044 | AS-CODE-PRP-021 |
+| AS-MAT-062 | AS-DOC-MAT-045, AS-DOC-MAT-046 | AS-CODE-PRP-022 |
+| AS-MAT-063 | — | AS-CODE-PRP-023, AS-CODE-PRP-028 |
+| AS-MAT-064 | AS-DOC-MAT-048 | AS-CODE-PRP-024, AS-CODE-PRP-025 |
+| AS-MAT-065 | AS-DOC-MAT-047 | AS-CODE-PRP-026, AS-CODE-PRP-027 |
+| AS-MAT-066 | AS-DOC-MAT-049 | AS-CODE-MAT-024 |
+| AS-MAT-067 | AS-DOC-MAT-050 | AS-CODE-MAT-024 |
+| AS-MAT-068 | AS-DOC-MAT-051 | AS-CODE-MAT-025 |
+| AS-MAT-069 | AS-DOC-MAT-052 | AS-CODE-MAT-024 |
+| AS-MAT-070 | AS-DOC-MAT-053 | AS-CODE-MAT-026 |
+| AS-MAT-071 | AS-DOC-MAT-053 | AS-CODE-MAT-027 |
+| AS-MAT-072 | AS-DOC-MAT-054 | AS-CODE-MAT-030 |
+| AS-MAT-073 | AS-DOC-MAT-055 | AS-CODE-MAT-029 |
+| AS-MAT-074 | AS-DOC-MAT-056 | AS-CODE-MAT-030 |
+| AS-MAT-075 | AS-DOC-MAT-057 | AS-CODE-MAT-028 |
+| AS-MAT-076 | AS-DOC-MAT-058 | AS-CODE-PRP-002 |
+| AS-MAT-077 | AS-DOC-MAT-059 | AS-CODE-PRP-002 |
+
+Contradictions and suspected defects (not covered by the table above):
+
+| AS-DOC-DEF / AS-CODE-DEF-MAT | Merged |
+|---|---|
+| AS-DOC-DEF-043 | `90` contradiction, resolved (search query keys — tests/code right) |
+| AS-DOC-DEF-044 | `90` contradiction, resolved ("at most 4 searches" undersells the full lookup — tests/README right) |
+| AS-DOC-DEF-045 | `90` contradiction, resolved (two-method alignment cascade exists — tests/code right) |
+| AS-DOC-DEF-046 | `91` CF-MAT-003 (suspected defect, carried forward) |
+| AS-DOC-DEF-047 | `91` CF-MAT-004 (suspected defect, carried forward) |
+| AS-DOC-DEF-048 | `91` CF-MAT-005 (suspected defect, carried forward) |
+| AS-DOC-DEF-049 | `90` contradiction, resolved (threshold is `>=`, "at or above" right) |
+| AS-DOC-DEF-050 | `91` CF-MAT-006 (suspected defect, carried forward) |
+| AS-DOC-DEF-051 | `90` contradiction, resolved (pad width uses the highest file number — plan/PRP right) |
+| AS-DOC-DEF-052 | `90` contradiction, resolved (format rank has a third, lowest group — tests/code right) |
+| AS-DOC-DEF-053 | `91` CF-MAT-007 (suspected defect, carried forward; mechanism now explained, no gap found) |
+| AS-CODE-DEF-MAT-001 | `91` CF-MAT-001 (suspected defect, carried forward) |
+| AS-CODE-DEF-MAT-002 | `91` CF-MAT-002 (suspected defect, carried forward) |
+
+Note: `AS-DOC-DEF-041` (Area: DSC, related to `AS-DOC-MAT-006`/`007`/`010`/
+`011`) is not Area: MAT — it was already resolved under DSC's own
+coverage/contradiction entries (see `90-contradictions-resolution.md`).
+`AS-DOC-DEF-045`'s cross-reference, `AS-DOC-DEF-064` (Area: PRP), is left
+for the PRP merge pass.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -533,3 +647,4 @@ Cross-cutting, respectively; see the note under DAT in
 | 0.5 | 2026-10-11 | Area SES: 23 AS-DOC-SES, 12 AS-CODE-SES, 1 AS-DOC-DEF contradiction, 1 AS-CODE-DEF suspected defect — all 37 source IDs covered by AS-SES-001–025 and the SES contradiction entry and CF-SES-001. One additional suspected defect (`CF-SES-002`) found directly while merging, with no original source id. |
 | 0.6 | 2026-10-11 | Area REC: 93 AS-DOC-REC, 110 AS-CODE-REC, plus the 2 AS-CODE-TXT items deferred here from the TXT merge, 9 AS-DOC-DEF contradictions, 12 AS-DOC-DEF + 7 AS-CODE-DEF-REC suspected defects — all 223 source IDs covered by AS-REC-001–100, the REC contradiction entries, and CF-REC-001–018 (one of which, CF-REC-012, merges one AS-DOC-DEF and one AS-CODE-DEF-REC id found to be the same underlying issue). This area's table is organized by merged id rather than source id; see the note above it. |
 | 0.7 | 2026-10-11 | Area DSC: 26 AS-DOC-DSC, 32 AS-CODE-DSC, plus AS-DOC-SET-044 deferred here from SET, 2 AS-DOC-DEF contradictions, 2 AS-DOC-DEF + 2 AS-CODE-DEF-DSC suspected defects — all 63 source IDs covered by AS-DSC-001–026, the DSC contradiction entries, and CF-DSC-001–004. AS-DOC-DEF-058 and AS-DOC-DEF-111 (PRP/Cross-cutting, each naming a DSC id as related) noted as not DSC-owned. |
+| 0.8 | 2026-10-13 | Area MAT: 59 AS-DOC-MAT, 67 AS-CODE-MAT, plus 13 AS-CODE-PRP items absorbed here from PRP's not-yet-merged as-is-from-code (pad width, track/number alignment, position parsing), 6 AS-DOC-DEF contradictions, 5 AS-DOC-DEF + 2 AS-CODE-DEF-MAT suspected defects — all 152 source IDs covered by AS-MAT-001–077, the MAT contradiction entries, and CF-MAT-001–007. This area's table is organized by merged id rather than source id; see the note above it. AS-DOC-DEF-041 (DSC-owned) and AS-DOC-DEF-064 (PRP-owned), each naming a MAT id as related, noted as not MAT-owned. |

@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.7 | Last updated: 2026-10-11
+Status: Draft | Version: 0.8 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -433,6 +433,83 @@ suggests `Reshelf.ps1 settings set-token`. No gap was found in what the
 message names — carried forward only because phase 3 does not itself decide
 to close out a phase-1 suspected defect.
 
+## MAT
+
+### CF-MAT-001 — A candidate exactly 1 year off scores the same as one with an unknown year
+Sources: `AS-CODE-DEF-MAT-001`. No `AS-DOC` counterpart (the docs-and-tests
+view did not exercise a 1-year-off candidate specifically).
+
+`Get-ReshelfDiscogsCandidateScore`'s year adjustment (`AS-MAT-012`) only
+compares the raw numeric year: an exact match adds `+0.05`, a gap of more
+than 1 year subtracts `-0.05`, but a gap of exactly 1 year gets no
+adjustment at all — identical to an unknown year. A release that is
+genuinely a different edition/remaster one year off the source's year is
+scored the same as a perfect year match, even though the title-cleaning
+logic elsewhere in the same module treats "1 year off" as meaningfully
+different from "exact".
+
+### CF-MAT-002 — Ambiguous-candidate assembly may re-fetch a master already fetched earlier in the same call
+Sources: `AS-CODE-DEF-MAT-002`. No `AS-DOC` counterpart (the docs-and-tests
+view mocks all requests, so a real duplicate fetch is invisible to it).
+
+Building the `ambiguous` candidate list's master entries (`AS-MAT-036`)
+re-fetches each of the top 5 scored masters' detail just to read
+`main_release`, even when those same masters may already have been fetched
+earlier in the same call (e.g. via master-version selection for a
+different candidate, or via the artist-master-list path). This relies
+entirely on the Discogs response cache to avoid a real duplicate network
+call, with no in-memory reuse within the one matching run.
+
+### CF-MAT-003 — The version-rank test claims a year preference but passes no folder year
+Sources: `AS-DOC-DEF-046`. Kind: test quality.
+
+The test "prefers the version whose released year matches the folder year,
+then a CD/File format over Vinyl, then higher community count" calls the
+sort with `-FolderYear $null`, so it cannot actually exercise rule 1 (year
+match, `AS-MAT-050`) — the winner follows from format group and collection
+count alone. No test checks the year rule on its own.
+
+### CF-MAT-004 — The edition-hint "no false positive" test uses a different hint for each version
+Sources: `AS-DOC-DEF-047`. Kind: test quality.
+
+The test ranks version 1 with hint `Limited` and version 2 with hint
+`Limited Edition`, so it never directly checks a near-miss hint (e.g.
+`Limited`) against an otherwise-matching-looking token on the *same*
+version. The underlying mechanism is now fully known from code (exact
+normalized-token equality, `AS-MAT-053`) — no behavioral gap was found —
+but this specific test still doesn't exercise its own named scenario.
+
+### CF-MAT-005 — Auto-`matched` even when no probed candidate has the source track count, with no review flag
+Sources: `AS-DOC-DEF-048`. No `AS-CODE` counterpart (the code-only view
+documents the format-preference fallback mechanism, `AS-CODE-MAT-039`,
+without flagging the lack of a review signal).
+
+When several candidates pass the threshold and none of the probed ones has
+the source track count, the app still returns `matched` by format
+preference alone (`AS-MAT-041`): example, source 9 tracks, candidates with
+5 and 7 tracks → `matched`, release 2. Plan 02 says unclear matches are
+"never guessed", but no review flag is raised for this case.
+
+### CF-MAT-006 — "Top 5 candidates" for `ambiguous` has no test checking the cap directly
+Sources: `AS-DOC-DEF-050`. Kind: test quality.
+
+Plan 02 says an `ambiguous` result carries the top 5 candidates. The one
+Pester test for this only checks "more than 0" (2 candidates, from the
+master path). The code confirms the cap of 5 independently on every
+candidate-producing path (`AS-MAT-029`, `AS-MAT-036`, `AS-MAT-044`), but no
+test exercises a release with more than 5 real candidates to prove the
+truncation itself.
+
+### CF-MAT-007 — Various Artists evidence: the docs/tests view left the exact minimum undefined
+Sources: `AS-DOC-DEF-053`; mechanism now explained by `AS-CODE-MAT-030`.
+
+The docs-and-tests view only showed 3 distinct artists → yes and 2 → no,
+without stating the general rule. Re-reading the code (`AS-MAT-072`)
+answers that: at least 3 tracks, at least 3 distinct normalized track
+artists, and more than half the tracks differing from the folder artist.
+No gap was found in the actual behavior — carried forward only because
+phase 3 does not itself decide to close out a phase-1 suspected defect.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -444,3 +521,4 @@ to close out a phase-1 suspected defect.
 | 0.5 | 2026-10-11 | Area SES: 2 items carried forward (`CF-SES-001`–`002`). `CF-SES-001` is `AS-CODE-DEF-*` only (no `AS-DOC-DEF-*` suspected defect for this area — only the one contradiction resolved in `90-contradictions-resolution.md`). `CF-SES-002` is a new suspected defect found directly while merging, with no original phase-1/phase-2 source id. |
 | 0.6 | 2026-10-11 | Area REC: 18 items carried forward (`CF-REC-001`–`018`), covering all 7 `AS-CODE-DEF-REC-*` entries and all 12 REC-area `AS-DOC-DEF-*` suspected defects (`AS-DOC-DEF-026`–`037`). `CF-REC-012` merges `AS-DOC-DEF-031` and `AS-CODE-DEF-REC-003` — the docs-and-tests view spotted the same recognition-confidence inconsistency from the golden file's numbers that the code-only view explains by mechanism. `CF-TXT-003` (filed under TXT) is cross-referenced as concerning this area's `AS-REC-057`. |
 | 0.7 | 2026-10-11 | Area DSC: 4 items carried forward (`CF-DSC-001`–`004`). Two are `AS-CODE-DEF-DSC-*` only (`001`, `002`). Two are phase-1 `AS-DOC-DEF-*` items (`040`, `042`) whose mechanism is now fully explained by the code — `CF-DSC-003` (rate limit 0) looks like a real surprising-behavior candidate, `CF-DSC-004` (error message naming) found no actual gap — but both stay undecided here per the phase 3/phase 4 split. |
+| 0.8 | 2026-10-13 | Area MAT: 7 items carried forward (`CF-MAT-001`–`007`). Two are `AS-CODE-DEF-MAT-*` only (`001`, `002`). Five are phase-1 `AS-DOC-DEF-*` items (`046`–`048`, `050`, `053`) — three Kind: test quality (`046`, `047`, `050`), one a genuine behavior gap with no review flag (`048`), and one (`053`) whose mechanism is now fully explained by the code with no gap found, same pattern as `CF-DSC-004`. |

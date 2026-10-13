@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.7 | Last updated: 2026-10-11
+Status: Draft | Version: 0.8 | Last updated: 2026-10-13
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -379,6 +379,96 @@ preceding space (e.g. `abc#123`), which the phase-1 wording would predict
 stays whole but the code actually still cuts. No test exercises this exact
 input either way. Merged with corrected wording in `AS-DSC-005`.
 
+## MAT
+
+### New: AS-DOC-MAT-001 vs AS-CODE-MAT-001/002 — Is string similarity a token-sort ratio?
+
+`AS-DOC-MAT-001` says plan 02 names "a normalized string similarity such as
+token-sort ratio (compare the words after sorting them)" and that the tests
+don't fix the exact formula.
+
+Re-read `legacy/scripts/common/Reshelf.EditProposal.psm1:31-89`
+(`Get-ReshelfLevenshteinDistance`, `Get-ReshelfStringSimilarity`): the
+implementation is classic single-character Levenshtein edit distance,
+turned into `1.0 - (distance / max(lengthA, lengthB))`. There is no
+tokenization, no sorting of words, nothing resembling a token-sort ratio —
+two titles with the same words in a different order would *not* score 1.0.
+
+**Resolved: AS-CODE-MAT-001/002 is factually right.** Plan 02's "token-sort
+ratio" is an aspirational/inaccurate naming of the approach, not what the
+code implements. Merged as `AS-MAT-001`, corrected.
+
+### Carried from phase 1: `AS-DOC-DEF-043` (search query keys: plan's `q=...&year=...` vs tests' `release_title`/`artist`/`type`)
+
+Re-read `Reshelf.EditProposal.psm1:142-164` (`Get-ReshelfDiscogsSearchQuery`)
+and the main search loop (`:1106-1190`): every title-ladder search sets
+`type`, `artist`, `release_title`, and `year` only when known — no `q` key
+anywhere in this path. A bare `q={name}` is used only by the separate
+artist-identity search (`Resolve-ReshelfDiscogsArtistIdentity`,
+`:885`), a different endpoint for a different purpose. **Resolved:
+tests/code are right — plan 02's `q=...` shape describes neither search.**
+Merged as `AS-MAT-007`.
+
+### Carried from phase 1: `AS-DOC-DEF-044` ("at most 4 searches" undersells the full lookup)
+
+Re-read the full `Resolve-ReshelfDiscogsMatch` (`:1035-1301`): plan 06's "at
+most 4 cached searches" is correct for one step (the title/year ladder
+within master search or release search, `AS-MAT-019`), but the full lookup
+is four *steps* (1a master, 1b artist master list, 1c release, 1d catalog
+fallback), each of which can run its own further requests (pagination,
+version/candidate probing). **Resolved: tests/README are right — plan 06's
+own note already flags itself as "not fully reconciled".** No change beyond
+stating the full step structure in `AS-MAT-019`–`029`.
+
+### Carried from phase 1: `AS-DOC-DEF-045` (plan: title alignment only; tests: number alignment too)
+
+Re-read `Resolve-ReshelfDiscogsTrackAlignment`
+(`Reshelf.EditProposal.psm1:1626-1656`): it is a two-step cascade — title
+alignment (`Get-ReshelfDiscogsTitleAlignment`) tried first, number
+alignment (`Get-ReshelfDiscogsNumberAlignment`) tried only if that fails,
+source titles only if both fail. **Resolved: tests/code are right — plan
+06's "falls the whole release back to source titles" describes only the
+final fallback, not the full cascade.** Merged as `AS-MAT-059`.
+Cross-referenced: `AS-DOC-DEF-064` (Area: PRP, not decided here — a test
+that cannot tell which of the two successful methods actually ran).
+
+### Carried from phase 1: `AS-DOC-DEF-049` (threshold wording: "above" vs "at or above")
+
+Re-read `Resolve-ReshelfDiscogsMatch:1122` (`$scoredMasters | Where-Object {
+$_.score -ge $script:DiscogsMatchThreshold }`) and the equivalent checks for
+the artist-master-list and release-search paths: all three use `-ge`
+(`>=`), never a strict `>`. **Resolved: the scoring tests ("at the
+threshold") are right — a score of exactly 0.85 does count as `matched`;**
+the `Resolve-` test's own name ("above the threshold") is loose wording for
+the same `>=` check. Merged as `AS-MAT-015`/`016`.
+
+### Carried from phase 1: `AS-DOC-DEF-051` (pad width: plan's "highest NN" vs the unit test's "track count")
+
+Re-read `Get-ReshelfProposalPadWidth` (`Reshelf.EditProposal.psm1:1350-1364`,
+MAT-owned) and its real caller, `New-ReshelfProposedTrackSet`
+(`:1680-...`, PRP-owned, excluded from MAT's own scope note): the caller
+passes `TotalTrackCount` = "the highest resolved `fileNumbers` value" (see
+`AS-CODE-PRP-041` in `as-is-from-code/08-proposal-naming-and-tags.md`), not
+a plain count of tracks — exactly matching plan 06 and the PRP-side primary
+requirement `AS-DOC-PRP-018` ("the larger of the pad setting and the digits
+of the *highest file number*"). **Resolved: the plan/PRP view is right.**
+`Get-ReshelfProposalPadWidth`'s own parameter name, `TotalTrackCount`, is
+just this low-level helper's generic naming — it doesn't care what the
+number conceptually represents, only the caller does — which is what misled
+the phase-1 reading of its unit test. No behavioral gap: a source with
+missing tracks gets a pad width based on the highest number used, not the
+count of files present, exactly as plan 06 describes. Merged as
+`AS-MAT-076`/`077`. (`AS-CODE-PRP-041` itself stays PRP-owned, to be merged
+when area 08 is reached — cited here only as resolution evidence.)
+
+### Carried from phase 1: `AS-DOC-DEF-052` (README version ranking skips the third format group)
+
+Re-read `Get-ReshelfDiscogsVersionRank:584-587`: format rank is 0 for
+CD/File, 1 for Vinyl/Cassette, and **2 for everything else** (e.g. 8-Track
+Cartridge, Reel-to-Reel, MiniDisc, SACD). **Resolved: tests/code are right —
+README step 2's "CD/File over Vinyl/Cassette" omits the third, lowest
+group.** Merged as `AS-MAT-052`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -390,3 +480,4 @@ input either way. Merged with corrected wording in `AS-DSC-005`.
 | 0.5 | 2026-10-11 | Area SES: one phase-1 contradiction (`AS-DOC-DEF-017`) re-verified against the code and confirmed already correctly resolved; its related design consequence left cross-referenced to the not-yet-merged CLI area (`AS-DOC-DEF-104`). |
 | 0.6 | 2026-10-11 | Area REC: nine phase-1 contradictions (`AS-DOC-DEF-018`–`025`, `038`) re-verified directly against `Reshelf.Recognition.psm1`, all confirmed already correctly resolved (tests/code right in every case except `AS-DOC-DEF-023` and `AS-DOC-DEF-025`, where plan and tests/code turned out both right at different levels once the mechanism was traced). |
 | 0.7 | 2026-10-11 | Area DSC: two phase-1 contradictions (`AS-DOC-DEF-039`, `041`) re-verified against `Reshelf.Discogs.psm1` and confirmed already correctly resolved. One new contradiction found while merging: the `.env` inline-comment rule is a plain "cut at the first `#`" in the code, narrower/different from phase 1's "space then `#`" wording (`AS-DSC-005`, corrected). |
+| 0.8 | 2026-10-13 | Area MAT: six phase-1 contradictions (`AS-DOC-DEF-043`–`045`, `049`, `051`, `052`) re-verified directly against `Reshelf.EditProposal.psm1` (and, for the pad-width one, the not-yet-merged PRP as-is-from-code), all confirmed already correctly resolved. One new contradiction found while merging: plan 02's "token-sort ratio" naming for string similarity vs the actual normalized-Levenshtein-distance formula (`AS-MAT-001`, corrected). |
