@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.11 | Last updated: 2026-10-13
+Status: Draft | Version: 0.12 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -861,6 +861,20 @@ skipped release gets no log entry at all (consistent with `AS-APL-009`: no
 entry still means "needs apply" next time), so the third accepted value is
 presently unreachable in practice.
 
+## LSY
+
+### CF-LSY-001 — Ignoring a previously-upgraded entry leaves a stale upgradedUtc behind
+Sources: none — found directly while merging, no original phase-1/phase-2 id.
+
+`Set-ReshelfLossyTrackingIgnored` (the function behind `lossy ignore`,
+`AS-LSY-014`) only ever touches `status`, never `upgradedUtc` — unlike the
+generic status setter (`Set-ReshelfLossyTrackingStatus`, `AS-LSY-010`), which
+always clears `upgradedUtc` on any move away from `upgraded`. An entry that
+was `upgraded` and is then ignored through the dedicated `lossy ignore` path
+keeps its old `upgradedUtc` timestamp even though `status` no longer says
+`upgraded` — a combination the generic setter's own rule would never
+produce. No test exercises ignoring an already-`upgraded` entry.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -876,3 +890,4 @@ presently unreachable in practice.
 | 0.9 | 2026-10-13 | Area PRP: 10 items carried forward (`CF-PRP-001`–`010`). Four are `AS-CODE-DEF-PRP-*` only (`001`, confirmed by code only; `002`, `003`, `004`); the other six are phase-1 `AS-DOC-DEF-*` items (`055`, `062`–`065`, `067`). `CF-PRP-004` is confirmed, not contradicted, by its matching code read (`AS-CODE-PRP-066`); `CF-PRP-010` cross-references `AS-CODE-PRP-096` as reinforcing code-side detail for the same shape-mismatch issue. |
 | 0.10 | 2026-10-13 | Area REV: 15 items carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries (one of them, `007`, merged into `CF-REV-008` alongside the matching `AS-DOC-DEF-079` as the same fact from two sources) and all 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). `CF-REV-011` is confirmed, not contradicted, by its matching code comment (`AS-CODE-REV-107`). |
 | 0.11 | 2026-10-13 | Area APL: 11 items carried forward (`CF-APL-001`–`011`), covering both `AS-CODE-DEF-APL-*` entries and all 8 APL-area `AS-DOC-DEF-*` suspected defects (`086`, `087`, `089`–`091`, `094`–`096`). `CF-APL-002` is partly answered, not contradicted, by re-reading `AS-APL-006`/`016` (the target-folder check does apply in that scenario). `CF-APL-011` is a new suspected defect found directly while merging, with no original source id — the apply-log `status` field accepts a `'skipped'` value the code never writes. |
+| 0.12 | 2026-10-13 | Area LSY: 1 item carried forward (`CF-LSY-001`), a new finding with no original phase-1/phase-2 id — the dedicated ignore mutator leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter. Neither LSY source file carried any pre-existing suspected defect. |

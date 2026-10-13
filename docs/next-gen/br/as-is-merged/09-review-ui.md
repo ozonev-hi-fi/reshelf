@@ -1,6 +1,6 @@
 # 09 — Review UI (merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-13
+Status: Draft | Version: 0.2 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -30,8 +30,9 @@ cites every `AS-DOC-REV-*`/`AS-CODE-REV-*` id it reconciles;
 
 How `propose` fills the fields this page edits: see
 [08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md). The `ui
-start` command itself, apply and the lossy ledger's own lifecycle: see
-`12-cli.md`, `10-apply.md` and `11-lossy-tracking.md` (not yet merged).
+start` command itself and apply: see `12-cli.md` (not yet merged) and
+[10-apply.md](10-apply.md). The lossy ledger's own lifecycle: see
+[11-lossy-tracking.md](11-lossy-tracking.md).
 
 ## UI server: static files, MIME types, path safety
 
@@ -853,7 +854,7 @@ Status: Draft | Source: AS-DOC-REV-078; AS-CODE-REV-132
 
 The release view (`#main-layout`) shows on load; `#view-btn-lossy` shows
 `#lossy-view` and hides it; `#view-btn-releases` switches back. The lossy
-ledger's own rules: see `11-lossy-tracking.md` (not yet merged).
+ledger's own rules: see [11-lossy-tracking.md](11-lossy-tracking.md).
 
 ### AS-REV-112 — The release-view toggle uses an inline style, not the hidden attribute, because of a CSS specificity conflict
 Status: Draft | Source: AS-CODE-REV-133
@@ -957,3 +958,4 @@ see [04-sessions.md](04-sessions.md).
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-13 | Phase 3 merge of area REV: 84 `AS-DOC-REV-*` + 148 `AS-CODE-REV-*`, reconciled into `AS-REV-001`–`125`. 5 contradictions resolved (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`), all in favor of the tests/code over stale plan-07 prose, each independently confirmed from the server/client code. 15 suspected defects carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries and the 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). |
+| 0.2 | 2026-10-13 | During the LSY merge: two dangling `(not yet merged)` references to `11-lossy-tracking.md` resolved to real links; the same edit also resolved an already-stale `10-apply.md` `(not yet merged)` note in passing. |

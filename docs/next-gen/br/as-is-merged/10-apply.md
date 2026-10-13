@@ -959,10 +959,10 @@ and skipped → `Skipped 1, Failed 0`, stage `applied`.
 ## Lossy tracking updates from apply
 
 Ledger format and the `lossy` commands: see
-`11-lossy-tracking.md` (not yet merged).
+[11-lossy-tracking.md](11-lossy-tracking.md).
 
 ### AS-APL-061 — A lossless replacement marks the ledger entry upgraded
-Status: Draft | Source: AS-DOC-APL-065; AS-CODE-APL-050
+Status: Draft | Source: AS-DOC-APL-065; AS-CODE-APL-050; AS-DOC-LSY-030 (same rule, plan/README sources)
 
 When a release with lossy action `replace-existing` applies successfully,
 apply sets its ledger entry to status `upgraded` and records the upgrade
@@ -974,7 +974,7 @@ Example: ledger has `Some Band` / `Some Album` / 2010, `mp3`, target has
 `01 Track.mp3`; ledger `upgraded` with an upgrade time.
 
 ### AS-APL-062 — A logged lossy release gets the real committed path in the ledger, not the proposed one
-Status: Draft | Source: AS-DOC-APL-066; AS-CODE-APL-050
+Status: Draft | Source: AS-DOC-APL-066; AS-CODE-APL-050; AS-DOC-LSY-031 (same rule, plan source)
 
 When a release with lossy action `log-for-upgrade` applies, apply writes
 the real final folder path into its ledger entry, since the proposal step
@@ -1116,3 +1116,4 @@ same floor-first mechanism as the artist budget (`AS-APL-070`).
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-13 | Area APL merged: 69 `AS-APL-*` requirements, `AS-APL-001`–`072` with a gap at `046`–`048` (68 `AS-DOC-APL-*` items folded in, 3 of them — `046`–`048` — redirected instead to the already-merged `AS-REC-085`–`089`; 5 fresh `AS-APL-068`–`072` for code-only budget/log mechanics). 6 phase-1 contradictions re-verified against `Reshelf.Implementation.psm1` and confirmed already correctly resolved (`AS-DOC-DEF-083`–`085`, `088`, `092`, `093`). 11 suspected defects carried forward (`CF-APL-001`–`011`, covering 8 phase-1 `AS-DOC-DEF-*` items — `086`, `087`, `089`–`091`, `094`–`096` — the 2 `AS-CODE-DEF-APL-*` entries, and 1 new finding — the `apply-log` `'skipped'` status value is defined but never written). |
+| 0.2 | 2026-10-13 | During the LSY merge: `AS-APL-061`/`062` Source lines extended to also cite `AS-DOC-LSY-030`/`031` (the same two facts, restated from LSY's own plan/README sources with nothing new); the dangling `(not yet merged)` note under "Lossy tracking updates from apply" resolved to a real link now that `11-lossy-tracking.md` exists. |

@@ -1,6 +1,6 @@
 # 08 — Proposal: naming and tags (merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-13
+Status: Draft | Version: 0.2 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -48,7 +48,7 @@ normalization, title case and safe-name rules: see
 `rateLimitPerMinute`, `namingTemplates.*`): see
 [03-settings-and-secrets.md](03-settings-and-secrets.md). Stable keys: see
 [01-data-and-storage.md](01-data-and-storage.md). The lossy ledger and its
-own lifecycle: see `11-lossy-tracking.md` (not yet merged). Apply, cue
+own lifecycle: see [11-lossy-tracking.md](11-lossy-tracking.md). Apply, cue
 splitting and the ffmpeg cover resize: see `10-apply.md` (not yet merged).
 The review UI's Discogs picker and cover picker: see `09-review-ui.md` (not
 yet merged).
@@ -1098,8 +1098,8 @@ When the found target folder is lossy and the source is lossless at the
 was found at a *different*, older path (e.g. via the previous-lossy ledger,
 `AS-PRP-079`–`081`), the action is `create-new` instead — the old lossy copy
 is left alone under its own name rather than overwritten. Details and the
-other lossy cases: see `11-lossy-tracking.md` (not yet merged,
-`AS-DOC-LSY-024` to `028`).
+other lossy cases: see `AS-LSY-017`–`021` in
+[11-lossy-tracking.md](11-lossy-tracking.md).
 
 Example: source `01 Track.flac`, target `01 Track.mp3` (same path) →
 `update-existing`.
@@ -1159,7 +1159,7 @@ Independently of this decision, whenever the source is lossy, the ledger
 entry is upserted unconditionally on every run — a release pending upgrade
 keeps its `lastCheckedUtc` advancing across repeated proposal runs rather
 than being written only once. The ledger's own lifecycle: see
-`11-lossy-tracking.md` (not yet merged).
+[11-lossy-tracking.md](11-lossy-tracking.md).
 
 ## Applying a chosen Discogs version (manual re-pick)
 
@@ -1257,3 +1257,4 @@ collision`.
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-13 | Phase 3 merge of area PRP: 78 `AS-DOC-PRP-*` + 91 remaining `AS-CODE-PRP-*` (104 minus the 13 already absorbed into `AS-MAT-*` during the MAT merge: `AS-CODE-PRP-002`, `021`–`032`), reconciled into `AS-PRP-001`–`105`. 9 contradictions resolved (`AS-DOC-DEF-054`, `056`–`061`, `066`, `068`), one of them (`068`) requiring a fresh read of the caller beyond what either phase-1 or phase-2 excerpted. 10 suspected defects carried forward (`CF-PRP-001`–`010`, covering all 4 `AS-CODE-DEF-PRP-*` entries and the PRP-area `AS-DOC-DEF-055`, `062`, `063`, `064`, `065`, `067`). Several items reuse an already-merged `AS-MAT-*` rule (master year, master-image fallback, Various/compilation detection, the alignment cascade) rather than restating it. |
+| 0.2 | 2026-10-13 | During the LSY merge: the three dangling `(not yet merged)` references to `11-lossy-tracking.md` resolved to real links, one of them repointed from a raw doc-id list to the actual `AS-LSY-017`–`021` range now that those exist. |

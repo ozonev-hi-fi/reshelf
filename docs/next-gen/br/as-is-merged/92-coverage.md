@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.11 | Last updated: 2026-10-13
+Status: Draft | Version: 0.12 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -1074,6 +1074,61 @@ One further suspected defect, `CF-APL-011`, was found directly while merging
 this area (the apply-log `status` field's `'skipped'` value is never
 written) — no original `AS-DOC-DEF`/`AS-CODE-DEF` id exists for it.
 
+## LSY
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-LSY-001 | AS-CODE-LSY-001 | AS-LSY-001 |
+| AS-DOC-LSY-002 | AS-CODE-LSY-002 | AS-LSY-002 |
+| AS-DOC-LSY-003 | AS-CODE-LSY-002 | AS-LSY-002 |
+| AS-DOC-LSY-004 | AS-CODE-LSY-006 | AS-LSY-003 |
+| AS-DOC-LSY-005 | AS-CODE-LSY-013 | AS-LSY-004 |
+| AS-DOC-LSY-006 | AS-CODE-LSY-003 | AS-LSY-005 |
+| AS-DOC-LSY-007 | AS-CODE-LSY-005 | AS-LSY-006 |
+| AS-DOC-LSY-008 | AS-CODE-LSY-004 | AS-LSY-007 |
+| AS-DOC-LSY-009 | AS-CODE-LSY-004 | AS-LSY-007 |
+| AS-DOC-LSY-010 | AS-CODE-LSY-004 | AS-LSY-007 |
+| AS-DOC-LSY-011 | AS-CODE-LSY-004 | AS-LSY-007 |
+| AS-DOC-LSY-012 | AS-CODE-LSY-008 | AS-LSY-008 |
+| AS-DOC-LSY-013 | AS-CODE-LSY-010 | AS-LSY-009 |
+| AS-DOC-LSY-014 | AS-CODE-LSY-010 | AS-LSY-009 |
+| AS-DOC-LSY-015 | AS-CODE-LSY-010 | AS-LSY-010 |
+| AS-DOC-LSY-016 | AS-CODE-LSY-011 | AS-LSY-011 |
+| AS-DOC-LSY-017 | AS-CODE-LSY-007, AS-CODE-LSY-014 | AS-LSY-012 |
+| AS-DOC-LSY-018 | AS-CODE-LSY-012 | AS-LSY-013 |
+| AS-DOC-LSY-019 | AS-CODE-LSY-009 | AS-LSY-014 (`91` CF-LSY-001 carried forward) |
+| AS-DOC-LSY-020 | — | AS-LSY-015 |
+| AS-DOC-LSY-021 | — | AS-LSY-015 |
+| AS-DOC-LSY-022 | — | AS-LSY-016 |
+| AS-DOC-LSY-023 | — | see `AS-PRP-097` (PRP-owned, redirected) |
+| AS-DOC-LSY-024 | — | AS-LSY-017 |
+| AS-DOC-LSY-025 | — | AS-LSY-018 |
+| AS-DOC-LSY-026 | — | AS-LSY-019 |
+| AS-DOC-LSY-027 | — | AS-LSY-020 |
+| AS-DOC-LSY-028 | — | AS-LSY-021 |
+| AS-DOC-LSY-029 | — | see `AS-PRP-078` (PRP-owned, redirected) |
+| AS-DOC-LSY-030 | — | see `AS-APL-061` (APL-owned; citation folded into its `Source:` line) |
+| AS-DOC-LSY-031 | — | see `AS-APL-062` (APL-owned; citation folded into its `Source:` line) |
+| AS-DOC-LSY-032 | — | AS-LSY-022 |
+| — | AS-CODE-LSY-001 | AS-LSY-001 |
+| — | AS-CODE-LSY-002 | AS-LSY-002 |
+| — | AS-CODE-LSY-003 | AS-LSY-005 |
+| — | AS-CODE-LSY-004 | AS-LSY-007 |
+| — | AS-CODE-LSY-005 | AS-LSY-006 |
+| — | AS-CODE-LSY-006 | AS-LSY-003 |
+| — | AS-CODE-LSY-007 | AS-LSY-012 |
+| — | AS-CODE-LSY-008 | AS-LSY-008 |
+| — | AS-CODE-LSY-009 | AS-LSY-014 |
+| — | AS-CODE-LSY-010 | AS-LSY-009, AS-LSY-010 |
+| — | AS-CODE-LSY-011 | AS-LSY-011 |
+| — | AS-CODE-LSY-012 | AS-LSY-013 |
+| — | AS-CODE-LSY-013 | AS-LSY-004 |
+| — | AS-CODE-LSY-014 | AS-LSY-012 |
+
+No `AS-DOC-DEF-*`/`AS-CODE-DEF-*` entries exist for this area (neither
+source file carries one). One suspected defect, `CF-LSY-001`, was found
+directly while merging — no original source id exists for it.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -1089,3 +1144,4 @@ written) — no original `AS-DOC-DEF`/`AS-CODE-DEF` id exists for it.
 | 0.9 | 2026-10-13 | Area PRP: 78 AS-DOC-PRP, 91 remaining AS-CODE-PRP (104 minus the 13 already absorbed into AS-MAT-*), 9 AS-DOC-DEF contradictions, 6 AS-DOC-DEF + 4 AS-CODE-DEF-PRP suspected defects — all 188 source IDs covered by AS-PRP-001–105, the PRP contradiction entries, and CF-PRP-001–010. This area's table is organized by merged id rather than source id, like MAT; see the note above it. AS-DOC-DEF-057's resolution also closes DAT's own forward cross-reference (CF-DAT-001). |
 | 0.10 | 2026-10-13 | Area REV: 84 AS-DOC-REV, 148 AS-CODE-REV, 5 AS-DOC-DEF contradictions, 9 AS-DOC-DEF + 7 AS-CODE-DEF-REV suspected defects — all 253 source IDs covered by AS-REV-001–125, the REV contradiction entries, and CF-REV-001–015. This area's table is organized by merged id rather than source id, like MAT/PRP; see the note above it. One AS-CODE-DEF-REV entry (`007`) merges into the same carry-forward item as its matching AS-DOC-DEF entry (`079`), the same fact found independently from both sources. |
 | 0.11 | 2026-10-13 | Area APL: 71 AS-DOC-APL, 55 AS-CODE-APL, 6 AS-DOC-DEF contradictions, 8 AS-DOC-DEF + 2 AS-CODE-DEF-APL suspected defects — all 126 source IDs covered by AS-APL-001–072 (with a gap at `046`–`048`, redirected instead to the already-merged AS-REC-085–089), the APL contradiction entries, and CF-APL-001–011 (one of them, `CF-APL-011`, a new finding with no original source id). This area's table is organized by source id like DAT/DSC, since the doc/code views are close enough in size and shape; see the numbering note above it and in `10-apply.md`. |
+| 0.12 | 2026-10-13 | Area LSY: 32 AS-DOC-LSY, 14 AS-CODE-LSY — all 46 source IDs covered by AS-LSY-001–022, with four doc items redirected to already-merged items with no new id (`023`→AS-PRP-097, `029`→AS-PRP-078, `030`→AS-APL-061, `031`→AS-APL-062), and CF-LSY-001 (a new finding, no original source id — neither LSY source file carried a pre-existing contradiction or suspected defect). |
