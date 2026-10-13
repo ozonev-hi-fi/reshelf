@@ -1,6 +1,6 @@
 # 11 — Lossy tracking (as-is, merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-13
+Status: Draft | Version: 0.2 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -383,7 +383,7 @@ The user can list the ledger, filtered by status. The user can ignore an
 entry, mark it upgraded by hand (for example after a replacement made
 outside the tool), remove it, and export it to CSV or JSON, filtered by
 status. The list of `pending-upgrade` entries is the upgrade backlog.
-Command syntax: see `12-cli.md` (not yet merged).
+Command syntax: see [12-cli.md](12-cli.md) (`AS-CLI-026`–`029`).
 
 Example: `lossy list -Status pending-upgrade` shows the backlog;
 `lossy ignore a1b2c3d4e5f60708` → `status = ignored`.
@@ -393,3 +393,4 @@ Example: `lossy list -Status pending-upgrade` shows the backlog;
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-13 | Area LSY merged: 22 `AS-LSY-*` requirements (`AS-LSY-001`–`022`) reconciling 32 `AS-DOC-LSY-*` + 14 `AS-CODE-LSY-*`. No contradictions (neither source carried a `Contradiction`-type entry for this area). 1 new suspected defect found while merging and carried forward (`CF-LSY-001`: the dedicated ignore setter leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter). Two doc items (`AS-DOC-LSY-023`, `029`) redirected with no new item to already-merged `AS-PRP-097`/`078`; two more (`AS-DOC-LSY-030`/`031`) redirected to already-merged `AS-APL-061`/`062`, whose `Source:` lines were extended to cite them. The propose-time half of this area (`AS-DOC-LSY-020`–`028`) cross-references the PRP merge's target-comparison items (`AS-PRP-078`–`081`, `092`, `097`) for the decision logic, owning only the ledger-field and `previousLossy`-schema detail PRP's own items don't state. |
+| 0.2 | 2026-10-13 | During the CLI merge: the dangling `(not yet merged)` reference to `12-cli.md` resolved to a real link (`AS-CLI-026`–`029`). |

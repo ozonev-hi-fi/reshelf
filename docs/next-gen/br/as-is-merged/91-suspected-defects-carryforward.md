@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.12 | Last updated: 2026-10-13
+Status: Draft | Version: 0.13 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -875,6 +875,77 @@ keeps its old `upgradedUtc` timestamp even though `status` no longer says
 `upgraded` — a combination the generic setter's own rule would never
 produce. No test exercises ignoring an already-`upgraded` entry.
 
+## CLI
+
+### CF-CLI-001 — Seed script header says two releases; it seeds and prints four
+Sources: `AS-DOC-DEF-100` (Kind: test quality). No `AS-CODE` counterpart.
+
+The UI test seed script's own `.DESCRIPTION` says "a schema-valid
+proposal.json for two releases" and shows sample output with only `rich` and
+`minimal`. The script actually seeds `rich`, `minimal`, `empty` and
+`compilation`, and prints all four (`AS-CLI-044`).
+
+### CF-CLI-002 — "-IncludeUi" without node_modules reports success even though the UI suite never ran
+Sources: `AS-DOC-DEF-103`. No `AS-CODE` counterpart.
+
+Without `tests/ui/node_modules`, the runner prints a warning, skips the UI
+suite and exits 0 (`AS-CLI-039`). Plan 11 says a silent skip of the
+integration tests "would let this coverage gap reopen unnoticed", and makes
+those tests fail instead of skip for exactly that reason — the UI suite gets
+the opposite treatment for what is, in effect, the same kind of coverage
+gap.
+
+### CF-CLI-003 — A failed recognize leaves an orphan session, and its own suggested fix creates another
+Sources: `AS-DOC-DEF-104`. No `AS-CODE` counterpart. Cross-referenced with
+`AS-SES-007` (stage is `recognized` from the moment the session is created,
+not when recognition finishes).
+
+When recognition fails after the session is created, the session stays
+(count = 1) with no `recognition.json` (`AS-CLI-011`). The error message
+names the session but nothing removes or marks it, and its own suggested
+re-run (`recognize -SourceRoot <path>`) creates yet another new session
+rather than resuming the failed one. It then appears in `session list` and
+the UI session list at stage `recognized`, indistinguishable from a session
+that is simply mid-flight.
+
+### CF-CLI-004 — "apply" is the only long-running command with no wrapping try/catch
+Sources: `AS-CODE-DEF-CLI-001`. No `AS-DOC-DEF-*` counterpart.
+
+`recognize` and `propose` both catch a failure and rethrow it with
+user-facing session context (`"<Step> failed for session '<id>':
+<message>"`, `AS-CLI-011`/`014`). `apply` (`AS-CLI-019`) has no such
+`try`/`catch` — a mid-apply failure surfaces as a raw, unwrapped PowerShell
+error, inconsistent with the otherwise-parallel structure of these three
+long-running commands.
+
+### CF-CLI-005 — "lossy ignore"/"mark-upgraded"/"remove" read a stable key out of the -SessionId parameter
+Sources: `AS-CODE-DEF-CLI-002`. No `AS-DOC-DEF-*` counterpart.
+
+These three subcommands have no dedicated `-StableKey` parameter — they read
+the stable key from the same positional/`-SessionId` slot the `session`
+command uses for an actual session id (`AS-CLI-027`/`028`). A scripted
+caller passing `-SessionId` to a `lossy` subcommand, reasonably expecting it
+to mean a session as it does everywhere else, would silently operate on a
+ledger stable key instead.
+
+### CF-CLI-006 — Different exit-code checks for a missing session id across commands
+Sources: `AS-DOC-DEF-105` (Kind: test quality). No `AS-CODE` counterpart.
+
+`apply` without a session id is tested for exit code exactly 1, with no
+message assertion. `propose` and every `session` subcommand without an id
+are tested for "non-zero" plus the literal text `requires a session id`
+(`AS-CLI-031`). Both paths are, per the code, the same mechanism (an
+uncaught `throw`) — but the test suite never actually confirms whether
+`apply` prints the same message text.
+
+### CF-CLI-007 — "-Format" is declared once, script-wide, for a parameter only one subcommand reads
+Sources: `AS-CODE-DEF-CLI-003`. No `AS-DOC-DEF-*` counterpart.
+
+`-Format` defaults to `csv` at the script's top-level parameter block
+(`AS-CLI-033`), but today only `lossy export` ever reads it. Harmless now,
+but any future command parameter also named `-Format` would silently
+inherit this default rather than one of its own.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -891,3 +962,4 @@ produce. No test exercises ignoring an already-`upgraded` entry.
 | 0.10 | 2026-10-13 | Area REV: 15 items carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries (one of them, `007`, merged into `CF-REV-008` alongside the matching `AS-DOC-DEF-079` as the same fact from two sources) and all 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). `CF-REV-011` is confirmed, not contradicted, by its matching code comment (`AS-CODE-REV-107`). |
 | 0.11 | 2026-10-13 | Area APL: 11 items carried forward (`CF-APL-001`–`011`), covering both `AS-CODE-DEF-APL-*` entries and all 8 APL-area `AS-DOC-DEF-*` suspected defects (`086`, `087`, `089`–`091`, `094`–`096`). `CF-APL-002` is partly answered, not contradicted, by re-reading `AS-APL-006`/`016` (the target-folder check does apply in that scenario). `CF-APL-011` is a new suspected defect found directly while merging, with no original source id — the apply-log `status` field accepts a `'skipped'` value the code never writes. |
 | 0.12 | 2026-10-13 | Area LSY: 1 item carried forward (`CF-LSY-001`), a new finding with no original phase-1/phase-2 id — the dedicated ignore mutator leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter. Neither LSY source file carried any pre-existing suspected defect. |
+| 0.13 | 2026-10-13 | Area CLI: 7 items carried forward (`CF-CLI-001`–`007`), covering all 3 `AS-CODE-DEF-CLI-*` entries (`005`–`007`) and the 4 CLI-area `AS-DOC-DEF-*` suspected defects (`100`, `103`, `104`, `105`). `CF-CLI-003` cross-references the already-merged `AS-SES-007` for the design consequence SES's own merge had left pointing here. |

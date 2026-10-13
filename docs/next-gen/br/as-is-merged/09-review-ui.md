@@ -1,6 +1,6 @@
 # 09 — Review UI (merged)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-13
+Status: Draft | Version: 0.3 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -30,7 +30,7 @@ cites every `AS-DOC-REV-*`/`AS-CODE-REV-*` id it reconciles;
 
 How `propose` fills the fields this page edits: see
 [08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md). The `ui
-start` command itself and apply: see `12-cli.md` (not yet merged) and
+start` command itself and apply: see [12-cli.md](12-cli.md) and
 [10-apply.md](10-apply.md). The lossy ledger's own lifecycle: see
 [11-lossy-tracking.md](11-lossy-tracking.md).
 
@@ -319,13 +319,13 @@ Success is 200 `{ removed: true }`. Carried forward: see
 ## Server: HTTP bootstrap and request loop
 
 ### AS-REV-032 — Default port 4173, default UI root the ui/ folder next to scripts; startup fails if the UI root doesn't resolve
-Status: Draft | Source: AS-CODE-REV-059; AS-CODE-REV-060; AS-CODE-REV-062
+Status: Draft | Source: AS-CODE-REV-059; AS-CODE-REV-060; AS-CODE-REV-062; AS-DOC-CLI-014 (deferred here from CLI — see `12-cli.md`)
 
 A non-resolving `-UiRoot` throws "UI root '...' does not exist. Nothing to
 serve." before any listener opens.
 
 ### AS-REV-033 — -NoBrowser suppresses the auto-launched browser; otherwise the OS default browser opens on startup
-Status: Draft | Source: AS-CODE-REV-061; AS-CODE-REV-065
+Status: Draft | Source: AS-CODE-REV-061; AS-CODE-REV-065; AS-DOC-CLI-015 (deferred here from CLI — see `12-cli.md`)
 
 `-NoBrowser` exists so the Playwright suite, which drives its own browser
 instance, doesn't also get an unwanted real browser window on every
@@ -950,7 +950,7 @@ distinct states across releases and unrecognized entries.
 Status: Draft | Source: AS-DOC-REV-084
 
 It does not touch any release; apply does not need it and does not check
-it. The command syntax: see `12-cli.md` (not yet merged). Stages:
+it. The command syntax: see [12-cli.md](12-cli.md) (`AS-CLI-024`). Stages:
 see [04-sessions.md](04-sessions.md).
 
 ## Changelog
@@ -959,3 +959,4 @@ see [04-sessions.md](04-sessions.md).
 |---|---|---|
 | 0.1 | 2026-10-13 | Phase 3 merge of area REV: 84 `AS-DOC-REV-*` + 148 `AS-CODE-REV-*`, reconciled into `AS-REV-001`–`125`. 5 contradictions resolved (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`), all in favor of the tests/code over stale plan-07 prose, each independently confirmed from the server/client code. 15 suspected defects carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries and the 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). |
 | 0.2 | 2026-10-13 | During the LSY merge: two dangling `(not yet merged)` references to `11-lossy-tracking.md` resolved to real links; the same edit also resolved an already-stale `10-apply.md` `(not yet merged)` note in passing. |
+| 0.3 | 2026-10-13 | During the CLI merge: `AS-REV-032`/`033`'s `Source:` lines extended to cite `AS-DOC-CLI-014`/`015` (the `ui start` default port and `-NoBrowser`, restated from the CLI doc side with no new content) — see `12-cli.md`. Two dangling `(not yet merged)` references to `12-cli.md` resolved to real links. |

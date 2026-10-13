@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.11 | Last updated: 2026-10-13
+Status: Draft | Version: 0.12 | Last updated: 2026-10-13
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -88,8 +88,9 @@ the repo" — still makes sense after the Phase 0 move to `legacy/`. The
 reflects the post-move reality (`legacy/.data`, two directories above
 `Reshelf.Common.psm1`'s folder) — docs and code agree on the actual current
 behavior, so there is no DAT-owned contradiction to resolve here. The
-broader "is the README's wording now misleading" question is Cross-cutting
-and is left for whichever merge pass owns that area.
+broader "is the README's wording now misleading" question is Cross-cutting;
+it was closed out under CLI once every area citing it had merged — see the
+CLI section below.
 
 ### Found while merging SET: AS-CODE-DAT-024 vs AS-DOC-SET-047 — Does `Protect-ReshelfSecret` accept an empty string?
 
@@ -723,6 +724,64 @@ README oversimplify one combined step into two ordered ones; neither is
 wrong about anything observable, since no test exercises the order.** Merged
 as `AS-APL-008`, with the actual mechanism spelled out there.
 
+## LSY
+
+None owned by this area. Neither source file for LSY carries an
+`AS-DOC-DEF-*`/`AS-CODE-DEF-*` entry of type "Contradiction" — see
+`11-lossy-tracking.md`.
+
+## CLI
+
+### Carried from phase 1: `AS-DOC-DEF-101` (plan 11 lists 6 UI spec files; 10 exist)
+
+Plan 11 › UI verification names `load-and-sessions`, `edit-and-save`,
+`review-state`, `covers`, `companions` and `server-down`. Re-read
+`legacy/tests/ui/specs/`: it holds 10 files — the six named plus
+`folder-name-preview.spec.js`, `lossy-tracker.spec.js`,
+`track-artist.spec.js` and `unrecognized.spec.js`. **Resolved: the actual
+spec folder is right, plan 11 is stale** — these four specs were added after
+plan 11 was written and the plan was never updated to list them. Merged as
+`AS-CLI-043`, with the full 10-file list.
+
+### Carried from phase 1: `AS-DOC-DEF-102` (plan 01's command list has no "ui"; repo tree out of date)
+
+Plan 01 says `Reshelf.ps1 dispatcher: settings|session|recognize|propose|
+apply|lossy` and its repo tree has no `Start-ReshelfUiServer.ps1`, no UI
+server module and no `tests/ui/`. Re-read `legacy/scripts/Reshelf.ps1:5`
+(`$Command`'s `ValidateSet`): it includes `ui` alongside the six plan 01
+names. **Resolved: the README and the code are right, plan 01 predates the
+UI server entirely and was never updated.** Merged as `AS-CLI-002`.
+
+### Closing out: `AS-DOC-DEF-111` (Cross-cutting — "repo root" paths after the Phase 0 move to `legacy/`)
+
+Raised while merging DAT (names `AS-DOC-DAT-004` as related) and noted again,
+unresolved, while merging SET (`AS-DOC-SET-044`) and DSC (`AS-DOC-DSC-002`):
+whether README/plan wording about paths relative to "the repo root" —
+including the entry script invocation itself (`pwsh scripts/Reshelf.ps1
+<command>`, `AS-DOC-CLI-001`), the test runner (`pwsh
+tests/Invoke-ReshelfTests.ps1`, `AS-DOC-CLI-030`) and the UI suite's expected
+`TagLibSharp.dll` location (`<repo>/.data/lib/TagLibSharp.dll`,
+`AS-DOC-CLI-036`) — still makes sense after the Phase 0 move of the whole app
+into `legacy/`.
+
+Every area that has cited a path like this so far (`AS-DAT-004`,
+`AS-SET-*`'s own data-home references, `AS-DSC-*`'s `.env` path, and now
+every path in `12-cli.md`) already merges it corrected — `legacy/scripts/
+Reshelf.ps1`, `legacy/tests/Invoke-ReshelfTests.ps1`, `legacy/.data/lib/
+TagLibSharp.dll` — confirmed against the actual post-move file locations, not
+just the stale README/plan wording. CLI is the area most directly built
+around these entry-point and test-runner paths, and the last of DEF-111's
+named areas (DAT, SET, DSC, CLI) to be merged, so this is the natural place
+to close the loop. **Resolved: the README and plan wording is stale, written
+for the pre-Phase-0 layout; every merged `AS-*` requirement across every
+area already states the current, `legacy/`-relative path, so there is no
+remaining behavioral ambiguity — only the original legacy docs' own wording
+is dated, which is exactly what Phase 0's freeze (`Rule D9`) already expects
+of frozen, unmaintained documentation.** No further area needs to carry this
+forward; BND/ERR's own `AS-DOC-DEF-108`/`110` (Area: ERR, not Cross-cutting)
+are a separate, MANIFESTO-vs-plan question about the tagger/tooling
+philosophy, not this path question, and are unaffected by this closure.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -738,3 +797,4 @@ as `AS-APL-008`, with the actual mechanism spelled out there.
 | 0.9 | 2026-10-13 | Area PRP: eight phase-1 contradictions (`AS-DOC-DEF-054`, `056`–`061`) re-verified directly against `Reshelf.EditProposal.psm1` (lines 1332–2928) and the already-merged DAT/DSC/MAT rules, all confirmed already correctly resolved. One new contradiction found while merging: the ambiguous "where does the romanized half come from" observation (`AS-DOC-DEF-066`) resolved as a coincidence — the README was right, the source's own title-cased name and the matching Discogs name variation just read the same for the example used. `AS-DOC-DEF-068` ("forces review" vs "note only") required reading one level above either phase-1 or phase-2's own excerpts (the caller that turns any track-set note into a forced review) — resolved in the plan's favor. |
 | 0.10 | 2026-10-13 | Area REV: five phase-1 contradictions (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`) re-verified directly against `Reshelf.UiServer.psm1`, `Start-ReshelfUiServer.ps1` and `app.js`, all resolved in favor of the tests/README/code over stale plan-07 prose — including confirming the Discogs re-pick really does a live recompute (`069`), Save never re-applies folder-name safety rules (`073`), the real badge names (`076`), the two independent local-file access checks (`077`), and that the sessions dropdown lists every session including the current one (`080`). |
 | 0.11 | 2026-10-13 | Area APL: six phase-1 contradictions (`AS-DOC-DEF-083`–`085`, `088`, `092`, `093`) re-verified directly against `Reshelf.Implementation.psm1`, all confirmed already correctly resolved in favor of the tests/code over the README/plan-08 prose — including settling the exact default-skip gate as `humanReview.resolved` alone (`085`), and finding that the plan's "split before/after staging" ordering question doesn't really apply since the code has no separate split phase at all (`093`). |
+| 0.12 | 2026-10-13 | Area LSY: no contradiction owned by this area. Area CLI: two phase-1 contradictions re-verified and resolved in favor of the current tests/README/code over stale plan prose (`AS-DOC-DEF-101`: the real 10 UI spec files vs plan 11's 6; `AS-DOC-DEF-102`: the real `ui` command vs plan 01's missing one). `AS-DOC-DEF-111` (Cross-cutting, left unresolved by DAT/SET/DSC) closed out here, since CLI is the last of its named areas and every merged path across every area already reflects the post-Phase-0 `legacy/`-relative layout. |

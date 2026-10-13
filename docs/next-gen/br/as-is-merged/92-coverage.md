@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.12 | Last updated: 2026-10-13
+Status: Draft | Version: 0.13 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -518,9 +518,9 @@ stays filed under TXT's own coverage table — see
 
 Note: `AS-DOC-DEF-058` (Area: PRP, related to `AS-DOC-DSC-019`/`020`) and
 `AS-DOC-DEF-111` (Cross-cutting, related to `AS-DOC-DSC-002`) are not
-Area: DSC — they are left for the PRP merge pass and whichever pass owns
-Cross-cutting, respectively; see the note under DAT in
-`90-contradictions-resolution.md` for the Cross-cutting precedent.
+Area: DSC. `AS-DOC-DEF-058` was resolved under the PRP merge pass.
+`AS-DOC-DEF-111` was closed out under CLI, the last of its named areas to
+merge — see the CLI section below and `90-contradictions-resolution.md`.
 
 ## MAT
 
@@ -1129,6 +1129,112 @@ No `AS-DOC-DEF-*`/`AS-CODE-DEF-*` entries exist for this area (neither
 source file carries one). One suspected defect, `CF-LSY-001`, was found
 directly while merging — no original source id exists for it.
 
+## CLI
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-CLI-001 | AS-CODE-CLI-001 | AS-CLI-001 |
+| AS-DOC-CLI-002 | AS-CODE-CLI-001 | AS-CLI-002 (`90` contradiction, resolved — AS-DOC-DEF-102) |
+| AS-DOC-CLI-003 | — | see AS-SET-033 (SET-owned, redirected) |
+| AS-DOC-CLI-004 | — | see AS-DAT-003, AS-DAT-004 (DAT-owned, redirected) |
+| AS-DOC-CLI-005 | AS-CODE-CLI-003 | AS-CLI-004 |
+| AS-DOC-CLI-006 | AS-CODE-CLI-002 | AS-CLI-005 |
+| AS-DOC-CLI-007 | AS-CODE-CLI-004 | AS-CLI-006 |
+| AS-DOC-CLI-008 | AS-CODE-CLI-005 | AS-CLI-007 |
+| AS-DOC-CLI-009 | AS-CODE-CLI-012 | AS-CLI-008 |
+| AS-DOC-CLI-010 | AS-CODE-CLI-013 | AS-CLI-009 |
+| AS-DOC-CLI-011 | AS-CODE-CLI-014, AS-CODE-CLI-015 | AS-CLI-010 |
+| AS-DOC-CLI-012 | AS-CODE-CLI-014 | AS-CLI-011 (→ also `91` CF-CLI-003) |
+| AS-DOC-CLI-013 | AS-CODE-CLI-016, AS-CODE-CLI-019 | AS-CLI-012 |
+| AS-DOC-CLI-014 | — | AS-CLI-015 (also folded into already-merged `AS-REV-032`'s `Source:` line) |
+| AS-DOC-CLI-015 | — | AS-CLI-015 (also folded into already-merged `AS-REV-033`'s `Source:` line) |
+| AS-DOC-CLI-016 | AS-CODE-CLI-020 | AS-CLI-016 |
+| AS-DOC-CLI-017 | AS-CODE-CLI-021, AS-CODE-CLI-024 | AS-CLI-017 |
+| AS-DOC-CLI-018 | AS-CODE-CLI-007 | AS-CLI-021 |
+| AS-DOC-CLI-019 | AS-CODE-CLI-008 | AS-CLI-022 |
+| AS-DOC-CLI-020 | AS-CODE-CLI-009 | AS-CLI-023 |
+| AS-DOC-CLI-021 | AS-CODE-CLI-010 | AS-CLI-024 |
+| AS-DOC-CLI-022 | — | AS-CLI-025 |
+| AS-DOC-CLI-023 | AS-CODE-CLI-028 | AS-CLI-026 |
+| AS-DOC-CLI-024 | AS-CODE-CLI-029 | AS-CLI-027 (→ also `91` CF-CLI-005) |
+| AS-DOC-CLI-025 | AS-CODE-CLI-029 | AS-CLI-027 (→ also `91` CF-CLI-005) |
+| AS-DOC-CLI-026 | AS-CODE-CLI-035, AS-CODE-CLI-036 | AS-CLI-031 (→ also `91` CF-CLI-006) |
+| AS-DOC-CLI-027 | — | AS-CLI-032 |
+| AS-DOC-CLI-028 | — | AS-CLI-034 |
+| AS-DOC-CLI-029 | — | AS-CLI-035 |
+| AS-DOC-CLI-030 | — | AS-CLI-036 |
+| AS-DOC-CLI-031 | — | AS-CLI-037 |
+| AS-DOC-CLI-032 | — | AS-CLI-038 |
+| AS-DOC-CLI-033 | — | AS-CLI-039 (→ also `91` CF-CLI-002) |
+| AS-DOC-CLI-034 | — | AS-CLI-040 |
+| AS-DOC-CLI-035 | — | AS-CLI-041 |
+| AS-DOC-CLI-036 | — | AS-CLI-042 |
+| AS-DOC-CLI-037 | — | AS-CLI-043 (`90` contradiction, resolved — AS-DOC-DEF-101) |
+| AS-DOC-CLI-038 | — | AS-CLI-044 (→ also `91` CF-CLI-001) |
+| AS-DOC-CLI-039 | — | AS-CLI-045 |
+| AS-DOC-CLI-040 | — | AS-CLI-046 |
+| AS-DOC-CLI-041 | — | AS-CLI-047 |
+| AS-DOC-CLI-042 | — | AS-CLI-048 |
+| AS-DOC-CLI-043 | — | AS-CLI-049 |
+| AS-DOC-CLI-044 | — | AS-CLI-050 |
+| AS-DOC-CLI-045 | — | AS-CLI-051 |
+| AS-DOC-CLI-046 | — | AS-CLI-052 |
+| — | AS-CODE-CLI-001 | AS-CLI-001 |
+| — | AS-CODE-CLI-002 | AS-CLI-005 |
+| — | AS-CODE-CLI-003 | AS-CLI-004 |
+| — | AS-CODE-CLI-004 | AS-CLI-006 |
+| — | AS-CODE-CLI-005 | AS-CLI-007 |
+| — | AS-CODE-CLI-006 | AS-CLI-003 |
+| — | AS-CODE-CLI-007 | AS-CLI-021 |
+| — | AS-CODE-CLI-008 | AS-CLI-022 |
+| — | AS-CODE-CLI-009 | AS-CLI-023 |
+| — | AS-CODE-CLI-010 | AS-CLI-024 |
+| — | AS-CODE-CLI-011 | AS-CLI-003 |
+| — | AS-CODE-CLI-012 | AS-CLI-008 |
+| — | AS-CODE-CLI-013 | AS-CLI-009 |
+| — | AS-CODE-CLI-014 | AS-CLI-010, AS-CLI-011 |
+| — | AS-CODE-CLI-015 | AS-CLI-010 |
+| — | AS-CODE-CLI-016 | AS-CLI-012 |
+| — | AS-CODE-CLI-017 | AS-CLI-013 |
+| — | AS-CODE-CLI-018 | AS-CLI-014 |
+| — | AS-CODE-CLI-019 | AS-CLI-012 |
+| — | AS-CODE-CLI-020 | AS-CLI-016 |
+| — | AS-CODE-CLI-021 | AS-CLI-017 |
+| — | AS-CODE-CLI-022 | AS-CLI-018 |
+| — | AS-CODE-CLI-023 | AS-CLI-019 |
+| — | AS-CODE-CLI-024 | AS-CLI-017 |
+| — | AS-CODE-CLI-025 | AS-CLI-020 |
+| — | AS-CODE-CLI-026 | AS-CLI-015 |
+| — | AS-CODE-CLI-027 | AS-CLI-003 |
+| — | AS-CODE-CLI-028 | AS-CLI-026 |
+| — | AS-CODE-CLI-029 | AS-CLI-027, AS-CLI-028 |
+| — | AS-CODE-CLI-030 | AS-CLI-029 |
+| — | AS-CODE-CLI-031 | AS-CLI-029 |
+| — | AS-CODE-CLI-032 | AS-CLI-029 |
+| — | AS-CODE-CLI-033 | AS-CLI-029 |
+| — | AS-CODE-CLI-034 | AS-CLI-003 |
+| — | AS-CODE-CLI-035 | AS-CLI-031 |
+| — | AS-CODE-CLI-036 | AS-CLI-031 |
+| — | AS-CODE-CLI-037 | AS-CLI-033 |
+| — | AS-CODE-CLI-038 | AS-CLI-030 |
+| — | AS-CODE-CLI-039 | AS-CLI-004 |
+| AS-DOC-DEF-100 | — | `91` CF-CLI-001 (suspected defect, carried forward) |
+| AS-DOC-DEF-101 | — | `90` contradiction, resolved (plan 11's stale 6-file spec list — real 10 files right) |
+| AS-DOC-DEF-102 | — | `90` contradiction, resolved (plan 01's missing `ui` command — README/code right) |
+| AS-DOC-DEF-103 | — | `91` CF-CLI-002 (suspected defect, carried forward) |
+| AS-DOC-DEF-104 | — | `91` CF-CLI-003 (suspected defect, carried forward) |
+| AS-DOC-DEF-105 | — | `91` CF-CLI-006 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-CLI-001 | `91` CF-CLI-004 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-CLI-002 | `91` CF-CLI-005 (suspected defect, carried forward) |
+| — | AS-CODE-DEF-CLI-003 | `91` CF-CLI-007 (suspected defect, carried forward) |
+
+Note: `AS-DOC-DEF-111` (Cross-cutting, related to `AS-DOC-DAT-004`,
+`AS-DOC-SET-044`, `AS-DOC-DSC-002` and several `AS-DOC-CLI-*` path mentions)
+is now **resolved**, closed out in this area's merge — see
+`90-contradictions-resolution.md`. The GEN and DSC notes above describing it
+as "not owned"/"left for whichever pass owns Cross-cutting" no longer apply;
+it does not need a further mention once BND/ERR is merged.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -1145,3 +1251,4 @@ directly while merging — no original source id exists for it.
 | 0.10 | 2026-10-13 | Area REV: 84 AS-DOC-REV, 148 AS-CODE-REV, 5 AS-DOC-DEF contradictions, 9 AS-DOC-DEF + 7 AS-CODE-DEF-REV suspected defects — all 253 source IDs covered by AS-REV-001–125, the REV contradiction entries, and CF-REV-001–015. This area's table is organized by merged id rather than source id, like MAT/PRP; see the note above it. One AS-CODE-DEF-REV entry (`007`) merges into the same carry-forward item as its matching AS-DOC-DEF entry (`079`), the same fact found independently from both sources. |
 | 0.11 | 2026-10-13 | Area APL: 71 AS-DOC-APL, 55 AS-CODE-APL, 6 AS-DOC-DEF contradictions, 8 AS-DOC-DEF + 2 AS-CODE-DEF-APL suspected defects — all 126 source IDs covered by AS-APL-001–072 (with a gap at `046`–`048`, redirected instead to the already-merged AS-REC-085–089), the APL contradiction entries, and CF-APL-001–011 (one of them, `CF-APL-011`, a new finding with no original source id). This area's table is organized by source id like DAT/DSC, since the doc/code views are close enough in size and shape; see the numbering note above it and in `10-apply.md`. |
 | 0.12 | 2026-10-13 | Area LSY: 32 AS-DOC-LSY, 14 AS-CODE-LSY — all 46 source IDs covered by AS-LSY-001–022, with four doc items redirected to already-merged items with no new id (`023`→AS-PRP-097, `029`→AS-PRP-078, `030`→AS-APL-061, `031`→AS-APL-062), and CF-LSY-001 (a new finding, no original source id — neither LSY source file carried a pre-existing contradiction or suspected defect). |
+| 0.13 | 2026-10-13 | Area CLI: 46 AS-DOC-CLI, 39 AS-CODE-CLI, 2 AS-DOC-DEF contradictions, 4 AS-DOC-DEF + 3 AS-CODE-DEF-CLI suspected defects — all 94 source IDs covered by AS-CLI-001–052, the CLI contradiction entries, and CF-CLI-001–007. Two doc items redirected with no new id (`003`→AS-SET-033, `004`→AS-DAT-003/004); two more (`014`/`015`) dual-cited — a thin AS-CLI-015 plus extending already-merged `AS-REV-032`/`033`'s own `Source:` lines. `AS-DOC-DEF-111` (Cross-cutting, previously left unresolved by DAT/SET/DSC) closed out here — see the note below and `90-contradictions-resolution.md`. |

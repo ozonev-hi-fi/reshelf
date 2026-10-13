@@ -1,6 +1,6 @@
 # 08 — Proposal: naming and tags (merged)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-13
+Status: Draft | Version: 0.3 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -70,7 +70,7 @@ Status: Draft | Source: AS-DOC-PRP-001
 prints a summary: session id, artist count, release count, matched count,
 and needs-review count. This print happens at the CLI boundary, outside the
 `Reshelf.EditProposal.psm1` lines the code-side view covers — see
-`12-cli.md` (not yet merged).
+[12-cli.md](12-cli.md) (`AS-CLI-012`).
 
 Example: `SessionId : 2026-09-25-0007`, `ArtistCount : 42`, `ReleaseCount :
 118`, `MatchedCount : 103`, `NeedsReviewCount : 15`.
@@ -1258,3 +1258,4 @@ collision`.
 |---|---|---|
 | 0.1 | 2026-10-13 | Phase 3 merge of area PRP: 78 `AS-DOC-PRP-*` + 91 remaining `AS-CODE-PRP-*` (104 minus the 13 already absorbed into `AS-MAT-*` during the MAT merge: `AS-CODE-PRP-002`, `021`–`032`), reconciled into `AS-PRP-001`–`105`. 9 contradictions resolved (`AS-DOC-DEF-054`, `056`–`061`, `066`, `068`), one of them (`068`) requiring a fresh read of the caller beyond what either phase-1 or phase-2 excerpted. 10 suspected defects carried forward (`CF-PRP-001`–`010`, covering all 4 `AS-CODE-DEF-PRP-*` entries and the PRP-area `AS-DOC-DEF-055`, `062`, `063`, `064`, `065`, `067`). Several items reuse an already-merged `AS-MAT-*` rule (master year, master-image fallback, Various/compilation detection, the alignment cascade) rather than restating it. |
 | 0.2 | 2026-10-13 | During the LSY merge: the three dangling `(not yet merged)` references to `11-lossy-tracking.md` resolved to real links, one of them repointed from a raw doc-id list to the actual `AS-LSY-017`–`021` range now that those exist. |
+| 0.3 | 2026-10-13 | During the CLI merge: the dangling `(not yet merged)` reference to `12-cli.md` resolved to a real link (`AS-CLI-012`). |
