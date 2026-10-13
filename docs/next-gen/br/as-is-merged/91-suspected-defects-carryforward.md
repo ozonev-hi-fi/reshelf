@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.10 | Last updated: 2026-10-13
+Status: Draft | Version: 0.11 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -747,6 +747,120 @@ doesn't affect the observed UI behavior here, but neither source makes
 clear which field a real `propose` run would actually set in this exact
 combination.
 
+## APL
+
+### CF-APL-001 — A test name claims a "missing" log entry means no re-apply; it actually only covers an existing applied entry
+Sources: `AS-DOC-DEF-089` (Kind: test quality).
+
+One test is named "treats a missing/already-applied entry as not needing
+re-apply, when every source file is already gone". The next test shows that
+with no entry at all (sources gone) the release DOES need apply. The first
+test covers only an existing `applied` entry; the "missing" part of the test
+name is wrong.
+
+### CF-APL-002 — All sources gone + a valid applied entry: skip is confirmed, but only because the target folder check still passes
+Sources: `AS-DOC-DEF-090`.
+
+When all source files are gone and an `applied` log entry exists, apply
+skips the release even though the logged hash (now unobtainable) can't be
+compared. Re-reading `Test-ReshelfAppliedEntryValid`/`Test-ReshelfReleaseNeedsApply`
+(`AS-APL-006`/`016`) answers part of the open question: the target folder's
+continued existence on disk *is* part of what makes the logged entry "still
+valid", so the skip is conditioned on the target folder, not blind to it.
+What's still not covered by any test: the outcome when the target folder was
+also deleted in this same all-sources-gone scenario.
+
+### CF-APL-003 — Old test comment claims cue-split releases "lose" their source; contradicted by the same file
+Sources: `AS-DOC-DEF-087` (Kind: test quality).
+
+A `BeforeEach` comment in the pipeline test says "Implementation mutates its
+source (cue-split releases always lose their original cue+audio file,
+regardless of copy/move mode)". The same test file, 100 lines later, and the
+dedicated Implementation tests both assert the `.cue` and audio source files
+stay — consistent with `AS-APL-021`, confirmed directly in code
+(`CopyMode` only ever accepts `'copy'`). The comment is stale.
+
+### CF-APL-004 — A retry over an old failed staging folder could pick up stale leftover files
+Sources: `AS-DOC-DEF-091`.
+
+A failed release leaves `.reshelf-staging\<stableKey>\` in place, and the
+README says the next apply retries it. Re-reading `Invoke-ReshelfReleaseStaging`:
+the staging folder is (re)created with `New-Item -Force`, which does not
+clear any existing contents first. A file left over from the earlier failed
+attempt — a companion since dropped from the proposal, or an obsolete cue
+split — could still be sitting in that folder, and would be moved into the
+target along with the new content when the whole folder is committed
+(`AS-APL-017`/`020`). No test exercises a retry over a non-empty stale
+staging folder either way.
+
+### CF-APL-005 — The FLAC "invalid block size" retry effectively drops 50 ms of audio between two tracks
+Sources: `AS-DOC-DEF-094`.
+
+The retry moves a track's start `0.05` s later (e.g. `322.200` → `322.250`)
+without moving the previous track's end to match, so that 50 ms belongs to
+no track. The test (`AS-APL-030`) treats this as intended behavior, not a
+bug to fix.
+
+### CF-APL-006 — No test exercises the split-output-count check against the cue sheet
+Sources: `AS-DOC-DEF-096` (Kind: test quality).
+
+Plan 08 describes an explicit split-track-count-vs-cue-sheet check. The
+actual code (`AS-APL-025`/`032`, `AS-CODE-APL-036`) checks that every
+expected output file is physically present, not an integer count
+comparison — the same outcome in practice, but neither phrasing of the
+check has test coverage of its own.
+
+### CF-APL-007 — Truncation can shrink a release folder name to 1 character
+Sources: `AS-DOC-DEF-095`.
+
+With a very tight path-length budget, `3218 Some Catalog Album` becomes a
+1-character folder name, while `2010 Some Album` becomes 6 characters
+(`2010 ` + 1), because only a real year (1900–2100) protects the prefix
+(`AS-APL-054`). The test asserts this directly. A 1-character folder name is
+not useful for the user to browse.
+
+### CF-APL-008 — An edit made after apply does not reach the target on a later re-apply
+Sources: `AS-DOC-DEF-086`.
+
+When the user edits a release in the review UI after it was already applied,
+and its source files didn't change, a later `apply` run skips it
+(`AS-APL-011`/`065`) — the skip check is keyed on the source file-set hash,
+not on the proposal's content, so the edit never reaches the target. The
+README calls this a caveat, not a bug.
+
+### CF-APL-009 — Directory creation during staging doesn't force a terminating error
+Sources: `AS-CODE-DEF-APL-001`. No `AS-DOC-DEF` counterpart.
+
+The `New-Item -ItemType Directory` calls that create the staging folder, a
+companion's parent directory, and the final target's parent directory don't
+pass `-ErrorAction Stop`, unlike every `Copy-Item` call in the same module
+(`AS-APL-022`/`049`) and the equivalent `New-Item` calls in
+`Reshelf.Settings.psm1`. If directory creation fails (permission denied,
+disk full), the default non-terminating error lets execution continue as if
+the folder existed, surfacing a less clear failure later (e.g. a
+`Copy-Item` "path not found") instead of failing fast with a direct message.
+
+### CF-APL-010 — A nested companion's own path is never truncated or budgeted against the 250-character limit
+Sources: `AS-CODE-DEF-APL-002`. No `AS-DOC-DEF` counterpart.
+
+The path-length truncation logic (`AS-APL-053`, `AS-CODE-APL-026`–`032`)
+budgets and truncates the artist folder, release folder and track file
+names, but a nested companion file's relative subfolder path and file name
+are copied through verbatim — only sanitized for illegal characters, never
+truncated or budgeted. A release with a deeply nested companion structure
+can still produce a final path well past `MaxPathLength` (250), despite the
+function's stated goal of keeping human-facing names short by construction.
+
+### CF-APL-011 — The apply-log `status` field allows a third value, `'skipped'`, that the code never actually writes
+Sources: none — found directly while merging, no original phase-1/phase-2 id.
+
+`Add-ReshelfApplyLogEntry`'s `status` parameter (`AS-APL-058`) has a
+`ValidateSet` of `applied`, `failed`, `skipped`, but every call site in
+`Invoke-ReshelfImplementation` only ever passes `'applied'` or `'failed'`. A
+skipped release gets no log entry at all (consistent with `AS-APL-009`: no
+entry still means "needs apply" next time), so the third accepted value is
+presently unreachable in practice.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -761,3 +875,4 @@ combination.
 | 0.8 | 2026-10-13 | Area MAT: 7 items carried forward (`CF-MAT-001`–`007`). Two are `AS-CODE-DEF-MAT-*` only (`001`, `002`). Five are phase-1 `AS-DOC-DEF-*` items (`046`–`048`, `050`, `053`) — three Kind: test quality (`046`, `047`, `050`), one a genuine behavior gap with no review flag (`048`), and one (`053`) whose mechanism is now fully explained by the code with no gap found, same pattern as `CF-DSC-004`. |
 | 0.9 | 2026-10-13 | Area PRP: 10 items carried forward (`CF-PRP-001`–`010`). Four are `AS-CODE-DEF-PRP-*` only (`001`, confirmed by code only; `002`, `003`, `004`); the other six are phase-1 `AS-DOC-DEF-*` items (`055`, `062`–`065`, `067`). `CF-PRP-004` is confirmed, not contradicted, by its matching code read (`AS-CODE-PRP-066`); `CF-PRP-010` cross-references `AS-CODE-PRP-096` as reinforcing code-side detail for the same shape-mismatch issue. |
 | 0.10 | 2026-10-13 | Area REV: 15 items carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries (one of them, `007`, merged into `CF-REV-008` alongside the matching `AS-DOC-DEF-079` as the same fact from two sources) and all 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). `CF-REV-011` is confirmed, not contradicted, by its matching code comment (`AS-CODE-REV-107`). |
+| 0.11 | 2026-10-13 | Area APL: 11 items carried forward (`CF-APL-001`–`011`), covering both `AS-CODE-DEF-APL-*` entries and all 8 APL-area `AS-DOC-DEF-*` suspected defects (`086`, `087`, `089`–`091`, `094`–`096`). `CF-APL-002` is partly answered, not contradicted, by re-reading `AS-APL-006`/`016` (the target-folder check does apply in that scenario). `CF-APL-011` is a new suspected defect found directly while merging, with no original source id — the apply-log `status` field accepts a `'skipped'` value the code never writes. |

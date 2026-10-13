@@ -1,6 +1,6 @@
 # 02 — Text and naming (as-is, merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-11
+Status: Draft | Version: 0.2 | Last updated: 2026-10-13
 
 ## Scope
 
@@ -726,10 +726,9 @@ Example: proposed `artist = The Dubliners` → the user changes it to
 ### AS-TXT-064 — A Various Artists release gets the Compilation flag
 Status: Draft | Source: AS-DOC-TXT-064
 
-Same rule as `AS-DOC-MAT-053` (detection, primary) and `AS-DOC-PRP-041`
-(effect) — not yet merged into `AS-MAT-*`/`AS-PRP-*`; writing the flag is
-`AS-DOC-APL-040`. This entry keeps its original cross-references until those
-areas are merged.
+Same rule as `AS-MAT-070`/`071` (detection, primary) and `AS-PRP-058`
+(effect on `proposed`/`tags`); writing the flag into the actual audio tag at
+apply time is `AS-APL-040`.
 
 A release recognized as Various Artists gets a Compilation flag, written as
 TCMP, cpil or COMPILATION depending on the file format. Plan 03 says a
@@ -826,3 +825,4 @@ Example: title `Track: Name?` → `proposedTitle = Track: Name?`,
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-11 | Area TXT merged: 74 `AS-TXT-*` requirements (72 mirroring `AS-DOC-TXT-001`–`072`, 2 fresh for code-only facts), 1 new contradiction found and resolved (`AS-TXT-045`/`AS-DOC-DEF-009`, MANIFESTO "SP" vs the `recognizedReleaseType` enum), 3 phase-1 contradictions re-verified (`AS-DOC-DEF-010`, `011`, `013`), 3 suspected defects carried forward (`CF-TXT-001`–`003`). `AS-CODE-TXT-014`/`015` (track-filename parsing) noted as REC-owned, deferred to that area's merge pass. |
+| 0.2 | 2026-10-13 | `AS-TXT-064`'s cross-references to the Various-Artists/Compilation rule updated now that MAT, PRP and APL are all merged: `AS-DOC-MAT-053` → `AS-MAT-070`/`071`, `AS-DOC-PRP-041` → `AS-PRP-058`, `AS-DOC-APL-040` → `AS-APL-040`. No change to the rule itself. |

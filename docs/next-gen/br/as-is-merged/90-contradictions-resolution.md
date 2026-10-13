@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.10 | Last updated: 2026-10-13
+Status: Draft | Version: 0.11 | Last updated: 2026-10-13
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -646,6 +646,83 @@ including the current one, which also happens to be the pre-selected
 option; plan 07's "the rest" phrasing was imprecise.** Merged as
 `AS-REV-046`.
 
+## APL
+
+### Carried from phase 1: `AS-DOC-DEF-083` (README/plan: cue split "no re-encoding" vs FLAC/APE re-encoding)
+
+Re-read `Invoke-ReshelfFfmpegSplit`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:232`, `AS-CODE-APL-012`):
+a `.flac` or `.ape` source is always re-encoded with `-c:a flac`; every other
+format uses `-c copy`. **Confirms phase 1's resolution: the tests/code are
+right** — the README and both plan documents' blanket "no re-encoding"/`-c
+copy` claim only holds for non-FLAC/APE sources. Merged as `AS-APL-029`.
+
+### Carried from phase 1: `AS-DOC-DEF-084` (README: an existing target folder is "deleted and replaced" — always?)
+
+Re-read `Move-ReshelfStagedReleaseToTarget`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:845`, `AS-CODE-APL-043`):
+an existing target folder is removed and replaced only when `TargetAction`
+is exactly `update-existing` or `conflict`; any other value throws instead
+of touching the folder. **Confirms phase 1's resolution: the tests/code are
+right**, the README's unconditional wording overstates it. Merged as
+`AS-APL-018`/`019`.
+
+### Carried from phase 1: `AS-DOC-DEF-085` (which releases apply skips by default)
+
+The five sources disagreed on the exact wording of the default-skip rule
+(an unresolved ambiguous/conflict release, "releases nobody reviewed", every
+release with `humanReview.resolved != true`, only an ambiguous Discogs
+match, or "ambiguous-AND-unresolved"). Re-read the release-gating loop in
+`Invoke-ReshelfImplementation`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:931-950`, `AS-CODE-APL-048`):
+the code checks exactly one general gate, `-not $release.humanReview.resolved
+-and -not $IncludeUnresolved` — not `.required`, and not conditioned on the
+match status being specifically `ambiguous`. A code comment at the site
+confirms this is deliberate: `humanReview.required`/`.resolved` is the one
+general "does a human need to look at this" gate, set for any flagged
+reason, not only an ambiguous Discogs match. **Resolved: the tests/code are
+right, with the exact mechanism now settled** — the gate is
+`humanReview.resolved`, full stop; `.required` plays no role in the apply-time
+check itself (it only feeds propose-time UI badges, see `AS-REV-051`). Merged
+as `AS-APL-003`.
+
+### Carried from phase 1: `AS-DOC-DEF-088` (README/plan 08: "copied/moved")
+
+Re-read the `CopyMode` parameter and its `ValidateSet`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:899`, `AS-CODE-APL-049`):
+only the literal value `'copy'` is accepted, and nothing in the function
+branches on it — it exists purely for backward compatibility with older
+callers of a removed `move` mode. **Confirms phase 1's resolution: `copy` is
+the only real mode**; the README/plan's "copied/moved" phrasing is a leftover
+from the removed mode (the same remnant as `AS-DOC-DEF-014`, the `settings
+init` prompt). Merged as `AS-APL-021`.
+
+### Carried from phase 1: `AS-DOC-DEF-092` (plan 08's apply-log fields are incomplete)
+
+Re-read `Add-ReshelfApplyLogEntry`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:60`, `AS-CODE-APL-005`):
+an entry also carries `errorMessage` and `truncated`, beyond plan 08's
+`{ stableKey, appliedAtUtc, status, targetPath, sourceFileSetHash }`.
+**Confirms phase 1's resolution: the tests/code are right**, plan 08's field
+list was never updated after `errorMessage`/`truncated` were added. Merged as
+`AS-APL-058`. One further code-only detail found while re-reading the same
+function: `status`'s `ValidateSet` also allows a third value, `'skipped'`,
+that the code never actually writes — see `91-suspected-defects-carryforward.md`
+(`CF-APL-011`).
+
+### Carried from phase 1: `AS-DOC-DEF-093` (step order: split before or after staging)
+
+Plan 08 lists the cue split before staging; the README lists staging before
+the split; no test shows the order. Re-read `Invoke-ReshelfReleaseStaging`
+(`legacy/scripts/common/Reshelf.Implementation.psm1:677`): there is no
+separate split phase at all — the function validates companion names,
+creates the staging folder, then walks the release's tracks and, per track,
+either runs an ffmpeg split or a plain copy directly into that folder, before
+moving on to tag writing and companions. **Resolved: both the plan and the
+README oversimplify one combined step into two ordered ones; neither is
+wrong about anything observable, since no test exercises the order.** Merged
+as `AS-APL-008`, with the actual mechanism spelled out there.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -660,3 +737,4 @@ option; plan 07's "the rest" phrasing was imprecise.** Merged as
 | 0.8 | 2026-10-13 | Area MAT: six phase-1 contradictions (`AS-DOC-DEF-043`–`045`, `049`, `051`, `052`) re-verified directly against `Reshelf.EditProposal.psm1` (and, for the pad-width one, the not-yet-merged PRP as-is-from-code), all confirmed already correctly resolved. One new contradiction found while merging: plan 02's "token-sort ratio" naming for string similarity vs the actual normalized-Levenshtein-distance formula (`AS-MAT-001`, corrected). |
 | 0.9 | 2026-10-13 | Area PRP: eight phase-1 contradictions (`AS-DOC-DEF-054`, `056`–`061`) re-verified directly against `Reshelf.EditProposal.psm1` (lines 1332–2928) and the already-merged DAT/DSC/MAT rules, all confirmed already correctly resolved. One new contradiction found while merging: the ambiguous "where does the romanized half come from" observation (`AS-DOC-DEF-066`) resolved as a coincidence — the README was right, the source's own title-cased name and the matching Discogs name variation just read the same for the example used. `AS-DOC-DEF-068` ("forces review" vs "note only") required reading one level above either phase-1 or phase-2's own excerpts (the caller that turns any track-set note into a forced review) — resolved in the plan's favor. |
 | 0.10 | 2026-10-13 | Area REV: five phase-1 contradictions (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`) re-verified directly against `Reshelf.UiServer.psm1`, `Start-ReshelfUiServer.ps1` and `app.js`, all resolved in favor of the tests/README/code over stale plan-07 prose — including confirming the Discogs re-pick really does a live recompute (`069`), Save never re-applies folder-name safety rules (`073`), the real badge names (`076`), the two independent local-file access checks (`077`), and that the sessions dropdown lists every session including the current one (`080`). |
+| 0.11 | 2026-10-13 | Area APL: six phase-1 contradictions (`AS-DOC-DEF-083`–`085`, `088`, `092`, `093`) re-verified directly against `Reshelf.Implementation.psm1`, all confirmed already correctly resolved in favor of the tests/code over the README/plan-08 prose — including settling the exact default-skip gate as `humanReview.resolved` alone (`085`), and finding that the plan's "split before/after staging" ordering question doesn't really apply since the code has no separate split phase at all (`093`). |

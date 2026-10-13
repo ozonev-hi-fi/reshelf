@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.10 | Last updated: 2026-10-13
+Status: Draft | Version: 0.11 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -962,6 +962,118 @@ Contradictions and suspected defects (not covered by the table above):
 | AS-CODE-DEF-REV-006 | `91` CF-REV-014 (suspected defect, carried forward) |
 | AS-CODE-DEF-REV-007 | `91` CF-REV-008 (merged with AS-DOC-DEF-079, same fact from two sources) |
 
+## APL
+
+`AS-APL-050`/`051` each fold several adjacent `AS-DOC-APL-*` items into one
+entry (see the numbering note in `10-apply.md`), so the `Merged` column
+repeats for those rows; `AS-DOC-APL-046`–`048` redirect to the already-merged
+`AS-REC-*` entries instead of a new `AS-APL` item.
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-APL-001 | — | AS-APL-001 |
+| AS-DOC-APL-002 | AS-CODE-APL-055 | AS-APL-002 |
+| AS-DOC-APL-003 | AS-CODE-APL-048 | AS-APL-003 (`90` contradiction, resolved — the gate is `humanReview.resolved`, not `.required`) |
+| AS-DOC-APL-004 | AS-CODE-APL-048 | AS-APL-004 |
+| AS-DOC-APL-005 | AS-CODE-APL-048 | AS-APL-005 |
+| AS-DOC-APL-006 | AS-CODE-APL-045 | AS-APL-006 |
+| AS-DOC-APL-007 | AS-CODE-APL-046, AS-CODE-APL-052 | AS-APL-007 |
+| AS-DOC-APL-008 | AS-CODE-APL-034, AS-CODE-APL-047 | AS-APL-008 (`90` contradiction, resolved — no separate split phase) |
+| AS-DOC-APL-009 | AS-CODE-APL-007 | AS-APL-009 |
+| AS-DOC-APL-010 | AS-CODE-APL-007 | AS-APL-010 |
+| AS-DOC-APL-011 | AS-CODE-APL-006, AS-CODE-APL-007 | AS-APL-011 |
+| AS-DOC-APL-012 | AS-CODE-APL-007 | AS-APL-012 |
+| AS-DOC-APL-013 | AS-CODE-APL-006 | AS-APL-013 |
+| AS-DOC-APL-014 | AS-CODE-APL-006 | AS-APL-014 |
+| AS-DOC-APL-015 | AS-CODE-APL-006 | AS-APL-015 |
+| AS-DOC-APL-016 | AS-CODE-APL-008 | AS-APL-016 |
+| AS-DOC-APL-017 | AS-CODE-APL-034 | AS-APL-017 |
+| AS-DOC-APL-018 | AS-CODE-APL-043, AS-CODE-APL-044 | AS-APL-018 (`90` contradiction, resolved) |
+| AS-DOC-APL-019 | AS-CODE-APL-043 | AS-APL-019 |
+| AS-DOC-APL-020 | AS-CODE-APL-053 | AS-APL-020 |
+| AS-DOC-APL-021 | AS-CODE-APL-049 | AS-APL-021 (`90` contradiction, resolved) |
+| AS-DOC-APL-022 | AS-CODE-APL-037 | AS-APL-022 |
+| AS-DOC-APL-023 | — | AS-APL-023 |
+| AS-DOC-APL-024 | AS-CODE-APL-037 | AS-APL-024 |
+| AS-DOC-APL-025 | AS-CODE-APL-010, AS-CODE-APL-036 | AS-APL-025 |
+| AS-DOC-APL-026 | AS-CODE-APL-009 | AS-APL-026 |
+| AS-DOC-APL-027 | AS-CODE-APL-010 | AS-APL-027 |
+| AS-DOC-APL-028 | AS-CODE-APL-010, AS-CODE-APL-035 | AS-APL-028 |
+| AS-DOC-APL-029 | AS-CODE-APL-012 | AS-APL-029 (`90` contradiction, resolved) |
+| AS-DOC-APL-030 | AS-CODE-APL-013 | AS-APL-030 |
+| AS-DOC-APL-031 | AS-CODE-APL-013 | AS-APL-031 |
+| AS-DOC-APL-032 | — | AS-APL-032 |
+| AS-DOC-APL-033 | AS-CODE-APL-011 | AS-APL-033 |
+| AS-DOC-APL-034 | AS-CODE-APL-014 | AS-APL-034 |
+| AS-DOC-APL-035 | AS-CODE-APL-015, AS-CODE-APL-016 | AS-APL-035 |
+| AS-DOC-APL-036 | AS-CODE-APL-020, AS-CODE-APL-039 | AS-APL-036 |
+| AS-DOC-APL-037 | AS-CODE-APL-039 | AS-APL-037 |
+| AS-DOC-APL-038 | AS-CODE-APL-038, AS-CODE-APL-041 | AS-APL-038 |
+| AS-DOC-APL-039 | AS-CODE-APL-018 | AS-APL-039 |
+| AS-DOC-APL-040 | AS-CODE-APL-019 | AS-APL-040 |
+| AS-DOC-APL-041 | — | AS-APL-041 |
+| AS-DOC-APL-042 | AS-CODE-APL-020 | AS-APL-042 |
+| AS-DOC-APL-043 | AS-CODE-APL-020 | AS-APL-043 |
+| AS-DOC-APL-044 | AS-CODE-APL-017 | AS-APL-044 |
+| AS-DOC-APL-045 | AS-CODE-APL-021, AS-CODE-APL-052 | AS-APL-045 |
+| AS-DOC-APL-046 | — | see `AS-REC-088` (REC-owned, redirected) |
+| AS-DOC-APL-047 | — | see `AS-REC-085`–`087` (REC-owned, redirected) |
+| AS-DOC-APL-048 | — | see `AS-REC-088` (REC-owned, redirected) |
+| AS-DOC-APL-049 | AS-CODE-APL-022, AS-CODE-APL-040 | AS-APL-049 |
+| AS-DOC-APL-050 | AS-CODE-APL-023 | AS-APL-050 |
+| AS-DOC-APL-051 | AS-CODE-APL-023 | AS-APL-050 |
+| AS-DOC-APL-052 | AS-CODE-APL-033 | AS-APL-051 |
+| AS-DOC-APL-053 | AS-CODE-APL-033 | AS-APL-051 |
+| AS-DOC-APL-054 | AS-CODE-APL-033 | AS-APL-051 |
+| AS-DOC-APL-055 | AS-CODE-APL-033 | AS-APL-051 |
+| AS-DOC-APL-056 | AS-CODE-APL-026 | AS-APL-052 |
+| AS-DOC-APL-057 | AS-CODE-APL-024, AS-CODE-APL-025 | AS-APL-053 |
+| AS-DOC-APL-058 | AS-CODE-APL-027 | AS-APL-054 (`91` CF-APL-007 carried forward) |
+| AS-DOC-APL-059 | AS-CODE-APL-032 | AS-APL-055 |
+| AS-DOC-APL-060 | AS-CODE-APL-005, AS-CODE-APL-052 | AS-APL-056 |
+| AS-DOC-APL-061 | AS-CODE-APL-001 | AS-APL-057 |
+| AS-DOC-APL-062 | AS-CODE-APL-004, AS-CODE-APL-005 | AS-APL-058 (`90` contradiction, resolved) |
+| AS-DOC-APL-063 | AS-CODE-APL-051 | AS-APL-059 |
+| AS-DOC-APL-064 | AS-CODE-APL-054 | AS-APL-060 |
+| AS-DOC-APL-065 | AS-CODE-APL-050 | AS-APL-061 |
+| AS-DOC-APL-066 | AS-CODE-APL-050 | AS-APL-062 |
+| AS-DOC-APL-067 | — | AS-APL-063 |
+| AS-DOC-APL-068 | — | AS-APL-064 |
+| AS-DOC-APL-069 | — | AS-APL-065 (`91` CF-APL-008 carried forward) |
+| AS-DOC-APL-070 | — | AS-APL-066 |
+| AS-DOC-APL-071 | — | AS-APL-067 |
+| — | AS-CODE-APL-002 | AS-APL-068 |
+| — | AS-CODE-APL-003 | AS-APL-069 |
+| — | AS-CODE-APL-028 | AS-APL-070 |
+| — | AS-CODE-APL-029 | AS-APL-071 |
+| — | AS-CODE-APL-030 | AS-APL-070 |
+| — | AS-CODE-APL-031 | AS-APL-072 |
+
+Contradictions and suspected defects (not covered by the table above):
+
+| AS-DOC-DEF / AS-CODE-DEF-APL | Merged |
+|---|---|
+| AS-DOC-DEF-083 | `90` contradiction, resolved (FLAC/APE re-encode vs README/plan's blanket "no re-encoding") |
+| AS-DOC-DEF-084 | `90` contradiction, resolved (replace only for update-existing/conflict, not unconditional) |
+| AS-DOC-DEF-085 | `90` contradiction, resolved (default-skip gate is `humanReview.resolved` alone) |
+| AS-DOC-DEF-086 | `91` CF-APL-008 (suspected defect, carried forward) |
+| AS-DOC-DEF-087 | `91` CF-APL-003 (suspected defect, carried forward, Kind: test quality) |
+| AS-DOC-DEF-088 | `90` contradiction, resolved (`copy` is the only real mode) |
+| AS-DOC-DEF-089 | `91` CF-APL-001 (suspected defect, carried forward, Kind: test quality) |
+| AS-DOC-DEF-090 | `91` CF-APL-002 (suspected defect, carried forward) |
+| AS-DOC-DEF-091 | `91` CF-APL-004 (suspected defect, carried forward) |
+| AS-DOC-DEF-092 | `90` contradiction, resolved (apply-log also carries `errorMessage`/`truncated`) |
+| AS-DOC-DEF-093 | `90` contradiction, resolved (no separate split phase exists in code) |
+| AS-DOC-DEF-094 | `91` CF-APL-005 (suspected defect, carried forward) |
+| AS-DOC-DEF-095 | `91` CF-APL-007 (suspected defect, carried forward) |
+| AS-DOC-DEF-096 | `91` CF-APL-006 (suspected defect, carried forward, Kind: test quality) |
+| AS-CODE-DEF-APL-001 | `91` CF-APL-009 (suspected defect, carried forward) |
+| AS-CODE-DEF-APL-002 | `91` CF-APL-010 (suspected defect, carried forward) |
+
+One further suspected defect, `CF-APL-011`, was found directly while merging
+this area (the apply-log `status` field's `'skipped'` value is never
+written) — no original `AS-DOC-DEF`/`AS-CODE-DEF` id exists for it.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -976,3 +1088,4 @@ Contradictions and suspected defects (not covered by the table above):
 | 0.8 | 2026-10-13 | Area MAT: 59 AS-DOC-MAT, 67 AS-CODE-MAT, plus 13 AS-CODE-PRP items absorbed here from PRP's not-yet-merged as-is-from-code (pad width, track/number alignment, position parsing), 6 AS-DOC-DEF contradictions, 5 AS-DOC-DEF + 2 AS-CODE-DEF-MAT suspected defects — all 152 source IDs covered by AS-MAT-001–077, the MAT contradiction entries, and CF-MAT-001–007. This area's table is organized by merged id rather than source id; see the note above it. AS-DOC-DEF-041 (DSC-owned) and AS-DOC-DEF-064 (PRP-owned), each naming a MAT id as related, noted as not MAT-owned. |
 | 0.9 | 2026-10-13 | Area PRP: 78 AS-DOC-PRP, 91 remaining AS-CODE-PRP (104 minus the 13 already absorbed into AS-MAT-*), 9 AS-DOC-DEF contradictions, 6 AS-DOC-DEF + 4 AS-CODE-DEF-PRP suspected defects — all 188 source IDs covered by AS-PRP-001–105, the PRP contradiction entries, and CF-PRP-001–010. This area's table is organized by merged id rather than source id, like MAT; see the note above it. AS-DOC-DEF-057's resolution also closes DAT's own forward cross-reference (CF-DAT-001). |
 | 0.10 | 2026-10-13 | Area REV: 84 AS-DOC-REV, 148 AS-CODE-REV, 5 AS-DOC-DEF contradictions, 9 AS-DOC-DEF + 7 AS-CODE-DEF-REV suspected defects — all 253 source IDs covered by AS-REV-001–125, the REV contradiction entries, and CF-REV-001–015. This area's table is organized by merged id rather than source id, like MAT/PRP; see the note above it. One AS-CODE-DEF-REV entry (`007`) merges into the same carry-forward item as its matching AS-DOC-DEF entry (`079`), the same fact found independently from both sources. |
+| 0.11 | 2026-10-13 | Area APL: 71 AS-DOC-APL, 55 AS-CODE-APL, 6 AS-DOC-DEF contradictions, 8 AS-DOC-DEF + 2 AS-CODE-DEF-APL suspected defects — all 126 source IDs covered by AS-APL-001–072 (with a gap at `046`–`048`, redirected instead to the already-merged AS-REC-085–089), the APL contradiction entries, and CF-APL-001–011 (one of them, `CF-APL-011`, a new finding with no original source id). This area's table is organized by source id like DAT/DSC, since the doc/code views are close enough in size and shape; see the numbering note above it and in `10-apply.md`. |
