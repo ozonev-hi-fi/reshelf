@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.9 | Last updated: 2026-10-13
+Status: Draft | Version: 0.10 | Last updated: 2026-10-13
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -801,6 +801,167 @@ it is resolved in `90-contradictions-resolution.md`, not carried forward;
 see that file's PRP section for the resolution and the note correcting
 `CF-DAT-001`'s anticipated destination.
 
+## REV
+
+Like MAT and PRP, this table is organized by **merged id** (`AS-REV-NNN`, in
+file order) rather than by source id, since the code view is nearly twice
+the size of the docs/tests view and the file is topic-organized, not a
+straight carry-over.
+
+| Merged | AS-DOC-REV | AS-CODE-REV |
+|---|---|---|
+| AS-REV-001 | AS-DOC-REV-003 | AS-CODE-REV-001 |
+| AS-REV-002 | AS-DOC-REV-004 | AS-CODE-REV-002, AS-CODE-REV-003 |
+| AS-REV-003 | AS-DOC-REV-005 | AS-CODE-REV-004, AS-CODE-REV-005 |
+| AS-REV-004 | AS-DOC-REV-006 | AS-CODE-REV-006, AS-CODE-REV-007 |
+| AS-REV-005 | AS-DOC-REV-007 | AS-CODE-REV-009, AS-CODE-REV-010, AS-CODE-REV-011, AS-CODE-REV-014, AS-CODE-REV-015, AS-CODE-REV-016, AS-CODE-REV-017 |
+| AS-REV-006 | AS-DOC-REV-008 | AS-CODE-REV-008 |
+| AS-REV-007 | AS-DOC-REV-009 | AS-CODE-REV-013, AS-CODE-REV-018 |
+| AS-REV-008 | AS-DOC-REV-010 | AS-CODE-REV-012, AS-CODE-REV-018 |
+| AS-REV-009 | AS-DOC-REV-011 | AS-CODE-REV-044 |
+| AS-REV-010 | AS-DOC-REV-012, AS-DOC-REV-023 | AS-CODE-REV-019, AS-CODE-REV-045 |
+| AS-REV-011 | AS-DOC-REV-013 | AS-CODE-REV-020, AS-CODE-REV-021, AS-CODE-REV-069 |
+| AS-REV-012 | AS-DOC-REV-014 | AS-CODE-REV-022 |
+| AS-REV-013 | AS-DOC-REV-015 | AS-CODE-REV-023, AS-CODE-REV-024, AS-CODE-REV-025 |
+| AS-REV-014 | — | AS-CODE-REV-026, AS-CODE-REV-027 |
+| AS-REV-015 | — | AS-CODE-REV-028 |
+| AS-REV-016 | AS-DOC-REV-067 | AS-CODE-REV-029, AS-CODE-REV-030, AS-CODE-REV-031, AS-CODE-REV-032 |
+| AS-REV-017 | — | AS-CODE-REV-032 |
+| AS-REV-018 | — | AS-CODE-REV-033 |
+| AS-REV-019 | AS-DOC-REV-016 | AS-CODE-REV-046, AS-CODE-REV-047 |
+| AS-REV-020 | AS-DOC-REV-016, AS-DOC-REV-017 | AS-CODE-REV-048, AS-CODE-REV-049 |
+| AS-REV-021 | — | AS-CODE-REV-050 |
+| AS-REV-022 | AS-DOC-REV-017 | AS-CODE-REV-034, AS-CODE-REV-035 |
+| AS-REV-023 | — | AS-CODE-REV-036, AS-CODE-REV-037 |
+| AS-REV-024 | AS-DOC-REV-019 | AS-CODE-REV-051, AS-CODE-REV-052, AS-CODE-REV-053, AS-CODE-REV-054 |
+| AS-REV-025 | AS-DOC-REV-018 | AS-CODE-REV-055, AS-CODE-REV-056 |
+| AS-REV-026 | AS-DOC-REV-020 | AS-CODE-REV-057, AS-CODE-REV-058 |
+| AS-REV-027 | AS-DOC-REV-018 | AS-CODE-REV-038 |
+| AS-REV-028 | AS-DOC-REV-021 | AS-CODE-REV-039 |
+| AS-REV-029 | — | AS-CODE-REV-040 |
+| AS-REV-030 | — | AS-CODE-REV-041, AS-CODE-REV-042 |
+| AS-REV-031 | — | AS-CODE-REV-043 |
+| AS-REV-032 | — | AS-CODE-REV-059, AS-CODE-REV-060, AS-CODE-REV-062 |
+| AS-REV-033 | — | AS-CODE-REV-061, AS-CODE-REV-065 |
+| AS-REV-034 | — | AS-CODE-REV-063 |
+| AS-REV-035 | AS-DOC-REV-001 | AS-CODE-REV-064 |
+| AS-REV-036 | AS-DOC-REV-002 | AS-CODE-REV-066 |
+| AS-REV-037 | — | AS-CODE-REV-067, AS-CODE-REV-073 |
+| AS-REV-038 | — | AS-CODE-REV-068 |
+| AS-REV-039 | — | AS-CODE-REV-070, AS-CODE-REV-071 |
+| AS-REV-040 | — | AS-CODE-REV-072 |
+| AS-REV-041 | — | AS-CODE-REV-074 |
+| AS-REV-042 | AS-DOC-REV-022 | AS-CODE-REV-077 |
+| AS-REV-043 | AS-DOC-REV-023 | — |
+| AS-REV-044 | AS-DOC-REV-024 | AS-CODE-REV-075, AS-CODE-REV-076 |
+| AS-REV-045 | AS-DOC-REV-025 | AS-CODE-REV-078 |
+| AS-REV-046 | AS-DOC-REV-026 | AS-CODE-REV-081, AS-CODE-REV-082 |
+| AS-REV-047 | AS-DOC-REV-027 | AS-CODE-REV-079 |
+| AS-REV-048 | — | AS-CODE-REV-080 |
+| AS-REV-049 | — | AS-CODE-REV-083 |
+| AS-REV-050 | AS-DOC-REV-028 | AS-CODE-REV-085 |
+| AS-REV-051 | AS-DOC-REV-029, AS-DOC-REV-030 | AS-CODE-REV-087 |
+| AS-REV-052 | — | AS-CODE-REV-088 |
+| AS-REV-053 | AS-DOC-REV-031 | AS-CODE-REV-084 |
+| AS-REV-054 | — | — (new item stating the AS-DOC-DEF-070 fact directly) |
+| AS-REV-055 | — | AS-CODE-REV-086 |
+| AS-REV-056 | AS-DOC-REV-071 | AS-CODE-REV-089 |
+| AS-REV-057 | — | AS-CODE-REV-090 |
+| AS-REV-058 | — | AS-CODE-REV-091 |
+| AS-REV-059 | AS-DOC-REV-076 | — |
+| AS-REV-060 | AS-DOC-REV-077 | AS-CODE-REV-092 |
+| AS-REV-061 | AS-DOC-REV-032 | AS-CODE-REV-095 |
+| AS-REV-062 | — | AS-CODE-REV-093, AS-CODE-REV-094 |
+| AS-REV-063 | AS-DOC-REV-033 | AS-CODE-REV-096 |
+| AS-REV-064 | AS-DOC-REV-034 | AS-CODE-REV-099, AS-CODE-REV-101, AS-CODE-REV-102 |
+| AS-REV-065 | AS-DOC-REV-047 | AS-CODE-REV-097 |
+| AS-REV-066 | AS-DOC-REV-035 | AS-CODE-REV-103 |
+| AS-REV-067 | AS-DOC-REV-036, AS-DOC-REV-037 | AS-CODE-REV-101 |
+| AS-REV-068 | — | AS-CODE-REV-100 |
+| AS-REV-069 | AS-DOC-REV-048 | AS-CODE-REV-098 |
+| AS-REV-070 | AS-DOC-REV-038 | — |
+| AS-REV-071 | — | — (resolution item, cross-referencing AS-REV-012/AS-CODE-REV-022) |
+| AS-REV-072 | AS-DOC-REV-039 | — |
+| AS-REV-073 | AS-DOC-REV-040 | AS-CODE-REV-109 |
+| AS-REV-074 | AS-DOC-REV-041 | AS-CODE-REV-107 |
+| AS-REV-075 | AS-DOC-REV-042 | AS-CODE-REV-107 |
+| AS-REV-076 | — | AS-CODE-REV-108 |
+| AS-REV-077 | AS-DOC-REV-043 | — |
+| AS-REV-078 | — | AS-CODE-REV-104 |
+| AS-REV-079 | AS-DOC-REV-044 | AS-CODE-REV-106 |
+| AS-REV-080 | AS-DOC-REV-045 | — |
+| AS-REV-081 | AS-DOC-REV-046 | — |
+| AS-REV-082 | AS-DOC-REV-049 | AS-CODE-REV-105 |
+| AS-REV-083 | AS-DOC-REV-050 | AS-CODE-REV-114 |
+| AS-REV-084 | AS-DOC-REV-051 | AS-CODE-REV-110 |
+| AS-REV-085 | AS-DOC-REV-052 | AS-CODE-REV-111 |
+| AS-REV-086 | AS-DOC-REV-053 | — |
+| AS-REV-087 | AS-DOC-REV-054 | AS-CODE-REV-112, AS-CODE-REV-113 |
+| AS-REV-088 | AS-DOC-REV-055 | — |
+| AS-REV-089 | AS-DOC-REV-056 | AS-CODE-REV-115 |
+| AS-REV-090 | AS-DOC-REV-057 | — |
+| AS-REV-091 | AS-DOC-REV-058 | AS-CODE-REV-116 |
+| AS-REV-092 | AS-DOC-REV-059 | AS-CODE-REV-118 |
+| AS-REV-093 | AS-DOC-REV-060 | AS-CODE-REV-117 |
+| AS-REV-094 | AS-DOC-REV-061 | AS-CODE-REV-119 |
+| AS-REV-095 | AS-DOC-REV-062 | AS-CODE-REV-121, AS-CODE-REV-123 |
+| AS-REV-096 | AS-DOC-REV-063 | AS-CODE-REV-122 |
+| AS-REV-097 | AS-DOC-REV-064 | AS-CODE-REV-124 |
+| AS-REV-098 | AS-DOC-REV-065 | — |
+| AS-REV-099 | — | AS-CODE-REV-125 |
+| AS-REV-100 | AS-DOC-REV-066 | AS-CODE-REV-120 |
+| AS-REV-101 | AS-DOC-REV-067 | AS-CODE-REV-126 |
+| AS-REV-102 | AS-DOC-REV-068 | — |
+| AS-REV-103 | AS-DOC-REV-069 | AS-CODE-REV-127 |
+| AS-REV-104 | AS-DOC-REV-070 | — |
+| AS-REV-105 | AS-DOC-REV-071 | AS-CODE-REV-130 |
+| AS-REV-106 | AS-DOC-REV-072 | AS-CODE-REV-128 |
+| AS-REV-107 | — | AS-CODE-REV-129 |
+| AS-REV-108 | AS-DOC-REV-073 | AS-CODE-REV-131 |
+| AS-REV-109 | AS-DOC-REV-074 | — |
+| AS-REV-110 | AS-DOC-REV-075 | — |
+| AS-REV-111 | AS-DOC-REV-078 | AS-CODE-REV-132 |
+| AS-REV-112 | — | AS-CODE-REV-133 |
+| AS-REV-113 | AS-DOC-REV-079 | AS-CODE-REV-134 |
+| AS-REV-114 | AS-DOC-REV-080, AS-DOC-REV-081 | AS-CODE-REV-135 |
+| AS-REV-115 | AS-DOC-REV-082 | AS-CODE-REV-136 |
+| AS-REV-116 | AS-DOC-REV-083 | AS-CODE-REV-137, AS-CODE-REV-139 |
+| AS-REV-117 | — | AS-CODE-REV-138, AS-CODE-REV-140 |
+| AS-REV-118 | — | AS-CODE-REV-141 |
+| AS-REV-119 | — | AS-CODE-REV-142 |
+| AS-REV-120 | — | AS-CODE-REV-143 |
+| AS-REV-121 | — | AS-CODE-REV-144 |
+| AS-REV-122 | — | AS-CODE-REV-145, AS-CODE-REV-146 |
+| AS-REV-123 | — | AS-CODE-REV-147 |
+| AS-REV-124 | — | AS-CODE-REV-148 |
+| AS-REV-125 | AS-DOC-REV-084 | — |
+
+Contradictions and suspected defects (not covered by the table above):
+
+| AS-DOC-DEF / AS-CODE-DEF-REV | Merged |
+|---|---|
+| AS-DOC-DEF-069 | `90` contradiction, resolved (a re-pick really re-fetches and recomputes — tests/code right, README stale) |
+| AS-DOC-DEF-070 | `91` CF-REV-006 (suspected defect, carried forward) |
+| AS-DOC-DEF-071 | `91` CF-REV-013 (suspected defect, carried forward) |
+| AS-DOC-DEF-072 | `91` CF-REV-003 (suspected defect, carried forward) |
+| AS-DOC-DEF-073 | `90` contradiction, resolved (Save never re-applies folder-name safety rules — tests right, plan 07 wrong) |
+| AS-DOC-DEF-074 | `91` CF-REV-011 (suspected defect, carried forward; confirmed, not contradicted, by AS-CODE-REV-107) |
+| AS-DOC-DEF-075 | `91` CF-REV-012 (suspected defect, carried forward) |
+| AS-DOC-DEF-076 | `90` contradiction, resolved (the real badge names match the tests/README, not plan 07) |
+| AS-DOC-DEF-077 | `90` contradiction, resolved (two independent local-file checks exist; plan 07 described only one) |
+| AS-DOC-DEF-078 | `91` CF-REV-007 (suspected defect, carried forward) |
+| AS-DOC-DEF-079 | `91` CF-REV-008 (suspected defect, carried forward) |
+| AS-DOC-DEF-080 | `90` contradiction, resolved (the dropdown lists every session, including the current one — tests right, plan 07 imprecise) |
+| AS-DOC-DEF-081 | `91` CF-REV-010 (suspected defect, carried forward) |
+| AS-DOC-DEF-082 | `91` CF-REV-015 (suspected defect, carried forward, Kind: test quality) |
+| AS-CODE-DEF-REV-001 | `91` CF-REV-004 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-002 | `91` CF-REV-002 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-003 | `91` CF-REV-001 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-004 | `91` CF-REV-005 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-005 | `91` CF-REV-009 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-006 | `91` CF-REV-014 (suspected defect, carried forward) |
+| AS-CODE-DEF-REV-007 | `91` CF-REV-008 (merged with AS-DOC-DEF-079, same fact from two sources) |
+
 ## Changelog
 
 | Version | Date | Change |
@@ -814,3 +975,4 @@ see that file's PRP section for the resolution and the note correcting
 | 0.7 | 2026-10-11 | Area DSC: 26 AS-DOC-DSC, 32 AS-CODE-DSC, plus AS-DOC-SET-044 deferred here from SET, 2 AS-DOC-DEF contradictions, 2 AS-DOC-DEF + 2 AS-CODE-DEF-DSC suspected defects — all 63 source IDs covered by AS-DSC-001–026, the DSC contradiction entries, and CF-DSC-001–004. AS-DOC-DEF-058 and AS-DOC-DEF-111 (PRP/Cross-cutting, each naming a DSC id as related) noted as not DSC-owned. |
 | 0.8 | 2026-10-13 | Area MAT: 59 AS-DOC-MAT, 67 AS-CODE-MAT, plus 13 AS-CODE-PRP items absorbed here from PRP's not-yet-merged as-is-from-code (pad width, track/number alignment, position parsing), 6 AS-DOC-DEF contradictions, 5 AS-DOC-DEF + 2 AS-CODE-DEF-MAT suspected defects — all 152 source IDs covered by AS-MAT-001–077, the MAT contradiction entries, and CF-MAT-001–007. This area's table is organized by merged id rather than source id; see the note above it. AS-DOC-DEF-041 (DSC-owned) and AS-DOC-DEF-064 (PRP-owned), each naming a MAT id as related, noted as not MAT-owned. |
 | 0.9 | 2026-10-13 | Area PRP: 78 AS-DOC-PRP, 91 remaining AS-CODE-PRP (104 minus the 13 already absorbed into AS-MAT-*), 9 AS-DOC-DEF contradictions, 6 AS-DOC-DEF + 4 AS-CODE-DEF-PRP suspected defects — all 188 source IDs covered by AS-PRP-001–105, the PRP contradiction entries, and CF-PRP-001–010. This area's table is organized by merged id rather than source id, like MAT; see the note above it. AS-DOC-DEF-057's resolution also closes DAT's own forward cross-reference (CF-DAT-001). |
+| 0.10 | 2026-10-13 | Area REV: 84 AS-DOC-REV, 148 AS-CODE-REV, 5 AS-DOC-DEF contradictions, 9 AS-DOC-DEF + 7 AS-CODE-DEF-REV suspected defects — all 253 source IDs covered by AS-REV-001–125, the REV contradiction entries, and CF-REV-001–015. This area's table is organized by merged id rather than source id, like MAT/PRP; see the note above it. One AS-CODE-DEF-REV entry (`007`) merges into the same carry-forward item as its matching AS-DOC-DEF entry (`079`), the same fact found independently from both sources. |

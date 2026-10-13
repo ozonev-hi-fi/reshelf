@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.9 | Last updated: 2026-10-13
+Status: Draft | Version: 0.10 | Last updated: 2026-10-13
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -620,6 +620,133 @@ tests don't show that a conflict flag and a `target path collision` note
 (`AS-PRP-104`/`105`) actually reach `humanReview` once this result is
 folded back into the stored proposal.
 
+## REV
+
+### CF-REV-001 — Every local-file failure, including a genuinely missing file, is reported as HTTP 403
+Sources: `AS-CODE-DEF-REV-003`; related: `AS-DOC-REV-017`.
+
+`Get-ReshelfUiLocalFileBytes` throwing "File '...' no longer exists."
+(`AS-REV-021`) is reported the same way as an access-control refusal
+(`AS-REV-022`) — a genuinely missing allowed file is conflated with
+"forbidden".
+
+### CF-REV-002 — GET /api/current-session and GET /api/sessions/{id}/proposal expose the same proposal.json differently
+Sources: `AS-CODE-DEF-REV-002`.
+
+`CurrentSession` parses then re-serializes the proposal
+(`ConvertFrom-Json`/`ConvertTo-Json -Depth 20`); `GetProposal` writes the
+raw file content through unchanged (`AS-REV-011`). The same file can come
+back with different formatting, and potentially different number precision
+or property order, depending on which endpoint is called.
+
+### CF-REV-003 — Save accepts any valid JSON, also a proposal that breaks the schema
+Sources: `AS-DOC-DEF-072`.
+
+The save test writes `{"artists":[]}` (no `schemaVersion`, no `sessionId`)
+and it succeeds (`AS-REV-012`). A bad request body can damage
+`proposal.json`, and only one backup is kept (`AS-REV-013`).
+
+### CF-REV-004 — Manual-cover upload size limit (20 MB) is hard-coded independently in two places
+Sources: `AS-CODE-DEF-REV-001`.
+
+`Reshelf.UiServer.psm1:333` (`$script:ReshelfUiManualCoverMaxBytes = 20MB`,
+`AS-REV-024`) and `Start-ReshelfUiServer.ps1:77` (`AS-REV-040`'s default
+`$MaxBytes`) independently hold the same literal. Since the HTTP-layer call
+site never overrides that default, the module-level check can never
+actually trigger via the real upload path — the earlier, independently
+maintained limit always rejects first. If either literal changes without
+the other, the two checks silently diverge.
+
+### CF-REV-005 — DeleteLossy handler reports every failure as HTTP 404, including non-"not found" errors
+Sources: `AS-CODE-DEF-REV-004`.
+
+Any exception from removing a ledger entry (`AS-REV-031`) — a file lock or
+disk I/O error, not just "no such entry" — is reported to the client as 404
+Not Found.
+
+### CF-REV-006 — "Needs review only" hides an ambiguous release that also needs review
+Sources: `AS-DOC-DEF-070`.
+
+The filter works on the computed badge, not on the raw `needsReview` flag
+(`AS-REV-054`). A release with `needsReview: true` but badge `ambiguous` is
+hidden by "Needs review only", even though its label suggests it would show.
+
+### CF-REV-007 — A bad session id gives "bad request"; a bad stable key gives "no route" — the same kind of input error, two different answers
+Sources: `AS-DOC-DEF-078`.
+
+A wrong session id in a route is an explicit 400 (`AS-REV-006`); a wrong
+stable key on the lossy or discogs-selection route matches no route at all
+and falls through to static file serving (`AS-REV-007`).
+
+### CF-REV-008 — A wrong HTTP method on a known API path is served as a generic static-file 404, not a clear API error
+Sources: `AS-DOC-DEF-079`; `AS-CODE-DEF-REV-007` (same mechanism, read
+independently from the code: the routing function returns no action for an
+unmatched method and falls through to static-file handling, `AS-REV-008`).
+
+`DELETE /api/sessions/{id}/proposal`, `GET` on the manual-cover path, and
+similar requests get no "method not allowed"/400 answer — the client sees a
+plain 404 as if the path didn't exist.
+
+### CF-REV-009 — Stale code comment claims the client's safe-filename sanitizer skips reserved-device-name handling, but it doesn't
+Sources: `AS-CODE-DEF-REV-005`.
+
+The comment on `deriveProposedFolderNames` (`app.js:846-847`) predates
+`toSafeFileName`'s actual reserved-name suffixing step (`AS-REV-066`) and is
+now misleading about current behavior — a documentation-only issue, not a
+behavioral one.
+
+### CF-REV-010 — An empty Year in one release blocks the whole apply run, with no warning shown on the review page
+Sources: `AS-DOC-DEF-081`; related: `AS-DOC-DEF-082` (`CF-REV-015`, a
+related seed-data inconsistency in the same review-state area).
+
+The README documents the apply-time block (`AS-REV-070`); no source shows
+the review page itself warning the user before they get there.
+
+### CF-REV-011 — Live track numbering comes out too low when the last track of an earlier disc is missing
+Sources: `AS-DOC-DEF-074`; confirmed by `AS-CODE-REV-107` (`AS-REV-075`),
+which documents the same limitation directly in a code comment.
+
+The page has no access to Discogs' own per-disc track counts, so it uses
+each disc's highest *detected* Track number as that disc's size — if the
+real last track of an earlier disc is absent from the source, every later
+disc's file numbers are off by one, needing a manual fix.
+
+### CF-REV-012 — Older sessions are not renumbered on load
+Sources: `AS-DOC-DEF-075`.
+
+A session saved before the live-numbering rule existed keeps its old file
+names (`AS-REV-077`) until the user types a Track value again in that
+release — until then, the page shows names that don't reflect the current
+rule.
+
+### CF-REV-013 — Unsaved manual cover uploads leave files on disk
+Sources: `AS-DOC-DEF-071`.
+
+The upload writes the file at once (`AS-REV-096`). Reloading without Save
+removes the candidate from the gallery, but the file stays in
+`manual-covers\` with nothing in any source describing later cleanup.
+
+### CF-REV-014 — Release notes textarea has no null-safety fallback, unlike the equivalent lossy-notes field
+Sources: `AS-CODE-DEF-REV-006`.
+
+`notesField.value = release.humanReview.notes` (`AS-REV-102`) has no `?? ''`
+guard, while the lossy-tracker edit path a few hundred lines later in the
+same file does guard its own notes value. If `humanReview.notes` is ever
+`null` (e.g. a release never reviewed), the textarea would show the literal
+text "null" instead of being empty.
+
+### CF-REV-015 — Seed test data: a release has needsReview = true but humanReview.required = false
+Sources: `AS-DOC-DEF-082` (Kind: test quality).
+
+Plan 07 says `humanReview.required` is set whenever a release is flagged
+(`AS-REV-051`'s badge logic reads `needsReview`/`humanReview.required`
+together). The UI test seed has `needsReview: true`,
+`reviewReasons: ["no-track-number"]` and `humanReview.required: false` for
+the same release — the badge follows `needsReview`, so the inconsistency
+doesn't affect the observed UI behavior here, but neither source makes
+clear which field a real `propose` run would actually set in this exact
+combination.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -633,3 +760,4 @@ folded back into the stored proposal.
 | 0.7 | 2026-10-11 | Area DSC: 4 items carried forward (`CF-DSC-001`–`004`). Two are `AS-CODE-DEF-DSC-*` only (`001`, `002`). Two are phase-1 `AS-DOC-DEF-*` items (`040`, `042`) whose mechanism is now fully explained by the code — `CF-DSC-003` (rate limit 0) looks like a real surprising-behavior candidate, `CF-DSC-004` (error message naming) found no actual gap — but both stay undecided here per the phase 3/phase 4 split. |
 | 0.8 | 2026-10-13 | Area MAT: 7 items carried forward (`CF-MAT-001`–`007`). Two are `AS-CODE-DEF-MAT-*` only (`001`, `002`). Five are phase-1 `AS-DOC-DEF-*` items (`046`–`048`, `050`, `053`) — three Kind: test quality (`046`, `047`, `050`), one a genuine behavior gap with no review flag (`048`), and one (`053`) whose mechanism is now fully explained by the code with no gap found, same pattern as `CF-DSC-004`. |
 | 0.9 | 2026-10-13 | Area PRP: 10 items carried forward (`CF-PRP-001`–`010`). Four are `AS-CODE-DEF-PRP-*` only (`001`, confirmed by code only; `002`, `003`, `004`); the other six are phase-1 `AS-DOC-DEF-*` items (`055`, `062`–`065`, `067`). `CF-PRP-004` is confirmed, not contradicted, by its matching code read (`AS-CODE-PRP-066`); `CF-PRP-010` cross-references `AS-CODE-PRP-096` as reinforcing code-side detail for the same shape-mismatch issue. |
+| 0.10 | 2026-10-13 | Area REV: 15 items carried forward (`CF-REV-001`–`015`), covering all 7 `AS-CODE-DEF-REV-*` entries (one of them, `007`, merged into `CF-REV-008` alongside the matching `AS-DOC-DEF-079` as the same fact from two sources) and all 9 REV-area `AS-DOC-DEF-*` suspected defects (`070`–`072`, `074`, `075`, `078`, `079`, `081`, `082`). `CF-REV-011` is confirmed, not contradicted, by its matching code comment (`AS-CODE-REV-107`). |

@@ -1,6 +1,6 @@
 # As-is BR, merged (Phase 3)
 
-Status: Draft | Version: 0.9 | Last updated: 2026-10-13
+Status: Draft | Version: 0.10 | Last updated: 2026-10-13
 
 This folder reconciles the two independent as-is views of the legacy app —
 [br/as-is-from-docs/](../as-is-from-docs/README.md) (744 `AS-DOC-*`
@@ -65,7 +65,7 @@ Example: <example from a source> → <result>.
 | [06-discogs-client.md](06-discogs-client.md) | DSC | 26 → 32 | 26 | Done |
 | [07-proposal-matching.md](07-proposal-matching.md) | MAT | 59 → 67 | 77 | Done |
 | [08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md) | PRP | 78 → 104 | 105 | Done |
-| 09-review-ui.md | REV | 84 → 148 | — | Not started |
+| [09-review-ui.md](09-review-ui.md) | REV | 84 → 148 | 125 | Done |
 | 10-apply.md | APL | 71 → 55 | — | Not started |
 | 11-lossy-tracking.md | LSY | 32 → 14 | — | Not started |
 | 12-cli.md | CLI | 46 → 39 | — | Not started |
@@ -101,3 +101,4 @@ full steps.
 | 0.7 | 2026-10-11 | Area 06 (discogs-client) merged: 26 `AS-DSC-*` requirements from 26 `AS-DOC-DSC-*` + 32 `AS-CODE-DSC-*` (plus `AS-DOC-SET-044` deferred here from SET), 2 contradictions resolved, 1 new wording contradiction found and corrected (`.env` inline-comment rule), 4 suspected defects carried forward. |
 | 0.8 | 2026-10-13 | Area 07 (proposal-matching) merged: 77 `AS-MAT-*` requirements from 59 `AS-DOC-MAT-*` + 67 `AS-CODE-MAT-*`, plus 13 `AS-CODE-PRP-*` items absorbed from PRP's not-yet-merged as-is-from-code (pad width, track/number alignment, position parsing — explicitly MAT-owned per phase 1's own scope note), 6 contradictions resolved, 1 new contradiction found and corrected (string similarity is normalized Levenshtein distance, not a "token-sort ratio"), 7 suspected defects carried forward. Like REC, MAT's own granularity mismatch meant fresh topic-organized numbering rather than straight carry-over — see the numbering note in `07-proposal-matching.md`. |
 | 0.9 | 2026-10-13 | Area 08 (proposal-naming-and-tags) merged: 105 `AS-PRP-*` requirements from 78 `AS-DOC-PRP-*` + 91 remaining `AS-CODE-PRP-*` (104 minus the 13 already absorbed into `AS-MAT-*`), 9 contradictions resolved (one, `AS-DOC-DEF-068`, only resolvable by reading one level above either phase-1 or phase-2's own excerpts), 1 new contradiction found and resolved as a coincidence rather than an actual disagreement (the romanized-bilingual-name-origin question, `AS-DOC-DEF-066`), 10 suspected defects carried forward. Like MAT, PRP's granularity mismatch meant fresh topic-organized numbering; several items reuse an already-merged `AS-MAT-*` rule instead of restating it — see the numbering note in `08-proposal-naming-and-tags.md`. |
+| 0.10 | 2026-10-13 | Area 09 (review-ui) merged: 125 `AS-REV-*` requirements from 84 `AS-DOC-REV-*` + 148 `AS-CODE-REV-*`, 5 contradictions resolved (all in favor of the tests/README/code over stale plan-07 prose: the Discogs re-pick's live recompute, Save never re-applying folder-name safety rules, the real badge names, two independent local-file access checks, and the sessions dropdown listing every session), 15 suspected defects carried forward. Like MAT/PRP, fresh topic-organized numbering — the code view (server routing/actions/bootstrap, client bootstrap/list/detail/track/companion/cover/lossy-view) is nearly twice the size of the docs/tests view — see the numbering note in `09-review-ui.md`. |

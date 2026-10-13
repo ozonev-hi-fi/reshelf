@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.9 | Last updated: 2026-10-13
+Status: Draft | Version: 0.10 | Last updated: 2026-10-13
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -581,6 +581,71 @@ covered `New-ReshelfProposedTrackSet` itself, which returns the note but
 never sets a review flag on its own (that's the caller's job). **Resolved:
 plan 06 is right — review is forced.** Merged as `AS-PRP-012`, `045`.
 
+## REV
+
+### Carried from phase 1: `AS-DOC-DEF-069` (README "no re-fetch" vs tests that recompute the release)
+
+The README says picking an edition "only records your choice; it does not
+re-fetch tags/tracklist/cover". Re-read
+`legacy/scripts/Start-ReshelfUiServer.ps1:149-200` (the `SelectDiscogsCandidate`
+handler, `AS-CODE-REV-026`–`032`): it calls the shared
+`Update-ReshelfReleaseForDiscogsSelection` recompute logic and overwrites
+`target.tracks`, `target.proposed`, `target.discogsMatch`, `target.coverArt`,
+`target.lossyLossless` and `target.targetAction` on the matched release — a
+real live recompute, not a bookkeeping-only pick. `legacy/ui/app.js:1047`
+(`AS-CODE-REV-126`) confirms the client side: the POST happens immediately
+and `Object.assign(release, updated)` replaces the in-memory release with
+whatever the server returns. **Resolved: the tests/helpers/code are right,
+the README is stale.** Merged as `AS-REV-016`, `AS-REV-101`.
+
+### Carried from phase 1: `AS-DOC-DEF-073` (plan 07: Save applies the reserved-device-name rule; tests: Save writes the body as sent)
+
+Plan 07 says the live preview skips the reserved-device-name suffix because
+"`propose`/Save still apply that for real". Re-read
+`Save-ReshelfUiProposalContent` (`legacy/scripts/common/Reshelf.UiServer.psm1:228`,
+`AS-CODE-REV-022`): the only check performed before writing is that the body
+parses as JSON — there is no folder-name sanitization, reserved-device-name
+suffixing, or any other shape validation anywhere in the save path.
+**Resolved: the tests are right, plan 07 is wrong.** A hand-typed `CON`
+folder name is saved exactly as typed; only a real `propose` run (not Save)
+ever applies the reserved-name suffix. Merged as `AS-REV-012`, `AS-REV-071`.
+
+### Carried from phase 1: `AS-DOC-DEF-076` (badge names in plan 07 differ from the tests and README)
+
+Plan 07 lists the badges `needsReview`, `ambiguous match` and `ready`. Re-read
+`getReleaseStatus` (`legacy/ui/app.js:234`, `AS-CODE-REV-087`): it returns the
+literal strings `'rejected'`, `'ambiguous'`, `'needsReview'` and `'ready'` —
+matching the tests and the README exactly, not plan 07's names. **Resolved:
+the tests/README/code agree; plan 07 used an earlier, stale naming.** Merged
+as `AS-REV-051`.
+
+### Carried from phase 1: `AS-DOC-DEF-077` (plan 07: local-file serves only proposal.json paths; tests: manual covers too)
+
+Plan 07 says a file is served "only if `path` exactly matches one already
+listed in that session's own `proposal.json`". Re-read
+`Get-ReshelfUiLocalFileBytes` (`legacy/scripts/common/Reshelf.UiServer.psm1:280`,
+`AS-CODE-REV-047`/`048`): the function checks two independent conditions —
+a path physically under the session's `manual-covers` folder is always
+servable, *bypassing* the proposal.json allow-list entirely (since a
+just-uploaded cover only lives in the browser's memory until Save); only
+*outside* that folder does the proposal.json allow-list apply. **Resolved:
+the tests are right, plan 07 described only half the real rule.** Merged as
+`AS-REV-019`, `AS-REV-020`.
+
+### Carried from phase 1: `AS-DOC-DEF-080` ("Past sessions" lists all sessions; plan 07 says "the rest")
+
+Plan 07 says the dropdown "lists the rest" (the other sessions). Re-read
+`Get-ReshelfUiSessionsSummary`/`renderSessionHistory`
+(`legacy/scripts/common/Reshelf.UiServer.psm1:160`, `legacy/ui/app.js:171`,
+`AS-CODE-REV-044`, `AS-CODE-REV-081`/`082`): `GET /api/sessions` returns
+every session with no exclusion of the current one, and the dropdown renders
+all of them, with the loaded session pre-selected among them. Neither the
+server nor the client code excludes "the current one" from the list at any
+point. **Resolved: the tests are right — the dropdown lists every session,
+including the current one, which also happens to be the pre-selected
+option; plan 07's "the rest" phrasing was imprecise.** Merged as
+`AS-REV-046`.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -594,3 +659,4 @@ plan 06 is right — review is forced.** Merged as `AS-PRP-012`, `045`.
 | 0.7 | 2026-10-11 | Area DSC: two phase-1 contradictions (`AS-DOC-DEF-039`, `041`) re-verified against `Reshelf.Discogs.psm1` and confirmed already correctly resolved. One new contradiction found while merging: the `.env` inline-comment rule is a plain "cut at the first `#`" in the code, narrower/different from phase 1's "space then `#`" wording (`AS-DSC-005`, corrected). |
 | 0.8 | 2026-10-13 | Area MAT: six phase-1 contradictions (`AS-DOC-DEF-043`–`045`, `049`, `051`, `052`) re-verified directly against `Reshelf.EditProposal.psm1` (and, for the pad-width one, the not-yet-merged PRP as-is-from-code), all confirmed already correctly resolved. One new contradiction found while merging: plan 02's "token-sort ratio" naming for string similarity vs the actual normalized-Levenshtein-distance formula (`AS-MAT-001`, corrected). |
 | 0.9 | 2026-10-13 | Area PRP: eight phase-1 contradictions (`AS-DOC-DEF-054`, `056`–`061`) re-verified directly against `Reshelf.EditProposal.psm1` (lines 1332–2928) and the already-merged DAT/DSC/MAT rules, all confirmed already correctly resolved. One new contradiction found while merging: the ambiguous "where does the romanized half come from" observation (`AS-DOC-DEF-066`) resolved as a coincidence — the README was right, the source's own title-cased name and the matching Discogs name variation just read the same for the example used. `AS-DOC-DEF-068` ("forces review" vs "note only") required reading one level above either phase-1 or phase-2's own excerpts (the caller that turns any track-set note into a forced review) — resolved in the plan's favor. |
+| 0.10 | 2026-10-13 | Area REV: five phase-1 contradictions (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`) re-verified directly against `Reshelf.UiServer.psm1`, `Start-ReshelfUiServer.ps1` and `app.js`, all resolved in favor of the tests/README/code over stale plan-07 prose — including confirming the Discogs re-pick really does a live recompute (`069`), Save never re-applies folder-name safety rules (`073`), the real badge names (`076`), the two independent local-file access checks (`077`), and that the sessions dropdown lists every session including the current one (`080`). |
