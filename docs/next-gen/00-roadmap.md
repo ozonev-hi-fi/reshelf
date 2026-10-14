@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.8 | Last updated: 2026-10-11
+Status: Draft | Version: 0.9 | Last updated: 2026-10-14
 
 ## Goal
 
@@ -22,7 +22,7 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | 0 | Move legacy code to `legacy/` and freeze it | [phase-0-legacy-move.md](sessions/phase-0-legacy-move.md) | `legacy/` runnable and frozen | Done |
 | 1 | BR from docs and tests (as-is) | [br-from-docs.md](sessions/br-from-docs.md) | [br/as-is-from-docs/](br/as-is-from-docs/README.md): 744 `AS-DOC-*` requirements, suspected defects, coverage | Done |
 | 2 | BR from code (as-is) | [br-from-code.md](sessions/br-from-code.md) | [br/as-is-from-code/](br/as-is-from-code/README.md): 676 `AS-CODE-*` requirements, suspected defects, coverage | Done |
-| 3 | Merge the two as-is BRs, resolve contradictions | [br-as-is-merge.md](sessions/br-as-is-merge.md) | `br/as-is-merged/`: reconciled `AS-<AREA>-NNN` requirements; contradictions resolved; suspected defects consolidated but not yet decided | In progress |
+| 3 | Merge the two as-is BRs, resolve contradictions | [br-as-is-merge.md](sessions/br-as-is-merge.md) | `br/as-is-merged/`: reconciled `AS-<AREA>-NNN` requirements; contradictions resolved; suspected defects consolidated but not yet decided | Done |
 | 4 | Apply the NG vision to the merged as-is BR | [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) | `br/to-be/`: to-be BR (Agreed); every suspected defect decided keep/fix/drop; NG delta 01-11 applied; NG open points resolved; legacy as-is docs archived | Not started |
 | 5 | Technical specification + ADRs | [tech-spec.md](sessions/tech-spec.md) | Tech spec (Agreed), ADRs | Not started |
 | 6 | Task breakdown | defined at the end of phase 5 | Implementation tasks and milestones | Not started |
@@ -84,3 +84,4 @@ re-confirmed each time, not assumed from an earlier session.
 | 0.6 | 2026-10-10 | Phase 3 split into "merge as-is" (factual reconciliation, phase 3) and "apply NG vision" (forward decisions, defect disposition, to-be BR, now phase 4). Tech spec and task breakdown renumbered to phases 5 and 6. |
 | 0.7 | 2026-10-10 | Phase 3 status corrected to "In progress": `br/as-is-merged/` has real, committed partial work (areas 00/01 done, 3 trackers in progress). |
 | 0.8 | 2026-10-11 | Added "Phase 4 input: real-world library maps" — `tools/library-mapper/` output under `local/` must be used as real-world test cases for MAT/area 07 and for suspected-defect disposition. |
+| 0.9 | 2026-10-14 | Phase 3 done: `br/as-is-merged/` Agreed by the user — all 14 areas + contradictions/suspected-defects/coverage complete. |
