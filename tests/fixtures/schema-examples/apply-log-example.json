@@ -1,0 +1,11 @@
+[
+  {
+    "stableKey": "a1b2c3d4e5f60708",
+    "appliedAtUtc": "2026-09-19T10:00:00Z",
+    "status": "applied",
+    "targetPath": "E:\\Music\\ZZ Top\\1999 XXX",
+    "sourceFileSetHash": "9f3a1c2b7d8e4f56a1b2c3d4e5f60708a1b2c3d4e5f60708a1b2c3d4e5f60708",
+    "errorMessage": null,
+    "truncated": false
+  }
+]

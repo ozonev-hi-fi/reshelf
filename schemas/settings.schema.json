@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reshelf.local/schemas/settings.schema.json",
+  "title": "Reshelf settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultSourceRoot",
+    "targetRoot",
+    "copyMode",
+    "namingTemplates",
+    "trackNumberPadWidth",
+    "coverMaxDimension",
+    "discogsTokenEnvVar",
+    "discogsTokenEncrypted",
+    "rateLimitPerMinute",
+    "cacheTtlDays",
+    "dataHome",
+    "ffmpegPath",
+    "taglibSharpPath"
+  ],
+  "properties": {
+    "defaultSourceRoot": { "type": "string" },
+    "targetRoot": { "type": "string", "minLength": 1 },
+    "copyMode": { "type": "string", "enum": ["copy"] },
+    "namingTemplates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseFolder", "trackFile"],
+      "properties": {
+        "releaseFolder": { "type": "string", "minLength": 1 },
+        "trackFile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "trackNumberPadWidth": { "type": "integer", "minimum": 2 },
+    "coverMaxDimension": { "type": "integer", "minimum": 1 },
+    "discogsTokenEnvVar": { "type": "string", "minLength": 1 },
+    "discogsTokenEncrypted": { "type": "string" },
+    "rateLimitPerMinute": { "type": "integer", "minimum": 1 },
+    "cacheTtlDays": { "type": "integer", "minimum": 0 },
+    "dataHome": { "type": "string" },
+    "ffmpegPath": { "type": "string" },
+    "taglibSharpPath": { "type": "string" }
+  }
+}

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reshelf - Review Proposal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header id="app-header">
+    <h1>Reshelf</h1>
+    <button id="retry-btn" hidden>Retry</button>
+    <span id="session-status"></span>
+    <span id="session-id-label"></span>
+    <nav id="view-switch">
+      <button id="view-btn-releases" class="view-btn view-btn-active" type="button">Releases</button>
+      <button id="view-btn-lossy" class="view-btn" type="button">Lossy tracker</button>
+    </nav>
+  </header>
+
+  <div id="session-history" hidden>
+    <label>Past sessions
+      <select id="session-history-select"></select>
+    </label>
+  </div>
+
+  <div id="filters">
+    <label><input type="checkbox" id="filter-needs-review" /> Needs review only</label>
+    <label><input type="checkbox" id="filter-ambiguous" /> Ambiguous match only</label>
+  </div>
+
+  <main id="main-layout">
+    <aside id="release-list"></aside>
+
+    <section id="unrecognized-panel" hidden>
+      <h2 id="unrecognized-title"></h2>
+      <p>Recognition could not place this folder automatically. Move or rename it on disk, then
+        re-run <code>Reshelf.ps1 recognize -SourceRoot &lt;path&gt;</code>.</p>
+      <table id="unrecognized-fields">
+        <tbody>
+          <tr><th>Path</th><td id="unrecognized-path"></td></tr>
+          <tr><th>Reason</th><td id="unrecognized-reason"></td></tr>
+        </tbody>
+      </table>
+      <h3>Files in this folder</h3>
+      <ul id="unrecognized-children"></ul>
+    </section>
+
+    <section id="detail-panel" hidden>
+      <div id="save-row-top">
+        <button id="save-btn-top" class="save-btn">Save</button>
+        <span id="unsaved-count-top" class="unsaved-count"></span>
+      </div>
+
+      <h2 id="detail-title"></h2>
+
+      <table id="before-after-table">
+        <thead>
+          <tr><th id="before-after-before-header">Before</th><th>After</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="release-fields">
+        <label>Album Artist
+          <input type="text" id="field-artist" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="field-compilation" />
+          Compilation (Various Artists)
+        </label>
+        <label>Album
+          <input type="text" id="field-album" />
+        </label>
+        <label>Year
+          <input type="number" id="field-year" />
+        </label>
+        <label>Artist Folder Name
+          <input type="text" id="field-artist-folder" />
+        </label>
+        <label>Release Folder Name
+          <input type="text" id="field-release-folder" />
+        </label>
+      </div>
+
+      <table id="track-fields-table">
+        <thead>
+          <tr><th>Disc</th><th>Track</th><th>Artist</th><th>Title</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h3>Other files</h3>
+      <table id="companion-table">
+        <thead>
+          <tr><th>Include</th><th>Before</th><th>After</th><th>Kind</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="companion-empty" hidden>No other files</p>
+
+      <div id="cover-gallery"></div>
+
+      <div id="manual-cover-row">
+        <label for="manual-cover-input" id="manual-cover-btn" class="button-like">Add cover from file…</label>
+        <input type="file" id="manual-cover-input" accept="image/png,image/jpeg" hidden />
+        <span id="manual-cover-status"></span>
+      </div>
+
+      <div id="discogs-candidates" hidden>
+        <h3>Discogs match is ambiguous - pick the correct edition</h3>
+        <div id="discogs-candidates-list"></div>
+        <span id="discogs-candidate-status"></span>
+      </div>
+
+      <label>Notes
+        <textarea id="notes-field"></textarea>
+      </label>
+
+      <label><input type="checkbox" id="approve-checkbox" /> Approve</label>
+      <label><input type="checkbox" id="reject-checkbox" /> Reject (never apply - e.g. a duplicate pressing you don't want)</label>
+
+      <div id="save-row">
+        <button id="save-btn" class="save-btn">Save</button>
+        <span id="unsaved-count" class="unsaved-count"></span>
+        <span id="save-status"></span>
+      </div>
+    </section>
+  </main>
+
+  <section id="lossy-view" hidden>
+    <div id="lossy-toolbar">
+      <label>Status
+        <select id="lossy-filter-status">
+          <option value="">All</option>
+          <option value="pending-upgrade">pending-upgrade</option>
+          <option value="upgraded">upgraded</option>
+          <option value="ignored">ignored</option>
+        </select>
+      </label>
+      <button id="lossy-export-csv-btn" type="button">Export CSV</button>
+      <button id="lossy-export-json-btn" type="button">Export JSON</button>
+      <span id="lossy-status"></span>
+    </div>
+    <table id="lossy-table">
+      <thead>
+        <tr>
+          <th>Artist</th><th>Album</th><th>Year</th><th>Format</th><th>Status</th>
+          <th>Target path</th><th>First detected</th><th>Last checked</th><th>Notes</th><th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p id="lossy-empty" hidden>No lossy-tracking entries.</p>
+  </section>
+
+  <dialog id="cover-modal">
+    <img id="cover-modal-img" alt="" />
+    <button id="cover-modal-close" type="button">X</button>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
