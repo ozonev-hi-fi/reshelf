@@ -1,6 +1,6 @@
 # 10 — Apply (as-is, merged)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-13
+Status: Draft | Version: 0.3 | Last updated: 2026-10-14
 
 ## Scope
 
@@ -137,7 +137,7 @@ Windows find it on PATH, rather than failing on the empty default value in
 Example: `ffmpegPath = ""` → the release applies, `Applied 1`.
 
 ### AS-APL-007 — Apply works release by release; one release's failure doesn't stop the run; the proposal is schema-validated once up front
-Status: Draft | Source: AS-DOC-APL-007; AS-CODE-APL-046; AS-CODE-APL-052
+Status: Draft | Source: AS-DOC-APL-007; AS-CODE-APL-046; AS-CODE-APL-052; AS-CODE-APL-042 (citation added during the BND/ERR merge — the fact was already stated below, just not cited)
 
 Before an apply run reads anything from the proposal file, it validates it
 against the `proposal` schema and throws if it fails. Apply then takes one
@@ -1117,3 +1117,4 @@ same floor-first mechanism as the artist budget (`AS-APL-070`).
 |---|---|---|
 | 0.1 | 2026-10-13 | Area APL merged: 69 `AS-APL-*` requirements, `AS-APL-001`–`072` with a gap at `046`–`048` (68 `AS-DOC-APL-*` items folded in, 3 of them — `046`–`048` — redirected instead to the already-merged `AS-REC-085`–`089`; 5 fresh `AS-APL-068`–`072` for code-only budget/log mechanics). 6 phase-1 contradictions re-verified against `Reshelf.Implementation.psm1` and confirmed already correctly resolved (`AS-DOC-DEF-083`–`085`, `088`, `092`, `093`). 11 suspected defects carried forward (`CF-APL-001`–`011`, covering 8 phase-1 `AS-DOC-DEF-*` items — `086`, `087`, `089`–`091`, `094`–`096` — the 2 `AS-CODE-DEF-APL-*` entries, and 1 new finding — the `apply-log` `'skipped'` status value is defined but never written). |
 | 0.2 | 2026-10-13 | During the LSY merge: `AS-APL-061`/`062` Source lines extended to also cite `AS-DOC-LSY-030`/`031` (the same two facts, restated from LSY's own plan/README sources with nothing new); the dangling `(not yet merged)` note under "Lossy tracking updates from apply" resolved to a real link now that `11-lossy-tracking.md` exists. |
+| 0.3 | 2026-10-14 | During the BND/ERR merge (the last area, doing a full source-id sweep across all 13 areas): `AS-CODE-APL-042` (a staging failure is captured as a result, not an uncaught exception) was already stated in `AS-APL-007`'s own text but never cited — added to its `Source:` line. |

@@ -1,6 +1,6 @@
 # 92 — Coverage (Phase 3)
 
-Status: Draft | Version: 0.13 | Last updated: 2026-10-13
+Status: Draft | Version: 0.14 | Last updated: 2026-10-14
 
 Traceability: every `AS-DOC-*` and `AS-CODE-*` ID maps to exactly one place
 here — either a merged `AS-<AREA>-NNN` requirement, or an entry in
@@ -744,7 +744,7 @@ the MAT merge (see the note at the top of
 | AS-PRP-095 | AS-DOC-PRP-074 | — |
 | AS-PRP-096 | AS-DOC-PRP-075 | — |
 | AS-PRP-097 | — | AS-CODE-PRP-075, AS-CODE-PRP-076, AS-CODE-PRP-077 |
-| AS-PRP-098 | AS-DOC-PRP-076 | AS-CODE-PRP-090 |
+| AS-PRP-098 | AS-DOC-PRP-076 | AS-CODE-PRP-090, AS-CODE-PRP-094 |
 | AS-PRP-099 | — | AS-CODE-PRP-091 |
 | AS-PRP-100 | — | AS-CODE-PRP-092 |
 | AS-PRP-101 | — | AS-CODE-PRP-093 |
@@ -752,6 +752,13 @@ the MAT merge (see the note at the top of
 | AS-PRP-103 | — | AS-CODE-PRP-096 |
 | AS-PRP-104 | AS-DOC-PRP-077 | — |
 | AS-PRP-105 | AS-DOC-PRP-078 | — |
+| AS-PRP-106 | — | AS-CODE-PRP-072 |
+
+`AS-CODE-PRP-072` and `AS-CODE-PRP-094` were found missing during the
+BND/ERR merge (the last area, doing a full source-id sweep across all 13
+areas) — the first added as a new item (`AS-PRP-106`), the second was
+already stated in `AS-PRP-098`'s own text but uncited. See
+`08-proposal-naming-and-tags.md`'s 0.4 changelog entry.
 
 `AS-CODE-PRP-073` is cited twice (`AS-PRP-092`, `AS-PRP-094`) — once for the
 specific renamed-lossy branch it adds beyond the docs/tests view, once as the
@@ -977,7 +984,7 @@ repeats for those rows; `AS-DOC-APL-046`–`048` redirect to the already-merged
 | AS-DOC-APL-004 | AS-CODE-APL-048 | AS-APL-004 |
 | AS-DOC-APL-005 | AS-CODE-APL-048 | AS-APL-005 |
 | AS-DOC-APL-006 | AS-CODE-APL-045 | AS-APL-006 |
-| AS-DOC-APL-007 | AS-CODE-APL-046, AS-CODE-APL-052 | AS-APL-007 |
+| AS-DOC-APL-007 | AS-CODE-APL-046, AS-CODE-APL-052, AS-CODE-APL-042 | AS-APL-007 |
 | AS-DOC-APL-008 | AS-CODE-APL-034, AS-CODE-APL-047 | AS-APL-008 (`90` contradiction, resolved — no separate split phase) |
 | AS-DOC-APL-009 | AS-CODE-APL-007 | AS-APL-009 |
 | AS-DOC-APL-010 | AS-CODE-APL-007 | AS-APL-010 |
@@ -1125,9 +1132,17 @@ written) — no original `AS-DOC-DEF`/`AS-CODE-DEF` id exists for it.
 | — | AS-CODE-LSY-013 | AS-LSY-004 |
 | — | AS-CODE-LSY-014 | AS-LSY-012 |
 
-No `AS-DOC-DEF-*`/`AS-CODE-DEF-*` entries exist for this area (neither
-source file carries one). One suspected defect, `CF-LSY-001`, was found
-directly while merging — no original source id exists for it.
+| AS-DOC-DEF-097 | — | `90` contradiction, resolved (upgrade detection is the target-content baseline comparison, `AS-PRP-092` — not a ledger lookup) |
+| AS-DOC-DEF-098 | — | `91` CF-LSY-002 (suspected defect, carried forward) |
+| AS-DOC-DEF-099 | — | `90` contradiction, resolved — merged into `AS-LSY-015`'s own text (propose logs every lossy release, not only `create-new`) |
+
+No `AS-CODE-DEF-*` entries exist for this area (neither source file carries
+one). One suspected defect, `CF-LSY-001`, was found directly while merging —
+no original source id exists for it. `AS-DOC-DEF-097`, `098` and `099`
+(Area: LSY, type Contradiction/Suspected defect/Contradiction) were missed
+by the original 0.1 merge and added retroactively during the BND/ERR merge,
+the last area — see `90-contradictions-resolution.md` and
+`91-suspected-defects-carryforward.md`.
 
 ## CLI
 
@@ -1235,6 +1250,44 @@ is now **resolved**, closed out in this area's merge — see
 as "not owned"/"left for whichever pass owns Cross-cutting" no longer apply;
 it does not need a further mention once BND/ERR is merged.
 
+## BND/ERR
+
+| AS-DOC | AS-CODE | Merged |
+|---|---|---|
+| AS-DOC-BND-001 | AS-CODE-BND-001, AS-CODE-BND-002 | AS-BND-001 |
+| AS-DOC-BND-002 | — | AS-BND-002 |
+| AS-DOC-ERR-001 | — | see AS-APL-013, AS-APL-045, AS-APL-057 (APL-owned, redirected) |
+| AS-DOC-ERR-002 | — | see AS-APL-017 (APL-owned, redirected) |
+| AS-DOC-ERR-003 | — | see AS-DAT-072–075 (DAT-owned, redirected; `90` new contradiction, resolved) |
+| AS-DOC-ERR-004 | — | see AS-APL-018 (APL-owned, redirected; cross-ref AS-PRP-083, AS-PRP-086) |
+| AS-DOC-ERR-005 | — | see AS-PRP-085 (PRP-owned, redirected) |
+| AS-DOC-ERR-006 | — | see AS-DSC-019, AS-DSC-020 (`90` contradiction, resolved under the PRP merge — AS-DOC-DEF-058) |
+| AS-DOC-ERR-007 | — | see AS-REC-010 (REC-owned, redirected; AS-DOC-DEF-019 closed under REC) |
+| AS-DOC-ERR-008 | — | AS-ERR-001 |
+| AS-DOC-ERR-009 | — | AS-ERR-002 |
+| AS-DOC-ERR-010 | — | AS-ERR-003 |
+| AS-DOC-ERR-011 | — | AS-ERR-004 |
+| AS-DOC-ERR-012 | — | AS-ERR-005 |
+| AS-DOC-ERR-013 | — | see AS-DAT-087 (DAT-owned, redirected) |
+| AS-DOC-ERR-014 | — | AS-ERR-006 |
+| — | AS-CODE-ERR-001 | AS-ERR-007 |
+| — | AS-CODE-ERR-002 | AS-ERR-008 |
+| — | AS-CODE-ERR-003 | AS-ERR-009 |
+| — | AS-CODE-ERR-004 | AS-ERR-010 |
+| — | AS-CODE-ERR-005 | AS-ERR-011 |
+| AS-DOC-DEF-106 | — | `90` contradiction, resolved (staging always used final names, no short-names-then-rename step) |
+| AS-DOC-DEF-107 | — | `90` contradiction, resolved (the localhost UI server is real; MANIFESTO §8's static-site vision predates it) |
+| AS-DOC-DEF-108 | — | `90` contradiction, resolved (the in-process-TagLibSharp/single-entry-script design is real; MANIFESTO §8 predates it) |
+| AS-DOC-DEF-109 | — | `90` contradiction, partially resolved (long-path half) + `91` CF-ERR-001 (full-disk half, suspected defect, carried forward) |
+| AS-DOC-DEF-110 | — | `90` contradiction, resolved (same root cause as 107/108 — MANIFESTO §9 predates its own answers) |
+
+No `AS-CODE-DEF-*` entries exist for this area (neither `AS-CODE-BND-*` nor
+`AS-CODE-ERR-*` carries one).
+
+This was the last of the 13 numbered areas. Every `AS-DOC-*`/`AS-CODE-*` ID
+across all 13 areas plus GEN is now traced above — see the Changelog's 0.14
+entry for the confirmation pass.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -1252,3 +1305,4 @@ it does not need a further mention once BND/ERR is merged.
 | 0.11 | 2026-10-13 | Area APL: 71 AS-DOC-APL, 55 AS-CODE-APL, 6 AS-DOC-DEF contradictions, 8 AS-DOC-DEF + 2 AS-CODE-DEF-APL suspected defects — all 126 source IDs covered by AS-APL-001–072 (with a gap at `046`–`048`, redirected instead to the already-merged AS-REC-085–089), the APL contradiction entries, and CF-APL-001–011 (one of them, `CF-APL-011`, a new finding with no original source id). This area's table is organized by source id like DAT/DSC, since the doc/code views are close enough in size and shape; see the numbering note above it and in `10-apply.md`. |
 | 0.12 | 2026-10-13 | Area LSY: 32 AS-DOC-LSY, 14 AS-CODE-LSY — all 46 source IDs covered by AS-LSY-001–022, with four doc items redirected to already-merged items with no new id (`023`→AS-PRP-097, `029`→AS-PRP-078, `030`→AS-APL-061, `031`→AS-APL-062), and CF-LSY-001 (a new finding, no original source id — neither LSY source file carried a pre-existing contradiction or suspected defect). |
 | 0.13 | 2026-10-13 | Area CLI: 46 AS-DOC-CLI, 39 AS-CODE-CLI, 2 AS-DOC-DEF contradictions, 4 AS-DOC-DEF + 3 AS-CODE-DEF-CLI suspected defects — all 94 source IDs covered by AS-CLI-001–052, the CLI contradiction entries, and CF-CLI-001–007. Two doc items redirected with no new id (`003`→AS-SET-033, `004`→AS-DAT-003/004); two more (`014`/`015`) dual-cited — a thin AS-CLI-015 plus extending already-merged `AS-REV-032`/`033`'s own `Source:` lines. `AS-DOC-DEF-111` (Cross-cutting, previously left unresolved by DAT/SET/DSC) closed out here — see the note below and `90-contradictions-resolution.md`. |
+| 0.14 | 2026-10-14 | Area BND/ERR (the last of the 13 numbered areas): 2 AS-DOC-BND, 14 AS-DOC-ERR, 2 AS-CODE-BND, 5 AS-CODE-ERR, 1 new contradiction + 4 AS-DOC-DEF contradictions, 1 AS-DOC-DEF suspected defect — all 23 source IDs covered by AS-BND-001–002, AS-ERR-001–011, the BND/ERR contradiction entries, and CF-ERR-001. Eight AS-DOC-ERR items redirected with no new id to already-merged APL/PRP/DSC/REC/DAT requirements. **Full cross-area sweep** (every `AS-DOC-*`/`AS-CODE-*` id across all 13 areas checked against this file): found and fixed five gaps missed by earlier area merges — Area LSY had two pre-existing phase-1 contradictions (`AS-DOC-DEF-097`, `099`) and one suspected defect (`AS-DOC-DEF-098`) never carried forward, now resolved/carried as `CF-LSY-002` (see the LSY section above and `11-lossy-tracking.md`'s 0.3 changelog); `AS-CODE-APL-042` and `AS-CODE-PRP-094` were each already stated in an existing item's text but never cited, now added to `AS-APL-007`'s and `AS-PRP-098`'s `Source:` lines; `AS-CODE-PRP-072` was missing entirely, added as new item `AS-PRP-106`. No further gaps found — every source id is now traceable. |

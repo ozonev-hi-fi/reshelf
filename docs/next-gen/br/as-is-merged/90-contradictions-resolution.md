@@ -1,6 +1,6 @@
 # 90 — Contradictions, resolved (Phase 3)
 
-Status: Draft | Version: 0.12 | Last updated: 2026-10-13
+Status: Draft | Version: 0.13 | Last updated: 2026-10-14
 
 Every contradiction found while merging `as-is-from-docs/` and
 `as-is-from-code/`: the pre-existing `AS-DOC-DEF-*` entries of type
@@ -726,9 +726,40 @@ as `AS-APL-008`, with the actual mechanism spelled out there.
 
 ## LSY
 
-None owned by this area. Neither source file for LSY carries an
-`AS-DOC-DEF-*`/`AS-CODE-DEF-*` entry of type "Contradiction" — see
-`11-lossy-tracking.md`.
+Found missing during the BND/ERR merge (the last area), when a full sweep of
+every `AS-DOC-DEF-*`/`AS-CODE-DEF-*` id against `92-coverage.md` turned up
+two Area: LSY contradictions from phase 1's own `90-suspected-defects.md`
+that the original LSY merge (0.1, 2026-10-10) missed entirely — its own
+scope note's claim that "neither source carries a Contradiction-type entry
+for this area" was wrong.
+
+### Carried from phase 1 (missed at first, closed out here): `AS-DOC-DEF-097` (does upgrade detection need a ledger entry?)
+
+Plan 09 says propose detects a lossy-to-lossless upgrade when "an existing
+target entry is `pending-upgrade`" in the ledger. The tests detect it from
+the target folder's own content only, with no ledger lookup at all. Already
+explained by the already-merged `AS-PRP-092` ([08-proposal-naming-and-
+tags.md](08-proposal-naming-and-tags.md)): a lossless source over a lossy
+baseline *at the same target path* is what makes it an upgrade — the
+baseline comparison, not the ledger, is what detects it; the ledger
+(`11-lossy-tracking.md`) only records the outcome for later review, it is
+never consulted to decide whether an upgrade happened. **Resolved: the
+tests/code are right — plan 09's "ledger entry" framing describes the
+*result* of detecting an upgrade, not the mechanism.** No new `AS-LSY` or
+`AS-PRP` item needed; both already state the real mechanism.
+
+### Carried from phase 1 (missed at first, closed out here): `AS-DOC-DEF-099` (does propose log a lossy release always, or only on create-new?)
+
+Plan 09 says propose adds a lossy-tracking entry "whenever it proposes a
+`create-new`" for a lossy source. The README and MANIFESTO §6 say every
+lossy release is logged, with no test covering a lossy release that is a
+`conflict` or `skip-existing-identical`. Resolved directly by this file's
+own `AS-LSY-015` (now updated to say so explicitly): the already-merged
+`AS-PRP-097` establishes that the ledger upsert happens whenever the source
+is lossy, independent of `targetAction`. **Resolved: the README/MANIFESTO
+are right, plan 09 understates it — the code has no `create-new`-only
+gate.** Merged into `AS-LSY-015`'s own text; see `11-lossy-tracking.md`'s
+0.3 changelog entry.
 
 ## CLI
 
@@ -782,6 +813,93 @@ forward; BND/ERR's own `AS-DOC-DEF-108`/`110` (Area: ERR, not Cross-cutting)
 are a separate, MANIFESTO-vs-plan question about the tagger/tooling
 philosophy, not this path question, and are unaffected by this closure.
 
+## BND/ERR
+
+### New: `AS-DOC-ERR-003` vs `AS-DOC-DAT-072`–`075` — is the long-path prefix "plan only, no test"?
+
+`AS-DOC-ERR-003` (sourced only from `legacy/plan/10-error-handling-and-edge-
+cases.md`) says the app uses the `\\?\` long-path prefix, marked "plan
+only — no test shows it." But the already-merged `AS-DAT-072`–`075`
+([01-data-and-storage.md](01-data-and-storage.md)) describe exactly this
+mechanism — `ConvertTo-ReshelfLongPath`, a 240-character threshold, the
+`\\?\`/`\\?\UNC\` prefix forms, idempotent re-prefixing — sourced from real
+Pester tests (`legacy/tests/Reshelf.Common.Tests.ps1 › ConvertTo-
+ReshelfLongPath`). Re-reading the code directly confirms it further: the
+function is called from `Reshelf.Common.psm1`, `Reshelf.Implementation
+.psm1`, `Reshelf.EditProposal.psm1`, `Reshelf.Recognition.psm1` and
+`Reshelf.UiServer.psm1`, wrapping every `Get-Item`/`Test-Path`/`Copy-Item`/
+`Move-Item`/`Remove-Item`/`New-Item`/`ReadAllBytes`/`WriteAllBytes`/
+`Image.FromFile` call that touches a user-supplied path across the app.
+**Resolved: `AS-DOC-DAT-072`–`075` and their tests are right — the prefix is
+real, tested and pervasively used; `AS-DOC-ERR-003`'s "plan only" framing is
+wrong**, an artifact of its own author reading only `legacy/plan/10` and not
+cross-checking the DAT area's independent source set. No new `AS-ERR` item
+needed beyond the redirect; see `13-bandcamp-and-errors.md`.
+
+### Carried from phase 1: `AS-DOC-DEF-106` (staging: short names renamed at commit, or final names from the start?)
+
+Plan 10 says external tools run on short-named files inside staging, with
+the rename to the full name happening only at the final commit step. Plan 08
+step 4 also describes a rename inside staging. Re-reading
+`Invoke-ReshelfReleaseStaging` and `Move-ReshelfStagedReleaseToTarget`
+(already merged as `AS-APL-008`/`017`) and the integration test asserting
+tags are written directly to `.reshelf-staging\<key>\01 Track.flac`: every
+file is built with its final name from the moment it's staged — there is no
+separate short-name phase and no rename step at all, inside staging or at
+commit. Plan 08's own step list agrees with the code once re-read closely:
+its "commit" step is the same single move `AS-APL-017` already describes,
+not a rename. **Resolved: the tests/code (and plan 08's own step list) are
+right — plan 10's short-names-then-rename design was never built.** No new
+`AS-ERR` item; already fully covered by `AS-APL-008`/`017`.
+
+### Carried from phase 1: `AS-DOC-DEF-107` (MANIFESTO §8: a static website with no server)
+
+MANIFESTO §8 says the UI is a static website with no server or backend. The
+README describes `ui start`, a port, and `-Port <N>` for when the port is in
+use — already confirmed as a real localhost server by the already-merged
+`AS-GEN-010`, `AS-REV-032`/`033` and `AS-CLI-015`. **Resolved: the README/
+code are right — MANIFESTO §8 describes an early static-site vision that was
+abandoned once the review UI needed server-side file access (covers,
+companions) and local disk writes; it was never updated.** No new `AS-ERR`
+item; the server's own behavior is owned by REV/CLI, cross-referenced from
+`AS-ERR-001` (`13-bandcamp-and-errors.md`).
+
+### Carried from phase 1: `AS-DOC-DEF-108` (MANIFESTO §8: a CLI tagger and one script per module)
+
+MANIFESTO §8 expects "a set of PowerShell scripts, one per module, each
+calling out to CLI tools (e.g. a CLI metadata tagger)." Plan 08 writes tags
+in-process with TagLibSharp instead (mp3tag was dropped), and the README
+and the actual `legacy/scripts/Reshelf.ps1` use one entry script with
+subcommands, not one script per module (`AS-CLI-001`). **Resolved: the
+README/code are right — the in-process-TagLibSharp, single-entry-script
+design was a deliberate later decision (`AS-ERR-005`'s tooling-philosophy
+rule), and MANIFESTO §8 simply predates it.** No new `AS-ERR` item beyond
+`AS-ERR-005`'s own merged rule.
+
+### Carried from phase 1: `AS-DOC-DEF-109` (the long-path prefix and the full-disk case have no test) — partially corrected
+
+This entry bundled two separate untested-ness claims. The long-path-prefix
+half is now known to be wrong — see the new contradiction above; it is
+fully tested (`AS-DAT-072`–`075`) and that half of `AS-DOC-DEF-109` is
+**not** carried forward as a defect. The full-disk-during-copy half still
+holds: nothing in `Reshelf.Implementation.Tests.ps1` or elsewhere exercises
+a disk-full mid-copy scenario; plan 08's own "Edge cases" section names it
+as a scenario the staging design is meant to handle, but no test proves it.
+**Resolved: the long-path half is not a defect (it's tested); the full-disk
+half is a genuine, still-open test-coverage gap.** Carried forward as
+`CF-ERR-001`; see `91-suspected-defects-carryforward.md`.
+
+### Carried from phase 1: `AS-DOC-DEF-110` (MANIFESTO §9 still lists questions that later docs answer)
+
+MANIFESTO §9 lists open questions (static-site editing, CLI tagger choice,
+re-runs, path length, sessions) that plan 08, plan 10 and the README answer
+elsewhere — some of those answers directly contradict the question's own
+premise (`AS-DOC-DEF-107`, `108` above). **Resolved: same root cause as
+`107`/`108` — MANIFESTO §9 is a snapshot of open questions from before
+implementation, never updated once the plans and code answered them.** No
+new `AS-ERR` item; see `13-bandcamp-and-errors.md`'s "Not behavior" section
+for where each question's answer now lives.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -798,3 +916,4 @@ philosophy, not this path question, and are unaffected by this closure.
 | 0.10 | 2026-10-13 | Area REV: five phase-1 contradictions (`AS-DOC-DEF-069`, `073`, `076`, `077`, `080`) re-verified directly against `Reshelf.UiServer.psm1`, `Start-ReshelfUiServer.ps1` and `app.js`, all resolved in favor of the tests/README/code over stale plan-07 prose — including confirming the Discogs re-pick really does a live recompute (`069`), Save never re-applies folder-name safety rules (`073`), the real badge names (`076`), the two independent local-file access checks (`077`), and that the sessions dropdown lists every session including the current one (`080`). |
 | 0.11 | 2026-10-13 | Area APL: six phase-1 contradictions (`AS-DOC-DEF-083`–`085`, `088`, `092`, `093`) re-verified directly against `Reshelf.Implementation.psm1`, all confirmed already correctly resolved in favor of the tests/code over the README/plan-08 prose — including settling the exact default-skip gate as `humanReview.resolved` alone (`085`), and finding that the plan's "split before/after staging" ordering question doesn't really apply since the code has no separate split phase at all (`093`). |
 | 0.12 | 2026-10-13 | Area LSY: no contradiction owned by this area. Area CLI: two phase-1 contradictions re-verified and resolved in favor of the current tests/README/code over stale plan prose (`AS-DOC-DEF-101`: the real 10 UI spec files vs plan 11's 6; `AS-DOC-DEF-102`: the real `ui` command vs plan 01's missing one). `AS-DOC-DEF-111` (Cross-cutting, left unresolved by DAT/SET/DSC) closed out here, since CLI is the last of its named areas and every merged path across every area already reflects the post-Phase-0 `legacy/`-relative layout. |
+| 0.13 | 2026-10-14 | Area BND/ERR (last area): one new contradiction found (`AS-DOC-ERR-003`'s "plan only, no test" framing for the `\\?\` long-path prefix was wrong — already fully tested and merged as `AS-DAT-072`–`075`). Four phase-1 contradictions re-verified and resolved: `106` (staging always used final names, no short-names-then-rename step), `107`/`110` (the localhost UI server and the in-process-TagLibSharp/single-entry-script design are both real, deliberate later decisions — MANIFESTO §8/§9 predate them and were never updated), `108` (same root cause as `107`). `109` partially corrected: its long-path half is resolved (tested, not a defect), its full-disk half remains a genuine test-coverage gap, carried forward as `CF-ERR-001`. A full-coverage sweep across all 13 areas done at this point also found two Area: LSY contradictions (`097`, `099`) the original LSY merge had missed entirely — both resolved retroactively (`097` via the already-merged `AS-PRP-092`; `099` via `AS-LSY-015`, now updated to say so) — see the new `## LSY` section above. |

@@ -1,6 +1,6 @@
 # 11 — Lossy tracking (as-is, merged)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-13
+Status: Draft | Version: 0.3 | Last updated: 2026-10-14
 
 ## Scope
 
@@ -255,8 +255,8 @@ own what's specific to the ledger side of that interaction: which ledger
 fields a propose run actually touches, and the shape of the `previousLossy`
 object, neither of which any `AS-PRP` item states.
 
-### AS-LSY-015 — Propose logs every lossy source release as pending-upgrade, with its proposed target path
-Status: Draft | Source: AS-DOC-LSY-020; AS-DOC-LSY-021; cross-referenced with `AS-PRP-097` (the `log-for-upgrade` action and the unconditional upsert), `AS-LSY-006`/`007` (add/refresh mechanics)
+### AS-LSY-015 — Propose logs every lossy source release as pending-upgrade, with its proposed target path — resolves AS-DOC-DEF-099, carries CF-LSY-002
+Status: Draft | Source: AS-DOC-LSY-020; AS-DOC-LSY-021; cross-referenced with `AS-PRP-097` (the `log-for-upgrade` action and the unconditional upsert), `AS-LSY-006`/`007` (add/refresh mechanics); resolves `AS-DOC-DEF-099` (see `90-contradictions-resolution.md`); carried forward: see `91-suspected-defects-carryforward.md` (`CF-LSY-002`, citing `AS-DOC-DEF-098`)
 
 When a release's source files are lossy, the proposal marks it `isLossy =
 true` with `lossyLossless.action = log-for-upgrade`, and propose itself adds
@@ -268,6 +268,19 @@ Example: `Some Band\2010 Some Album\01 Track.mp3` →
 `lossyLossless = { isLossy: true, action: log-for-upgrade }`; ledger entry
 for its stable key, `status = pending-upgrade`,
 `targetPath = <targetRoot>\Some Band\2010 Some Album`.
+
+`AS-DOC-DEF-099` asked whether propose logs a lossy release only when it
+proposes `create-new`, per plan 09, or always, per the README/MANIFESTO §6.
+**Resolved: the README/MANIFESTO are right, plan 09 understates it** —
+`AS-PRP-097` already establishes that the ledger upsert happens whenever the
+source is lossy, independently of `targetAction` (so also on `conflict` or
+`skip-existing-identical`, which no test exercises directly but which the
+same unconditional code path covers).
+
+Carried forward: `AS-DOC-DEF-098` observed that this unconditional,
+before-review logging means a rejected or never-applied release still
+leaves a `pending-upgrade` ledger entry pointing at a target path that may
+never come to exist. See `CF-LSY-002`.
 
 ### AS-LSY-016 — Propose never resets an ignored or upgraded ledger entry back to pending
 Status: Draft | Source: AS-DOC-LSY-022; cross-referenced with `AS-LSY-007`
@@ -394,3 +407,4 @@ Example: `lossy list -Status pending-upgrade` shows the backlog;
 |---|---|---|
 | 0.1 | 2026-10-13 | Area LSY merged: 22 `AS-LSY-*` requirements (`AS-LSY-001`–`022`) reconciling 32 `AS-DOC-LSY-*` + 14 `AS-CODE-LSY-*`. No contradictions (neither source carried a `Contradiction`-type entry for this area). 1 new suspected defect found while merging and carried forward (`CF-LSY-001`: the dedicated ignore setter leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter). Two doc items (`AS-DOC-LSY-023`, `029`) redirected with no new item to already-merged `AS-PRP-097`/`078`; two more (`AS-DOC-LSY-030`/`031`) redirected to already-merged `AS-APL-061`/`062`, whose `Source:` lines were extended to cite them. The propose-time half of this area (`AS-DOC-LSY-020`–`028`) cross-references the PRP merge's target-comparison items (`AS-PRP-078`–`081`, `092`, `097`) for the decision logic, owning only the ledger-field and `previousLossy`-schema detail PRP's own items don't state. |
 | 0.2 | 2026-10-13 | During the CLI merge: the dangling `(not yet merged)` reference to `12-cli.md` resolved to a real link (`AS-CLI-026`–`029`). |
+| 0.3 | 2026-10-14 | During the BND/ERR merge (the last area): found that the original 0.1 merge missed two pre-existing phase-1 `AS-DOC-DEF-*` entries filed under Area: LSY. `AS-DOC-DEF-097` (upgrade detection needing a ledger entry, per plan 09, vs the tests' target-content-only detection) is resolved via the already-merged `AS-PRP-092` — no change needed here. `AS-DOC-DEF-099` (propose logs a lossy release always, or only on `create-new`?) is resolved directly by this file's own `AS-LSY-015`, now updated to say so explicitly. `AS-DOC-DEF-098` (the unconditional, before-review ledger write can point at a target that's never created) is carried forward as `CF-LSY-002`. See `90-contradictions-resolution.md` and `91-suspected-defects-carryforward.md`. |

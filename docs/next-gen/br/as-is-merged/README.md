@@ -1,6 +1,6 @@
 # As-is BR, merged (Phase 3)
 
-Status: Draft | Version: 0.13 | Last updated: 2026-10-13
+Status: Draft | Version: 0.14 | Last updated: 2026-10-14
 
 This folder reconciles the two independent as-is views of the legacy app —
 [br/as-is-from-docs/](../as-is-from-docs/README.md) (744 `AS-DOC-*`
@@ -64,15 +64,15 @@ Example: <example from a source> → <result>.
 | [05-recognition.md](05-recognition.md) | REC | 93 → 110 | 100 | Done |
 | [06-discogs-client.md](06-discogs-client.md) | DSC | 26 → 32 | 26 | Done |
 | [07-proposal-matching.md](07-proposal-matching.md) | MAT | 59 → 67 | 77 | Done |
-| [08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md) | PRP | 78 → 104 | 105 | Done |
+| [08-proposal-naming-and-tags.md](08-proposal-naming-and-tags.md) | PRP | 78 → 104 | 106 | Done |
 | [09-review-ui.md](09-review-ui.md) | REV | 84 → 148 | 125 | Done |
 | [10-apply.md](10-apply.md) | APL | 71 → 55 | 69 | Done |
 | [11-lossy-tracking.md](11-lossy-tracking.md) | LSY | 32 → 14 | 22 | Done |
 | [12-cli.md](12-cli.md) | CLI | 46 → 39 | 52 | Done |
-| 13-bandcamp-and-errors.md | BND, ERR | 2+14 → 2+5 | — | Not started |
-| [90-contradictions-resolution.md](90-contradictions-resolution.md) | — | — | — | In progress |
-| [91-suspected-defects-carryforward.md](91-suspected-defects-carryforward.md) | — | — | — | In progress |
-| [92-coverage.md](92-coverage.md) | — | — | — | In progress |
+| [13-bandcamp-and-errors.md](13-bandcamp-and-errors.md) | BND, ERR | 2+14 → 2+5 | 13 | Done |
+| [90-contradictions-resolution.md](90-contradictions-resolution.md) | — | — | — | Done |
+| [91-suspected-defects-carryforward.md](91-suspected-defects-carryforward.md) | — | — | — | Done |
+| [92-coverage.md](92-coverage.md) | — | — | — | Done |
 
 AS-DOC/AS-CODE counts per area are taken from each source's own README index
 and may not line up 1:1 — the comparison works rule-by-rule, not by assuming
@@ -105,3 +105,4 @@ full steps.
 | 0.11 | 2026-10-13 | Area 10 (apply) merged: 69 `AS-APL-*` requirements from 71 `AS-DOC-APL-*` (3 redirected to the already-merged `AS-REC-085`–`089`) + 55 `AS-CODE-APL-*`, 6 contradictions resolved (all in favor of tests/code over the README/plan-08 prose, including settling the exact default-skip gate as `humanReview.resolved` alone, and finding the plan's split-step ordering question doesn't really apply since the code has no separate split phase), 11 suspected defects carried forward (one of them new — an `apply-log` status value the code accepts but never writes). Unlike REC/MAT/PRP/REV, numbering mostly carries over from the doc side like DSC, with two multi-item folds causing it to drift from strict 1:1 partway through — see the numbering note in `10-apply.md`. |
 | 0.12 | 2026-10-13 | Area 11 (lossy-tracking) merged: 22 `AS-LSY-*` requirements from 32 `AS-DOC-LSY-*` + 14 `AS-CODE-LSY-*`. No contradictions — neither source carried one for this area. 1 new suspected defect carried forward (`CF-LSY-001`: the dedicated ignore mutator leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter). Four doc items redirected with no new number to already-merged items (`023`→`AS-PRP-097`, `029`→`AS-PRP-078`, `030`→`AS-APL-061`, `031`→`AS-APL-062`), the last two folded back into those items' own `Source:` lines. The propose-time half of this area's doc items largely restate ground `AS-PRP-078`–`081`/`092`/`097` already cover (that logic lives in `Reshelf.EditProposal.psm1`, PRP's code view, not LSY's) — this area's own items own only the ledger-field and `previousLossy`-schema detail PRP's items don't state. Fixed six dangling "(not yet merged)" cross-references to this file in the already-merged PRP, REV and APL files. |
 | 0.13 | 2026-10-13 | Area 12 (CLI) merged: 52 `AS-CLI-*` requirements from 46 `AS-DOC-CLI-*` + 39 `AS-CODE-CLI-*`, 2 contradictions resolved (plan 11's stale 6-file UI spec list vs the real 10; plan 01's missing `ui` command vs the README/code), 7 suspected defects carried forward (`CF-CLI-001`–`007`). Two doc items redirected with no new item to already-merged `AS-SET-033`/`AS-DAT-003`–`004`; two more (`ui start`'s default port and `-NoBrowser`) dual-cited — a thin CLI dispatch item plus extending already-merged `AS-REV-032`/`033`'s own `Source:` lines. The code-only view surfaced `lossy remove`/`lossy export`, two real subcommands the doc-side command table had omitted entirely. This merge also closes out `AS-DOC-DEF-111` (Cross-cutting, "repo root" paths after the Phase 0 move), left unresolved since the DAT merge — CLI is the last of its named areas (DAT, SET, DSC, CLI), and every merged path across every area already reflects the current `legacy/`-relative layout. |
+| 0.14 | 2026-10-14 | Area 13 (BND/ERR) merged — the last of the 13 numbered areas: 2 `AS-BND-*` + 11 `AS-ERR-*` requirements from 2+14 `AS-DOC-*` + 2+5 `AS-CODE-*`, one new contradiction found (the `\\?\` long-path prefix was wrongly filed as "plan only, no test" — already fully tested, merged as `AS-DAT-072`–`075`) plus 4 phase-1 contradictions resolved (staging always used final names; the localhost UI server and the in-process-TagLibSharp/single-script design are both real, MANIFESTO §8/§9 predate them), 1 suspected defect carried forward (`CF-ERR-001`, the untested full-disk-during-copy case). Eight doc items redirected to already-merged APL/PRP/DSC/REC/DAT requirements. This merge also ran a full source-id sweep across all 13 areas, which found and fixed five gaps an earlier area merge had missed: Area LSY had two uncarried phase-1 contradictions and one uncarried suspected defect (`AS-DOC-DEF-097`–`099`, now resolved/carried — see `11-lossy-tracking.md` 0.3 and `90`/`91`); `AS-CODE-APL-042` and `AS-CODE-PRP-094` were each already stated in an existing item but never cited (fixed in `10-apply.md` 0.3 and `08-proposal-naming-and-tags.md` 0.4); `AS-CODE-PRP-072` was missing entirely, added as new item `AS-PRP-106`. Every `AS-DOC-*`/`AS-CODE-*` id across all 13 areas is now traceable in `92-coverage.md`. Phase 3 content is functionally complete — what remains is the user's own review and sign-off (this file's `Agreed` status, and the roadmap's phase 3 status), not addressed here. |

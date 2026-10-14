@@ -1,6 +1,6 @@
 # 91 — Suspected defects, carried forward (Phase 3)
 
-Status: Draft | Version: 0.13 | Last updated: 2026-10-13
+Status: Draft | Version: 0.14 | Last updated: 2026-10-14
 
 Every `AS-DOC-DEF-*` and `AS-CODE-DEF-*` entry of type "Suspected defect"
 (not "Contradiction" — those are resolved in
@@ -875,6 +875,18 @@ keeps its old `upgradedUtc` timestamp even though `status` no longer says
 `upgraded` — a combination the generic setter's own rule would never
 produce. No test exercises ignoring an already-`upgraded` entry.
 
+### CF-LSY-002 — An unconditional, before-review ledger write can point at a target that's never created
+Sources: `AS-DOC-DEF-098` (Area: LSY; found missing during the BND/ERR
+merge — the original LSY merge overlooked it). No `AS-CODE-DEF-*`
+counterpart.
+
+Propose adds a `pending-upgrade` ledger entry (with the release's *proposed*
+target path) as soon as it sees a lossy source, unconditionally and before
+any human review or apply (`AS-LSY-015`, `AS-PRP-097`). When the user later
+rejects the release, or never applies it, the entry stays in the ledger with
+a `targetPath` that may never come to exist on disk. Re-running propose on
+test or throwaway sessions adds the same kind of entry.
+
 ## CLI
 
 ### CF-CLI-001 — Seed script header says two releases; it seeds and prints four
@@ -946,6 +958,20 @@ Sources: `AS-CODE-DEF-CLI-003`. No `AS-DOC-DEF-*` counterpart.
 but any future command parameter also named `-Format` would silently
 inherit this default rather than one of its own.
 
+## BND/ERR
+
+### CF-ERR-001 — The full-disk-during-copy case has no test
+Sources: `AS-DOC-DEF-109` (Kind: test quality; partial — its long-path half
+is resolved, not carried, see `90-contradictions-resolution.md`). No
+`AS-CODE-DEF-*` counterpart.
+
+Plan 08's own "Edge cases" section names a disk-full failure in the middle
+of a track copy as a scenario the staging design (`AS-APL-017`) is meant to
+handle gracefully — the partial staged folder stays for cleanup or retry
+rather than corrupting the target. No test in
+`Reshelf.Implementation.Tests.ps1` or elsewhere actually exercises this; it
+is illustration only, untested.
+
 ## Changelog
 
 | Version | Date | Change |
@@ -963,3 +989,4 @@ inherit this default rather than one of its own.
 | 0.11 | 2026-10-13 | Area APL: 11 items carried forward (`CF-APL-001`–`011`), covering both `AS-CODE-DEF-APL-*` entries and all 8 APL-area `AS-DOC-DEF-*` suspected defects (`086`, `087`, `089`–`091`, `094`–`096`). `CF-APL-002` is partly answered, not contradicted, by re-reading `AS-APL-006`/`016` (the target-folder check does apply in that scenario). `CF-APL-011` is a new suspected defect found directly while merging, with no original source id — the apply-log `status` field accepts a `'skipped'` value the code never writes. |
 | 0.12 | 2026-10-13 | Area LSY: 1 item carried forward (`CF-LSY-001`), a new finding with no original phase-1/phase-2 id — the dedicated ignore mutator leaves a stale `upgradedUtc` on an entry ignored after being upgraded, unlike the generic status setter. Neither LSY source file carried any pre-existing suspected defect. |
 | 0.13 | 2026-10-13 | Area CLI: 7 items carried forward (`CF-CLI-001`–`007`), covering all 3 `AS-CODE-DEF-CLI-*` entries (`005`–`007`) and the 4 CLI-area `AS-DOC-DEF-*` suspected defects (`100`, `103`, `104`, `105`). `CF-CLI-003` cross-references the already-merged `AS-SES-007` for the design consequence SES's own merge had left pointing here. |
+| 0.14 | 2026-10-14 | Area BND/ERR (last area): 1 item carried forward (`CF-ERR-001`), the still-accurate half of `AS-DOC-DEF-109` — the full-disk-during-copy case has no test. Its other half (the long-path prefix) is resolved, not carried: it turned out to be fully tested already, see `90-contradictions-resolution.md`. No `AS-CODE-DEF-*` entries exist for this area. A full-coverage sweep across all 13 areas done at this point also found that the original LSY merge had missed `AS-DOC-DEF-098` (Area: LSY, type Suspected defect) entirely; added retroactively as `CF-LSY-002`. |

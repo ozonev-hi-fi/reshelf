@@ -1,6 +1,6 @@
 # 08 — Proposal: naming and tags (merged)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-13
+Status: Draft | Version: 0.4 | Last updated: 2026-10-14
 
 ## Scope
 
@@ -979,6 +979,17 @@ The folder-exists check (folder exists and contains at least one audio
 file) is computed fresh on every call, since the ledger record itself
 doesn't track whether that folder was later deleted or moved.
 
+### AS-PRP-106 — The previous-lossy ledger lookup only runs for a release with no baseline at all and no already-applied source
+Status: Draft | Source: AS-CODE-PRP-072 (found missing during the BND/ERR merge, the last area — see that area's changelog)
+
+`AS-PRP-079`/`080`'s ledger lookup (direct stable-key match, then the
+fallback scan) is only invoked when three things are all true: the source
+is fully lossless (every track), no baseline was already found through the
+earlier priority steps (`AS-PRP-088`'s (a)–(d)), and the apply log doesn't
+already mark this exact source as applied. In other words, it only runs for
+a target slot with nothing in it yet — a lossy source, or a release that
+already has a baseline some other way, never consults this ledger at all.
+
 ## Target comparison
 
 ### AS-PRP-082 — The proposed target path is always the fixed two-level "TargetRoot\Artist\Release" layout
@@ -1164,7 +1175,7 @@ than being written only once. The ledger's own lifecycle: see
 ## Applying a chosen Discogs version (manual re-pick)
 
 ### AS-PRP-098 — Picking a Discogs candidate fetches the release (and its master) live, bypassing the cached match pipeline, and recomputes the whole release
-Status: Draft | Source: AS-DOC-PRP-076; AS-CODE-PRP-090; carried forward: see `91-suspected-defects-carryforward.md` (`CF-PRP-008`, `CF-PRP-009`)
+Status: Draft | Source: AS-DOC-PRP-076; AS-CODE-PRP-090; AS-CODE-PRP-094 (citation added during the BND/ERR merge — the fact was already stated below, just not cited); carried forward: see `91-suspected-defects-carryforward.md` (`CF-PRP-008`, `CF-PRP-009`)
 
 When the user picks a Discogs candidate for an ambiguous release, the app
 fetches that release's full detail directly (bypassing the Discogs match
@@ -1259,3 +1270,4 @@ collision`.
 | 0.1 | 2026-10-13 | Phase 3 merge of area PRP: 78 `AS-DOC-PRP-*` + 91 remaining `AS-CODE-PRP-*` (104 minus the 13 already absorbed into `AS-MAT-*` during the MAT merge: `AS-CODE-PRP-002`, `021`–`032`), reconciled into `AS-PRP-001`–`105`. 9 contradictions resolved (`AS-DOC-DEF-054`, `056`–`061`, `066`, `068`), one of them (`068`) requiring a fresh read of the caller beyond what either phase-1 or phase-2 excerpted. 10 suspected defects carried forward (`CF-PRP-001`–`010`, covering all 4 `AS-CODE-DEF-PRP-*` entries and the PRP-area `AS-DOC-DEF-055`, `062`, `063`, `064`, `065`, `067`). Several items reuse an already-merged `AS-MAT-*` rule (master year, master-image fallback, Various/compilation detection, the alignment cascade) rather than restating it. |
 | 0.2 | 2026-10-13 | During the LSY merge: the three dangling `(not yet merged)` references to `11-lossy-tracking.md` resolved to real links, one of them repointed from a raw doc-id list to the actual `AS-LSY-017`–`021` range now that those exist. |
 | 0.3 | 2026-10-13 | During the CLI merge: the dangling `(not yet merged)` reference to `12-cli.md` resolved to a real link (`AS-CLI-012`). |
+| 0.4 | 2026-10-14 | During the BND/ERR merge (the last area, doing a full source-id sweep across all 13 areas): found and fixed two gaps. `AS-CODE-PRP-094` (no Various-Artists fallback on the manual re-pick path) was already stated in `AS-PRP-098`'s own text but never cited — added to its `Source:` line. `AS-CODE-PRP-072` (the previous-lossy ledger lookup's own gating condition) was missing entirely — added as a new item, `AS-PRP-106`. |
