@@ -1,5 +1,6 @@
 legacy/config/settings.json
 *.local.json
+CLAUDE.local.md
 .env
 .data/
 legacy/tests/ui/node_modules/
