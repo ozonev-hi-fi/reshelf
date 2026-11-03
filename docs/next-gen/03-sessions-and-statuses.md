@@ -1,6 +1,6 @@
 # 03 — Sessions, stages and statuses
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -108,7 +108,7 @@ Example: 20 of 100 releases are approved. The user applies those 20 now and keep
 Apply writes only to temp, through a staging folder (NG-PTH-004, NG-PTH-007).
 
 ### NG-SES-014 — Session milestones
-Priority: Must | Status: Draft | Source: D43, D59
+Priority: Must | Status: Draft | Source: D43, D59, D15, D28
 
 | Milestone | Condition | Pipeline point |
 |---|---|---|
@@ -117,9 +117,14 @@ Priority: Must | Status: Draft | Source: D43, D59
 
 There is no status or milestone for "moved from temp to the library". The user moves the folders by hand. An applied release shows a computed Location instead (NG-PTH-011).
 
+## Open points
+
+- An **applied** release whose data changes after a re-run: does it stay `Applied` with the mark "outdated, apply again" (NG-SES-010), or does its approval reset to `Ready` (NG-SES-009)? Does apply again need a new Approve (NG-SES-013 applies approved releases only)? This also affects the Done milestone (NG-SES-014). → Phase 4, area SES (sessions).
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: open points of NG-SES-002, 010, 013, 014 resolved with links to doc 11. |
+| 0.3 | 2026-11-03 | Consistency review: NG-SES-014 cites D15 and D28 (they name it). New open point: status of an applied release whose data changes (NG-SES-009 vs NG-SES-010) → phase 4, area SES. |

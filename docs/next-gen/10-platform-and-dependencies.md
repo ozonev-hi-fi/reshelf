@@ -1,6 +1,6 @@
 # 10 — Platform and dependencies
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.4 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -43,15 +43,14 @@ Every dependency goes through the same rule, whether it is a NuGet package, a na
 The goal is a zip that needs nothing else, but better functionality comes first.
 
 ### NG-PLT-005 — An ADR for every dependency
-Priority: Must | Status: Draft | Source: D21, D38
+Priority: Must | Status: Draft | Source: D21, D38, D69
 
 Each dependency gets an ADR ([template](adr/0000-template.md)) with pros, cons, the license and bundling check, and the decision. Known candidates for ADRs in the tech spec:
 - tag reading and writing (legacy: TagLibSharp);
 - cue split (legacy: ffmpeg);
 - image resize and inspection (legacy: ffmpeg, System.Drawing);
 - SQLite access;
-- UI technology (NG-APP-008);
-- Bandcamp access (NG-PRV-009).
+- UI technology (NG-APP-008).
 
 ### NG-PLT-006 — Check for tools that are not bundled
 Priority: Must | Status: Draft | Source: D38
@@ -67,7 +66,7 @@ The details are in doc 11: device identity and drive-letter changes (NG-PTH-001)
 
 ## Open points
 
-- Q21 also proposed that a cue split of a lossless source must keep the audio samples bit-exact (re-encoding to FLAC is fine). The user answered about dependencies in general and did not confirm this point. Confirm it in the BR merge.
+- Q21 also proposed that a cue split of a lossless source must keep the audio samples bit-exact (re-encoding to FLAC is fine). The user answered about dependencies in general and did not confirm this point. → Phase 4, area APL (apply), together with AS-APL-025 (one ffmpeg split per cue track). See [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md#open-points--decide-inside-the-owning-area).
 
 ## Changelog
 
@@ -75,3 +74,5 @@ The details are in doc 11: device identity and drive-letter changes (NG-PTH-001)
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: removable drives linked to doc 11. Open points of NG-PLT-002 and NG-PLT-007 resolved. |
+| 0.3 | 2026-11-03 | D69 (no Bandcamp): "Bandcamp access" removed from the ADR candidates in NG-PLT-005. |
+| 0.4 | 2026-11-03 | Consistency review: NG-PLT-005 cites D69. Cue-split open point points to phase 4, area APL, instead of the finished BR merge. |

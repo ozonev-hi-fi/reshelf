@@ -1,6 +1,6 @@
 # 06 — Review page
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -98,8 +98,13 @@ Priority: Must | Status: Draft | Source: D30 | Depends on: NG-LIB-009
 
 When a release matches a library release, the page shows the match status and an action selector (Skip, Overwrite, Keep both), with the default from NG-LIB-009.
 
+## Open points
+
+- Default sort (NG-REV-003): the raw note says "more 'suspicious' releases first, 'ready' latest". NG-REV-003 follows NG-SES-011, where `Ready` comes before `Approved`, `Rejected` and `Applied`. No decision records this change. Which order is right? → Phase 4, area REV (review UI).
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-11-03 | Consistency review: new open point on the default sort ("ready" latest in the raw note vs NG-SES-011 order) → phase 4, area REV. |

@@ -1,6 +1,6 @@
 # 11 — Paths and devices
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 This doc defines where the app reads music, where it writes results, and how it finds these folders when a drive letter changes or a drive disappears.
 
@@ -33,7 +33,7 @@ Example: the user picks `E:\Music`. The app stores serial `1A2B-3C4D` + `\Music`
 A session stores its source as a location + a relative path. So the overlap message (NG-SES-002) and reopening an old session still work after a letter change.
 
 ### NG-PTH-002 — Offline locations and Re-locate
-Priority: Must | Status: Draft | Source: D50, D56
+Priority: Must | Status: Draft | Source: D50, D56, D63
 
 When no mounted volume has the stored serial number (or a UNC path cannot be reached), the location is **Offline**.
 - The UI shows the location and the items under it as `Offline`, not as missing or deleted.
@@ -169,9 +169,20 @@ The open points that Docs part A collected for this doc are now resolved:
 | NG-PLT-002 | NG-PTH-001 |
 | NG-PLT-007 | NG-PTH-002, NG-PTH-012 |
 
+## Open points
+
+- Target and temp are the **same folder** (NG-PTH-005). Three rules then clash:
+  - "The library scan skips the temp folder" would skip the whole library. Does the skip apply only when temp is a subfolder of target?
+  - "If both roots have the same release, the target entry wins" (NG-PTH-010), so an applied release would never show Location `Temp` (NG-PTH-011). Should the location come from the app's own apply record instead?
+  - Apply again replaces the app's own output (NG-PTH-008), but that folder is also a target entry, and the target role never writes (NG-PTH-004). Is the replace allowed because the item belongs to the temp role?
+
+  → Phase 4, area PTH (paths and devices).
+- NG-PTH-008 writes a foreign-folder clash under the replacement name, `{year} {album} [replacement]`. What happens when that name is **also** taken by a folder that is not the app's own? → Phase 4, area APL (apply).
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Stub created in Docs part A. |
 | 0.2 | 2026-10-04 | Docs part B: paths model grilled with the user (D49–D63). Requirements NG-PTH-001…013 added. Open points resolved. |
+| 0.3 | 2026-11-03 | Consistency review: NG-PTH-002 cites D63 (UNC paths). New open points: target and temp as the same folder → phase 4 area PTH; clash on the replacement name → phase 4 area APL. |

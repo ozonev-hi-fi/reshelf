@@ -1,6 +1,6 @@
 # 07 — Library, quality comparison, lossy manager
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -27,16 +27,16 @@ The app keeps an index of the library in the DB. A "Scan library" action builds 
 The index covers both the target and temp (NG-PTH-010). The library itself is stored as a location (NG-PTH-001), so it is found after a drive-letter change. Apply adds its output to the index at once (NG-PTH-007).
 
 ### NG-LIB-002 — Provider-independent release key
-Priority: Must | Status: Draft | Source: D44, D37
+Priority: Must | Status: Draft | Source: D44
 
 The release key is built from normalized Album Artist + Album + Year. These values come from the **tags** first and from folder names only as a fallback. The key never depends on provider IDs (NG-PRV-011), and never on the naming templates (NG-CFG-003).
 
 ### NG-LIB-003 — Incremental rescan
-Priority: Should | Status: Draft | Source: D37, D44
+Priority: Should | Status: Draft | Source: D37 (superseded by D44), D44
 
 Before matching, the app quickly checks the library folders. It rescans only the folders that changed since the last scan (by modified time).
 
-Note: this was part of the Q37 proposal. The user replaced the identity part (provider IDs) with D44. The incremental rescan itself was not explicitly confirmed. Confirm it in the BR merge.
+This requirement is not confirmed yet. See [Open points](#open-points).
 
 ### NG-LIB-004 — First match after recognize
 Priority: Must | Status: Draft | Source: D44
@@ -89,7 +89,7 @@ Priority: Must | Status: Draft | Source: D19, D30, D57
 
 In every case the user can take names and metadata from the library copy by selecting the Library candidate (NG-PRV-010).
 
-The app never writes to the library. "Overwrite" therefore means: the app prepares the new copy in temp, and the user swaps the copies by hand (NG-PTH-009).
+The app never writes in the target role (NG-PTH-004). "Overwrite" therefore means: the app prepares the new copy in temp, and the user swaps the copies by hand (NG-PTH-009).
 
 ### NG-LIB-010 — "Keep both" folder name
 Priority: Must | Status: Draft | Source: D31
@@ -117,9 +117,16 @@ The lossy ledger stores **relative** paths, for example `ZZ Top\1999 XXX`. The a
 
 Legacy absolute paths are converted during the import (NG-STO-008). An entry that could not be converted has the mark `Path unresolved`. The lossy manager shows it, and the user can fix the path or delete the entry.
 
+## Open points
+
+- NG-LIB-003 (incremental rescan): this was part of the Q37 proposal. The user replaced its identity part (provider IDs) with D44, but did not explicitly confirm the incremental rescan itself. Is it wanted? → Phase 4, area PRP (proposal naming and tags), where AS-PRP-007 (the target index is built once per run) lives.
+- NG-LIB-011 (lossy releases are tracked) says "every lossy release that reaches the library". The app never puts anything into the library: the user moves results by hand (NG-PTH-006). When does tracking start: at apply to temp, the same moment as `upgraded` (D60)? → Phase 4, area LSY (lossy tracking).
+- A lossy-ledger entry stores only a relative path (NG-LIB-013, NG-STO-008), not a release key (NG-LIB-002). If the user renames the folder while moving it, the entry's location stays `Missing` (NG-PTH-011) and never matches again. Should the entry also store or link the release key? → Phase 4, area LSY.
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: index covers target and temp, Overwrite via temp, `upgraded` at apply, relative lossy paths. Open points resolved. |
+| 0.3 | 2026-11-03 | Consistency review: superseded D37 removed from NG-LIB-002 and marked in NG-LIB-003. NG-LIB-003's "confirm in the BR merge" note moved to Open points → phase 4, area PRP. NG-LIB-009 "never writes" stated per role. Two new open points for area LSY: when lossy tracking starts, and renamed lossy folders. |

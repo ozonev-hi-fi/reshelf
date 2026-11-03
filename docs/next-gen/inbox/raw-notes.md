@@ -1,10 +1,10 @@
 # Raw notes and decision log
 
-Status: Draft | Version: 0.7 | Last updated: 2026-11-03
+Status: Draft | Version: 0.9 | Last updated: 2026-11-03
 
 This file holds:
 - **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
-- **Part 2**: the decision log. D1–D48 come from the grilling session of Docs part A, D49–D63 from Docs part B, D64 from Phase 1. Later sessions append new decisions with the next free number (D64, D65, ...).
+- **Part 2**: the decision log. D1–D48 come from the grilling session of Docs part A, D49–D63 from Docs part B, D64 from Phase 1, D65–D70 from later sessions (see the changelog). New decisions take the next free number (D71, D72, ...).
 
 Requirements cite these entries as `Source: D<n>`, or `Source: RAW` for Part 1.
 
@@ -112,13 +112,15 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 | D22 | A short root `CLAUDE.md` points to `docs/next-gen/README.md`, which holds the full doc rules. | CLAUDE.md is always loaded. Keep it short. | `CLAUDE.md`, [README](../README.md) |
 | D23 | This file holds the verbatim notes **and** all conclusions of this session. Part B grills paths itself. Part A marks path-dependent points as `→ Part B`. | The next grilling must know every direction agreed here. | this file, [11](../11-paths-and-devices.md) |
 | D41 | Doc set: roadmap, vision, area docs, paths stub, ADR template, briefs, inbox. (Numbering → D47.) | — | [README index](../README.md#index) |
-| D42 | Order: A → B → Phase 0 → BR from docs → BR from code → merge → tech spec → tasks. | The BR sessions read stable `legacy/` paths. | [00](../00-roadmap.md) |
+| D42 | *Order updated by D66: "merge" is split into phase 3 (merge as-is) and phase 4 (apply NG vision).* Order: A → B → Phase 0 → BR from docs → BR from code → merge → tech spec → tasks. | The BR sessions read stable `legacy/` paths. | [00](../00-roadmap.md) |
 | D47 | Continuous file numbering `00`–`11`. | IDs use prefixes, so gaps are not needed. | [README index](../README.md#index) |
 | — | Use the dotnet skills plugin for analysis, planning and implementation (RAW). | User's request in the notes. | [00](../00-roadmap.md) working rules, [tech-spec brief](../sessions/tech-spec.md) |
-| D64 | As-is requirements (`AS-DOC-*`, `AS-CODE-*`) have no `Priority`. Their `Source:` names the legacy file and the test, function or section (`legacy/tests/X.Tests.ps1 › Describe`), not a `D` entry. One behavior rule per ID, with 1–3 examples. Phase 1 drafts the areas with parallel subagents, and the lead reviews and merges. | As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be BR. Fine-grained IDs make the keep / fix / drop decisions in Phase 3 easier. | [br/as-is-from-docs](../br/as-is-from-docs/README.md), [br-from-code brief](../sessions/br-from-code.md), [README doc rule 6](../README.md#doc-rules) |
+| D64 | *Phase number updated by D66: priorities and keep / fix / drop are set in phase 4, not phase 3.* As-is requirements (`AS-DOC-*`, `AS-CODE-*`) have no `Priority`. Their `Source:` names the legacy file and the test, function or section (`legacy/tests/X.Tests.ps1 › Describe`), not a `D` entry. One behavior rule per ID, with 1–3 examples. Phase 1 drafts the areas with parallel subagents, and the lead reviews and merges. | As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be BR. Fine-grained IDs make the keep / fix / drop decisions in Phase 3 easier. | [br/as-is-from-docs](../br/as-is-from-docs/README.md), [br-from-code brief](../sessions/br-from-code.md), [README doc rule 6](../README.md#doc-rules) |
 | D66 | Phase 3 is split into "merge as-is" (factual reconciliation between AS-DOC and AS-CODE, phase 3) and "apply NG vision" (forward design decisions: defect disposition, NG delta application, to-be BR, phase 4). Legacy as-is BR docs get archived once the to-be BR is Agreed, so the tech-spec phase reads a single source. | Reconciling what currently exists and deciding what to build next are different kinds of judgment and shouldn't be grilled together. | [00](../00-roadmap.md) phase 3/4 rows, [br-as-is-merge brief](../sessions/br-as-is-merge.md), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
 | D67 | Phase 4 ends with an item-by-item validation step after the draft. Only that step sets `br/to-be/` to Agreed and archives the as-is docs. To-be requirements get new IDs `TB-<AREA>-NNN`; the old `AS-<AREA>-NNN` ID stays in the `Source:` line. | Validating the draft and giving final sign-off are different kinds of care, and old IDs must stay traceable even as to-be text changes. | [00](../00-roadmap.md), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
 | D68 | Phase 4 session 0: the NG coverage scan is a topic scan (which as-is area covers the same behavior?), because the as-is docs cite no `NG-*` IDs at all. Every NG requirement gets one draft owner file in `br/to-be/`. NG-only to-be files, run after BND/ERR in this order: `14-app-shell`, `15-data-layers`, `16-storage-and-instances`, `17-reference-data`, `18-platform`, `19-paths-and-devices`. | The brief's literal rule ("NG IDs that never show up as a `Source:` in an as-is file") matches all 115 IDs and gives no grouping. | [br/to-be/README](../br/to-be/README.md#ng--to-be-file-map), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
+| D69 | Next-gen does not support Bandcamp at all: not as a provider, not as a search fallback, not as a custom URL. Decided by the user on 2026-10-14, written down on 2026-11-03. Supersedes the Bandcamp parts of D12. | Bandcamp has no official API. Scraping its public pages is the only way, and the user does not consider it viable. | NG-PRV-001, NG-PRV-007, NG-PRV-008, NG-PRV-009 (Withdrawn), [01](../01-vision-scope.md#glossary) glossary, NG-PLT-005 |
+| D70 | Doc rule 6 also allows `MANIFESTO §n` as a source. A link to another requirement is not a source: it goes in `Depends on:`. | MANIFESTO is the shared source of truth for both generations, and NG-PTH-004 and NG-LIB-011 already cite it. The consistency review on 2026-11-03 found these and NG-PRV-002 (`Source: D44, NG-VIS-004`) breaking the old rule. | [README doc rule 6](../README.md#doc-rules), NG-PRV-002 |
 
 ### Platform, storage, dependencies
 
@@ -165,7 +167,7 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 
 | ID | Decision | Reason | → |
 |---|---|---|---|
-| D12 | Top 5 candidates per provider, each with a link and a score. The selection is **reversible**: today a wrong click cannot be undone. Custom URL field. Snapshots per fetched source. Re-sync always possible. Discogs primary. Bandcamp is searched automatically only when Discogs finds nothing, or on demand. Bandcamp has no public API, so "think twice": Could, with a spike + ADR. | No silent matching. Fix the legacy dead end. | NG-PRV-001, 003…009 |
+| D12 | *Bandcamp part superseded by D69 (no Bandcamp).* Top 5 candidates per provider, each with a link and a score. The selection is **reversible**: today a wrong click cannot be undone. Custom URL field. Snapshots per fetched source. Re-sync always possible. Discogs primary. Bandcamp is searched automatically only when Discogs finds nothing, or on demand. Bandcamp has no public API, so "think twice": Could, with a spike + ADR. | No silent matching. Fix the legacy dead end. | NG-PRV-001, 003…009 |
 | D32 | **Library** is a provider: names, tags and cover of the existing library copy. (Index design → D44.) | Reuse the library naming when you upgrade quality. | NG-PRV-010 |
 | D37 | *Superseded by D44.* Proposal: index by provider IDs in tags. Rejected, because the app must not depend on Discogs. | — | D44 |
 | D44 | Library matching: (1) a DB index from "Scan library" with a provider-independent key from tags (folder names as a fallback), plus track count, durations and audio properties; (2) after recognize, a fast DB match confirmed by track count and durations ±3 s; (3) after propose, a live check of the real library files and the proposed target path. **No-provider mode**: the app works only on names, structure and existing tags. | Discogs must not be an integral part of the app. | NG-LIB-001…005, NG-PRV-002 |
@@ -221,3 +223,5 @@ Grilling session of 2026-10-04, Docs part B (questions Q1–Q15 of that session)
 | 0.5 | 2026-10-10 | Decision D66 (phase 3 split into "merge as-is" and "apply NG vision"). |
 | 0.6 | 2026-11-03 | Decision D67 (phase 4 ends with an item-by-item validation step; to-be requirements get new `TB-<AREA>-NNN` IDs). |
 | 0.7 | 2026-11-03 | Decision D68 (phase 4 session 0: NG coverage scan by topic, NG-only to-be files `14`–`19`). |
+| 0.8 | 2026-11-03 | Decision D69 (no Bandcamp in next-gen, decided 2026-10-14). |
+| 0.9 | 2026-11-03 | Consistency review: decision D70 (MANIFESTO allowed as a source). Update notes on D12 (Bandcamp part → D69), D42 and D64 (phase numbers → D66). Intro names D65–D70 and the next free number. |

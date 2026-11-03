@@ -1,6 +1,6 @@
 # To-be BR (Phase 4)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-11-03
+Status: Draft | Version: 0.2 | Last updated: 2026-11-03
 
 This folder holds the **to-be BR**: the business requirements of the new .NET app. It is built from
 the merged as-is BR ([../as-is-merged/](../as-is-merged/README.md), 841 `AS-*` requirements, facts
@@ -71,7 +71,7 @@ in the [area status table](#area-status-table) whose status is not Done.
 | NG-APP | App shape: CLI + UI, menu, wizard, concurrency | [02-app-shape.md](../../02-app-shape.md) |
 | NG-SES | Sessions and statuses | [03-sessions-and-statuses.md](../../03-sessions-and-statuses.md) |
 | NG-LAY | Data layers, track identity | [04-data-layers.md](../../04-data-layers.md) |
-| NG-PRV | Providers (Discogs, Bandcamp, Library), candidates, snapshots | [05-providers.md](../../05-providers.md) |
+| NG-PRV | Providers (Discogs, Library; no Bandcamp, D69), candidates, snapshots | [05-providers.md](../../05-providers.md) |
 | NG-REV | Review page | [06-review-page.md](../../06-review-page.md) |
 | NG-LIB | Library index, matching, quality, lossy manager | [07-library-and-quality.md](../../07-library-and-quality.md) |
 | NG-CFG | Settings, naming templates, reference data | [08-settings-templates-refdata.md](../../08-settings-templates-refdata.md) |
@@ -126,7 +126,7 @@ this table. The final check is `92-coverage.md`.
 | `10-apply.md` | APL | NG-SES-013 (apply per release), NG-PTH-006–009 (temp → library move, staging, replacing own output, overwrite prepared by the app) |
 | `11-lossy-tracking.md` | LSY | NG-LIB-011–013 (lossy tracking, lossy manager, ledger paths), NG-STO-008 (import of the legacy lossy ledger) |
 | `12-cli.md` | CLI | NG-APP-005 (CLI scope) |
-| `13-bandcamp-and-errors.md` | BND, ERR | NG-PRV-009 (Bandcamp needs research first) |
+| `13-bandcamp-and-errors.md` | BND, ERR | NG-PRV-009 (Bandcamp needs research first) — **Withdrawn by D69 (no Bandcamp), nothing to apply.** The BND session most likely drops AS-BND-001/002 (planned Bandcamp fallback) under D69. |
 | `14-app-shell.md` | APP | NG-APP-002 (UI covers the whole pipeline), NG-APP-003 (main menu), NG-APP-004 (session wizard), NG-APP-007 (CLI and UI at the same time), NG-APP-008 (UI technology by ADR) |
 | `15-data-layers.md` | LAY | NG-LAY-001–004, NG-LAY-006–009 (three layers, effective value, per-field granularity, track identity, reset, "no override", stale overrides, suggestion next to user value) |
 | `16-storage-and-instances.md` | STO | NG-STO-001–005, NG-STO-007, NG-STO-009 (SQLite, instances, DB location, binaries on disk, migrations, test isolation, nothing else imported) |
@@ -134,20 +134,26 @@ this table. The final check is `92-coverage.md`.
 | `18-platform.md` | PLT | NG-PLT-001–006 (Windows v1, OS interfaces, portable zip, dependency rule, ADR per dependency, check for tools not bundled) |
 | `19-paths-and-devices.md` | PTH | NG-PTH-001–005, NG-PTH-010–012 (location model, offline locations, three roots, read-only roles, shared target/temp, relative paths, computed location, location lost mid-operation), NG-PLT-007 (removable storage robustness) |
 
-Total: 115 NG requirements, each with one owner.
+Total: 115 NG requirements, each with one owner. One of them, NG-PRV-009, is Withdrawn (D69) and still counts here, so the coverage check stays exact.
 
 Layer-related points that come up in PRP, REV or APL before file `15` exists are marked
 "pending LAY" in those files, the same way REV marks the progress/cancel point "pending CLI".
 
 ## Open points
 
-Decided inside the owning area. Full reasons: [brief, "Open points"](../../sessions/br-apply-ng-vision.md#open-points--decide-inside-the-owning-area).
+Decided inside the owning area. The first three are named in the brief, with full reasons: [brief, "Open points"](../../sessions/br-apply-ng-vision.md#open-points--decide-inside-the-owning-area). The rest come from the consistency review on 2026-11-03; each is written in full in the linked NG doc's `Open points`.
 
 | Open point | Owning area |
 |---|---|
 | NG-LIB-003 (incremental rescan of the library index) | PRP (proposal naming and tags) |
 | NG-APP open point (progress and cancel for long operations) | CLI (command line), with a back-reference from REV |
 | NG-PLT open point (cue-split bit-exactness) | APL (apply) |
+| Status of an applied release whose data changes: stays `Applied` + "outdated" (NG-SES-010), or back to `Ready` (NG-SES-009)? New Approve needed? ([03](../../03-sessions-and-statuses.md#open-points)) | SES (sessions) |
+| Default sort: raw note says "ready" latest; NG-REV-003 puts `Ready` before `Approved`/`Rejected`/`Applied` ([06](../../06-review-page.md#open-points)) | REV (review UI) |
+| When lossy tracking starts (NG-LIB-011 says "reaches the library", but the user moves results by hand) ([07](../../07-library-and-quality.md#open-points)) | LSY (lossy tracking) |
+| A renamed lossy folder never matches its ledger entry again (relative path only, no release key) ([07](../../07-library-and-quality.md#open-points)) | LSY (lossy tracking) |
+| Target and temp as the same folder: scan skip, "target wins" location, and replace of own output clash ([11](../../11-paths-and-devices.md#open-points)) | PTH (paths and devices) |
+| The replacement name `{year} {album} [replacement]` is also taken by a foreign folder ([11](../../11-paths-and-devices.md#open-points)) | APL (apply) |
 
 ## Area status table
 
@@ -186,3 +192,4 @@ Totals: 841 as-is requirements, 88 suspected defects.
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-11-03 | Phase 4, Part 1, session 0: folder created. Glossary, requirement format, NG → to-be file map (D68: topic scan, six NG-only files `14`–`19`), open points, area status table. |
+| 0.2 | 2026-11-03 | NG-PRV-009 marked Withdrawn (D69, no Bandcamp). Six open points from the consistency review added to the open-points table, each with its owning area. |

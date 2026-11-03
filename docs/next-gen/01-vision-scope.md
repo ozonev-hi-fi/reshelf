@@ -1,6 +1,6 @@
 # 01 — Vision and scope
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.4 | Last updated: 2026-11-03
 
 ## Vision
 
@@ -34,7 +34,7 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 | Principle | Meaning |
 |---|---|
 | Source is read-only | Nothing in the app ever changes or deletes a source file. This is kept from legacy (MANIFESTO §7). |
-| Library is read-only | The app never writes, moves or deletes anything in the library. Apply writes only to temp, and the user moves the results (NG-PTH-004). |
+| Library is read-only | In the target role, the app never writes, moves or deletes anything in the library. Apply writes only in the temp role, and the user moves the results (NG-PTH-004). Temp may share the library folder (NG-PTH-005). |
 | The user's version wins | User edits have the top priority over proposed and recognized data (NG-LAY-002). |
 | No silent matching | Everything a provider found is visible and can be changed (NG-PRV-003). |
 | Works without providers | The app works only on folder names, structure and existing tags when no provider is set up or when a provider finds nothing (NG-PRV-002). |
@@ -60,7 +60,7 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 | **Target / library** | The organized music collection. Read-only to the app (NG-PTH-004). See [11-paths-and-devices.md](11-paths-and-devices.md). |
 | **Temp** | The folder where apply writes its results. The user checks them there and moves them to the library. May be the same folder as the target (NG-PTH-005). |
 | **Location** | How the app stores a root folder: volume serial number + path inside the volume, so a drive-letter change does not break it (NG-PTH-001). |
-| **Provider** | An external or internal metadata source: Discogs, Bandcamp, Library. |
+| **Provider** | An external or internal metadata source: Discogs, Library. No Bandcamp (D69). |
 | **Candidate** | One possible match found by a provider for a release. |
 | **Snapshot** | The stored data that one candidate gave, kept so you can switch back without a new request. |
 | **Layer** | One of three data versions: Recognized, Proposed, User. |
@@ -69,7 +69,7 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 | **Source item** | One audio unit in the source: a file, or one track of a cue sheet. |
 | **Virtual track** | A track defined by a cue sheet (start/end time) before the physical split. |
 | **Reason code** | A coded review flag with a severity (Blocking / Warning / Info). |
-| **Reference data** | Lists the app works with, stored in the DB: audio formats, companion kinds, category folders, reason codes. |
+| **Reference data** | Lists the app works with, stored in the DB. The full list is in NG-CFG-009. |
 | **Built-in row** | A reference-data row that the app ships and owns. |
 | **Delta requirements** | What changes compared to the legacy app (these docs). |
 | **As-is / to-be** | Current behavior / target behavior. |
@@ -85,3 +85,5 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: "Library is read-only" principle; glossary entries Target, Temp, Location. |
+| 0.3 | 2026-11-03 | D69 (no Bandcamp): Bandcamp removed from the glossary entry Provider. |
+| 0.4 | 2026-11-03 | Consistency review: NG-VIS-004 "Library is read-only" stated per role (target role), matching NG-PTH-004/005. Glossary "Reference data" links to NG-CFG-009 instead of copying an incomplete list. |

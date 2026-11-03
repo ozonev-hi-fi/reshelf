@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.11 | Last updated: 2026-11-03
+Status: Draft | Version: 0.12 | Last updated: 2026-11-03
 
 ## Goal
 
@@ -38,8 +38,8 @@ match report pairing before/after releases. All of it lives under `local/` at th
 `local/maps/after.library-map.json`, `local/matches/<run-id>/match-report.json`.
 
 Phase 4 must use these, where present, as real-world evidence:
-- as test cases for the MAT / area 07 matching logic (`br/as-is-merged/07-library-and-quality.md`
-  once merged) — a real "before" folder messy enough to need manual help, paired with its correct
+- as test cases for the MAT / area 07 matching logic (`br/as-is-merged/07-proposal-matching.md`,
+  and the library index in `08-proposal-naming-and-tags.md`, area PRP) — a real "before" folder messy enough to need manual help, paired with its correct
   "after" release, is exactly the kind of case next-gen's matching should be checked against;
 - as corroborating evidence when deciding a suspected defect's disposition (keep/fix/drop) —
   `discogsVerification` in the match report can confirm a wrong match, a typo, or a wrong year that
@@ -87,3 +87,4 @@ re-confirmed each time, not assumed from an earlier session.
 | 0.9 | 2026-10-14 | Phase 3 done: `br/as-is-merged/` Agreed by the user — all 14 areas + contradictions/suspected-defects/coverage complete. |
 | 0.10 | 2026-11-03 | Phase 4 prep (D67): added the item-by-item validation step and the coverage check to phase 4's output and exit criteria. |
 | 0.11 | 2026-11-03 | Phase 4 started: Part 1 session 0 created `br/to-be/README.md` (D68). Phase 4 status set to "In progress". |
+| 0.12 | 2026-11-03 | Consistency review: phase 4 input section points to the real as-is files (`07-proposal-matching.md`, `08-proposal-naming-and-tags.md`) instead of the non-existent `07-library-and-quality.md`. |

@@ -1,6 +1,6 @@
 # 08 — Settings, naming templates, reference data
 
-Status: Draft | Version: 0.3 | Last updated: 2026-10-07
+Status: Draft | Version: 0.4 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -15,7 +15,7 @@ Status: Draft | Version: 0.3 | Last updated: 2026-10-07
 ## Settings
 
 ### NG-CFG-001 — Settings page
-Priority: Must | Status: Draft | Source: RAW, D13
+Priority: Must | Status: Draft | Source: RAW, D18
 
 All settings can be viewed and changed on a Settings page in the UI. The CLI can also change them (NG-APP-005).
 
@@ -135,3 +135,4 @@ Example: legacy's hard-coded extension list (`legacy/scripts/common/Reshelf.Comm
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: "Paths" row, replacement release folder template. |
 | 0.3 | 2026-10-07 | NG-CFG-013: WavPack (`.wv`) as a built-in audio format (D65). |
+| 0.4 | 2026-11-03 | Consistency review: NG-CFG-001 source D13 (picture sections) → D18 (CLI scope, includes settings). |

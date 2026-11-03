@@ -1,6 +1,6 @@
 # 02 — Application shape: CLI, UI, navigation
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-10
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -39,12 +39,12 @@ The UI has a menu with these sections:
 | Library | Library index and scan ([07-library-and-quality.md](07-library-and-quality.md)) |
 | Lossy manager | The lossy-tracking list, a separate screen (NG-LIB-012) |
 | Settings | Settings and naming templates ([08-settings-templates-refdata.md](08-settings-templates-refdata.md)) |
-| Reference data | Formats, companion kinds, category folders, reason codes (NG-CFG-009) |
+| Reference data | The reference-data lists (NG-CFG-009) |
 
 ### NG-APP-004 — Session wizard: Next and Previous
 Priority: Must | Status: Draft | Source: D10
 
-Each session opens as a wizard with the stages Source → Recognize → Propose → Review → Apply → Done.
+Each session opens as a wizard with the pages Source → Recognize → Propose → Review → Apply → Done. The four middle pages are the stages (NG-SES-004). Source and Done are wizard pages only, not stages.
 - **Next** runs the next stage. If that stage already ran and is still valid, Next only opens it.
 - **Previous** only *shows* the earlier stage. It never re-runs it.
 - Re-running a stage is a separate, explicit action (NG-SES-005).
@@ -81,7 +81,7 @@ The BR stays technology-neutral: "a local UI with full control of the pipeline".
 
 ## Open points
 
-- Long operations (recognize over a large source, propose with many Discogs requests): should the UI show progress and allow cancel? Not discussed. Decide in phase 4 ([br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) step 4).
+- Long operations (recognize over a large source, propose with many Discogs requests): should the UI show progress and allow cancel? Not discussed. → Phase 4, area CLI (command line), with a back-reference from area REV (review UI). See [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md#open-points--decide-inside-the-owning-area).
 
 ## Changelog
 
@@ -89,3 +89,4 @@ The BR stays technology-neutral: "a local UI with full control of the pipeline".
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-10 | Open point's phase pointer corrected from phase 3 to phase 4 (long-operation progress/cancel now decided in br-apply-ng-vision.md step 4). |
+| 0.3 | 2026-11-03 | Consistency review: open point now points to phase 4 area CLI (the brief has no "step 4" any more). NG-APP-004 calls Source and Done wizard pages, not stages (NG-SES-004 has four stages). Menu row "Reference data" links to NG-CFG-009 instead of copying an incomplete list. |

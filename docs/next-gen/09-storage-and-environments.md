@@ -1,6 +1,6 @@
 # 09 — Storage and environments
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-04
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 ## Today vs next-gen
 
@@ -19,7 +19,7 @@ Priority: Must | Status: Draft | Source: RAW, D20
 All structured data lives in SQLite: settings, sessions, layers, candidates, snapshots, statuses, library index, lossy tracker and reference data.
 
 ### NG-STO-002 — Three instances
-Priority: Must | Status: Draft | Source: RAW
+Priority: Must | Status: Draft | Source: RAW, D20
 
 | Environment | Instances |
 |---|---|
@@ -80,3 +80,4 @@ Legacy sessions, the apply log and the settings are not imported. The new app st
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: lossy path conversion rule in NG-STO-008. |
+| 0.3 | 2026-11-03 | Consistency review: NG-STO-002 cites D20 ("unit tests use no DB"), which its text follows instead of the raw note. |

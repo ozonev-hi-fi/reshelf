@@ -1,6 +1,6 @@
 # Brief — Phase 5: technical specification and ADRs
 
-Status: Draft | Version: 0.2 | Last updated: 2026-10-10
+Status: Draft | Version: 0.3 | Last updated: 2026-11-03
 
 Roadmap phase: 5 | Output: `docs/next-gen/tech-spec/` and `docs/next-gen/adr/NNNN-*.md`, status Agreed
 
@@ -28,7 +28,6 @@ Turn the agreed to-be BR into a technical specification of the .NET solution, an
    - Cue split, with lossless output.
    - Image resize and inspection.
    - SQLite access and migrations.
-   - Bandcamp feasibility spike (NG-PRV-009).
    - Solution structure (projects, shared core for CLI + UI).
 3. Write the tech spec:
    - architecture;
@@ -52,3 +51,4 @@ Turn the agreed to-be BR into a technical specification of the .NET solution, an
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial brief for phase 4 (technical specification and ADRs). |
 | 0.2 | 2026-10-10 | Added a scope note: built only from `br/to-be/`, no direct read of the archived as-is docs. Renumbered from phase 4 to phase 5 (phase 3 split into phases 3/4; task breakdown is now phase 6). |
+| 0.3 | 2026-11-03 | "Bandcamp feasibility spike" ADR removed (D69: no Bandcamp; NG-PRV-009 Withdrawn). |
