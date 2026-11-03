@@ -1,6 +1,6 @@
 # Raw notes and decision log
 
-Status: Draft | Version: 0.6 | Last updated: 2026-11-03
+Status: Draft | Version: 0.7 | Last updated: 2026-11-03
 
 This file holds:
 - **Part 1**: the user's original notes, **verbatim** (word for word). This is the original source.
@@ -118,6 +118,7 @@ Each entry gives the final answer, a short reason, and where the decision is rec
 | D64 | As-is requirements (`AS-DOC-*`, `AS-CODE-*`) have no `Priority`. Their `Source:` names the legacy file and the test, function or section (`legacy/tests/X.Tests.ps1 › Describe`), not a `D` entry. One behavior rule per ID, with 1–3 examples. Phase 1 drafts the areas with parallel subagents, and the lead reviews and merges. | As-is behavior is a fact, not a decision. Phase 3 sets the priorities in the to-be BR. Fine-grained IDs make the keep / fix / drop decisions in Phase 3 easier. | [br/as-is-from-docs](../br/as-is-from-docs/README.md), [br-from-code brief](../sessions/br-from-code.md), [README doc rule 6](../README.md#doc-rules) |
 | D66 | Phase 3 is split into "merge as-is" (factual reconciliation between AS-DOC and AS-CODE, phase 3) and "apply NG vision" (forward design decisions: defect disposition, NG delta application, to-be BR, phase 4). Legacy as-is BR docs get archived once the to-be BR is Agreed, so the tech-spec phase reads a single source. | Reconciling what currently exists and deciding what to build next are different kinds of judgment and shouldn't be grilled together. | [00](../00-roadmap.md) phase 3/4 rows, [br-as-is-merge brief](../sessions/br-as-is-merge.md), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
 | D67 | Phase 4 ends with an item-by-item validation step after the draft. Only that step sets `br/to-be/` to Agreed and archives the as-is docs. To-be requirements get new IDs `TB-<AREA>-NNN`; the old `AS-<AREA>-NNN` ID stays in the `Source:` line. | Validating the draft and giving final sign-off are different kinds of care, and old IDs must stay traceable even as to-be text changes. | [00](../00-roadmap.md), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
+| D68 | Phase 4 session 0: the NG coverage scan is a topic scan (which as-is area covers the same behavior?), because the as-is docs cite no `NG-*` IDs at all. Every NG requirement gets one draft owner file in `br/to-be/`. NG-only to-be files, run after BND/ERR in this order: `14-app-shell`, `15-data-layers`, `16-storage-and-instances`, `17-reference-data`, `18-platform`, `19-paths-and-devices`. | The brief's literal rule ("NG IDs that never show up as a `Source:` in an as-is file") matches all 115 IDs and gives no grouping. | [br/to-be/README](../br/to-be/README.md#ng--to-be-file-map), [br-apply-ng-vision brief](../sessions/br-apply-ng-vision.md) |
 
 ### Platform, storage, dependencies
 
@@ -219,3 +220,4 @@ Grilling session of 2026-10-04, Docs part B (questions Q1–Q15 of that session)
 | 0.4 | 2026-10-07 | Decision D65 (WavPack `.wv` must be a built-in audio format). |
 | 0.5 | 2026-10-10 | Decision D66 (phase 3 split into "merge as-is" and "apply NG vision"). |
 | 0.6 | 2026-11-03 | Decision D67 (phase 4 ends with an item-by-item validation step; to-be requirements get new `TB-<AREA>-NNN` IDs). |
+| 0.7 | 2026-11-03 | Decision D68 (phase 4 session 0: NG coverage scan by topic, NG-only to-be files `14`–`19`). |

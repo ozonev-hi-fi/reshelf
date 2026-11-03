@@ -1,6 +1,6 @@
 # Brief — Phase 4: apply the NG vision to the merged as-is BR
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-03
+Status: Draft | Version: 0.4 | Last updated: 2026-11-03
 
 Roadmap phase: 4 | Output: `docs/next-gen/br/to-be/`, status Agreed
 
@@ -35,7 +35,7 @@ decisions get made.
 - [../README.md](../README.md): the doc rules.
 - `docs/next-gen/br/as-is-merged/` (phase 3 output): the reconciled `AS-<AREA>-NNN` requirements
   (841 of them, 14 areas) and the suspected-defect carry-forward list,
-  `91-suspected-defects-carryforward.md` (~99 items, all undecided).
+  `91-suspected-defects-carryforward.md` (88 items, all undecided).
 - The delta docs [01](../01-vision-scope.md)–[11](../11-paths-and-devices.md) (115 `NG-*`
   requirements total).
 - The decision log in [../inbox/raw-notes.md](../inbox/raw-notes.md).
@@ -120,11 +120,16 @@ REV comes before CLI in the area order, so the REV to-be file marks the progress
 
 ### NG-only areas — after BND/ERR
 
-Some NG requirements have no legacy counterpart at all. Examples: NG-PTH (paths and devices),
-NG-STO (SQLite and instances), NG-PLT-003 (portable zip), the NG-APP wizard and menu. Each such
-group gets its own new `br/to-be/` file, one session each — fix the exact file list and grouping
-in session 0, from a quick NG-requirement coverage scan (which `NG-*` IDs never show up as a
-`Source:` in any as-is area file).
+Some NG requirements have no legacy counterpart at all. Each such group gets its own new
+`br/to-be/` file, one session each. Session 0 fixed the list (D68, NG coverage scan by topic,
+because the as-is docs cite no `NG-*` IDs), in this order:
+
+`14-app-shell` (APP) → `15-data-layers` (LAY) → `16-storage-and-instances` (STO) →
+`17-reference-data` (REF) → `18-platform` (PLT) → `19-paths-and-devices` (PTH).
+
+The owner file of every NG requirement, including those applied inside the as-is areas, is in
+[`br/to-be/README.md`](../br/to-be/README.md#ng--to-be-file-map). Use it in step 2 of each area
+session. If an area session moves an NG ID to another file, update that table.
 
 ### Coverage — last Part 1 session
 
@@ -193,3 +198,4 @@ or a check fails, use the `grilling` skill approach to dig in before moving on.
 | 0.1 | 2026-10-10 | New brief for phase 4, split out of the former phase 3 brief (`br-merge.md`, now `br-as-is-merge.md`, scoped to reconciliation only). Covers the forward design decisions: defect disposition, NG delta application, open-point resolution, to-be BR, archiving the legacy as-is docs. |
 | 0.2 | 2026-10-11 | Added `tools/library-mapper/` output (`local/maps/`, `local/matches/`) to "Read first" and to steps 2–3: real-world test cases for area 07/MAT, real evidence for suspected-defect disposition. |
 | 0.3 | 2026-11-03 | Phase 4 prep (D67): split into Part 1 (draft) and Part 2 (item-by-item validation, now the only step that sets Agreed and archives). Added session-0 setup, fixed area order, open-point ownership table, NG-only area files, coverage file, to-be ID scheme (`TB-<AREA>-NNN`), resume rules, and the "no bare IDs" rule. |
+| 0.4 | 2026-11-03 | Session 0 done: suspected-defect count corrected to 88 (was "~99"). NG-only section now names the six NG-only files (D68) and points to the NG → to-be file map in `br/to-be/README.md`, instead of the literal "never a `Source:`" scan rule, which matched all 115 NG IDs. |

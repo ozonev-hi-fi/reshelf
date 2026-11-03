@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.9 | Last updated: 2026-11-03
+Status: Draft | Version: 0.10 | Last updated: 2026-11-03
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -10,7 +10,7 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 
 | File | Prefix | Topic | Status | Version |
 |---|---|---|---|---|
-| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.10 |
+| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.11 |
 | [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.2 |
 | [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.2 |
 | [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.2 |
@@ -25,9 +25,10 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.2 |
 | [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.2 |
 | [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Agreed | 0.15 |
+| [br/to-be/](br/to-be/README.md) | TB | To-be BR: as-is + NG delta (Phase 4) | Draft | 0.1 |
 | [adr/](adr/0000-template.md) | — | Architecture decision records | — | — |
 | [sessions/](sessions/) | — | Briefs for the planned sessions | — | — |
-| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D67 | Draft | 0.6 |
+| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D68 | Draft | 0.7 |
 
 ## Doc rules
 
@@ -78,3 +79,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.7 | 2026-10-11 | Index row for 00-roadmap.md bumped to 0.8 (Phase 4 input: real-world library maps from `tools/library-mapper/`). |
 | 0.8 | 2026-10-14 | Index row for 02-app-shape.md fixed to 0.2 (matched the file's own header, stale since 2026-10-10). |
 | 0.9 | 2026-11-03 | Phase 4 prep (D67): index rows fixed — 00-roadmap.md (0.10), br/as-is-merged/ (Agreed 0.15), inbox/raw-notes.md (0.6, D1–D67); line 7 now mentions phase 3 and the coming br/to-be/. |
+| 0.10 | 2026-11-03 | Phase 4 session 0 (D68): index row for `br/to-be/` (Draft 0.1); 00-roadmap.md (0.11), inbox/raw-notes.md (0.7, D1–D68). |
