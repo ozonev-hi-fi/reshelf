@@ -1,6 +1,6 @@
 # 00 — Roadmap
 
-Status: Draft | Version: 0.9 | Last updated: 2026-10-14
+Status: Draft | Version: 0.10 | Last updated: 2026-11-03
 
 ## Goal
 
@@ -23,7 +23,7 @@ Each phase runs in its **own Claude session** with a clean context. Each session
 | 1 | BR from docs and tests (as-is) | [br-from-docs.md](sessions/br-from-docs.md) | [br/as-is-from-docs/](br/as-is-from-docs/README.md): 744 `AS-DOC-*` requirements, suspected defects, coverage | Done |
 | 2 | BR from code (as-is) | [br-from-code.md](sessions/br-from-code.md) | [br/as-is-from-code/](br/as-is-from-code/README.md): 676 `AS-CODE-*` requirements, suspected defects, coverage | Done |
 | 3 | Merge the two as-is BRs, resolve contradictions | [br-as-is-merge.md](sessions/br-as-is-merge.md) | `br/as-is-merged/`: reconciled `AS-<AREA>-NNN` requirements; contradictions resolved; suspected defects consolidated but not yet decided | Done |
-| 4 | Apply the NG vision to the merged as-is BR | [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) | `br/to-be/`: to-be BR (Agreed); every suspected defect decided keep/fix/drop; NG delta 01-11 applied; NG open points resolved; legacy as-is docs archived | Not started |
+| 4 | Apply the NG vision to the merged as-is BR | [br-apply-ng-vision.md](sessions/br-apply-ng-vision.md) | `br/to-be/`: to-be BR, validated item by item and Agreed; every suspected defect decided keep/fix/drop; NG delta 01-11 applied; NG open points resolved; coverage checked both directions (`92-coverage.md`); legacy as-is docs archived | Not started |
 | 5 | Technical specification + ADRs | [tech-spec.md](sessions/tech-spec.md) | Tech spec (Agreed), ADRs | Not started |
 | 6 | Task breakdown | defined at the end of phase 5 | Implementation tasks and milestones | Not started |
 
@@ -61,7 +61,7 @@ re-confirmed each time, not assumed from an earlier session.
 | 1 | Every legacy feature in MANIFESTO, `legacy/README.md`, `legacy/plan/`, `legacy/schemas/` and tests is described as behavior, with acceptance examples. Suspected defects are listed separately. |
 | 2 | Every legacy module is described as behavior, written from the code only, without reading the phase 1 output. Suspected defects are listed separately. |
 | 3 | Every area's AS-DOC vs AS-CODE comparison is done. Every contradiction (within AS-DOC, or newly found between AS-DOC and AS-CODE) is resolved, with the user where still unclear after checking code/tests. Suspected defects are consolidated and cross-referenced in one carry-forward list, not yet decided. The user confirms `br/as-is-merged/`. |
-| 4 | Every suspected defect is decided (keep, fix, or drop). The to-be BR = merged as-is + this delta. The user marks it `Agreed`. Every NG delta requirement (01-11) is applied. Every open point left by the delta docs is resolved. Legacy as-is BR docs (`as-is-from-docs/`, `as-is-from-code/`, `as-is-merged/`) are archived or marked superseded once `br/to-be/` is Agreed. |
+| 4 | Every suspected defect is decided (keep, fix, or drop). The to-be BR = merged as-is + this delta. Every NG delta requirement (01-11) is applied. Every open point left by the delta docs is resolved. Every to-be requirement has a validation verdict in `93-validation-log.md`, with no gaps left in `92-coverage.md`. The user marks it `Agreed`. Legacy as-is BR docs (`as-is-from-docs/`, `as-is-from-code/`, `as-is-merged/`) are archived or marked superseded once `br/to-be/` is Agreed. |
 | 5 | Every to-be requirement maps to a tech-spec section. Every dependency has an ADR. The user marks it `Agreed`. Built only from `br/to-be/` — no direct read of the archived as-is docs. |
 | 6 | Every tech-spec section maps to tasks. Each task has acceptance criteria and a test approach. |
 
@@ -85,3 +85,4 @@ re-confirmed each time, not assumed from an earlier session.
 | 0.7 | 2026-10-10 | Phase 3 status corrected to "In progress": `br/as-is-merged/` has real, committed partial work (areas 00/01 done, 3 trackers in progress). |
 | 0.8 | 2026-10-11 | Added "Phase 4 input: real-world library maps" — `tools/library-mapper/` output under `local/` must be used as real-world test cases for MAT/area 07 and for suspected-defect disposition. |
 | 0.9 | 2026-10-14 | Phase 3 done: `br/as-is-merged/` Agreed by the user — all 14 areas + contradictions/suspected-defects/coverage complete. |
+| 0.10 | 2026-11-03 | Phase 4 prep (D67): added the item-by-item validation step and the coverage check to phase 4's output and exit criteria. |

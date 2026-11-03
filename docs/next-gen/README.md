@@ -1,18 +1,18 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.7 | Last updated: 2026-10-11
+Status: Draft | Version: 0.9 | Last updated: 2026-11-03
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
-The current (as-is) behavior is described by the BR (business requirements) sessions: Phase 1 in [br/as-is-from-docs/](br/as-is-from-docs/README.md), Phase 2 in [br/as-is-from-code/](br/as-is-from-code/README.md). See [00-roadmap.md](00-roadmap.md).
+The current (as-is) behavior is described by the BR (business requirements) sessions: Phase 1 in [br/as-is-from-docs/](br/as-is-from-docs/README.md), Phase 2 in [br/as-is-from-code/](br/as-is-from-code/README.md), reconciled in Phase 3 [br/as-is-merged/](br/as-is-merged/README.md). Phase 4 applies the next-gen vision to produce the to-be BR in `br/to-be/`. See [00-roadmap.md](00-roadmap.md).
 
 ## Index
 
 | File | Prefix | Topic | Status | Version |
 |---|---|---|---|---|
-| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.8 |
+| [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.10 |
 | [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.2 |
-| [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.1 |
+| [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.2 |
 | [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.2 |
 | [04-data-layers.md](04-data-layers.md) | NG-LAY | Recognized / Proposed / User layers, track identity | Draft | 0.1 |
 | [05-providers.md](05-providers.md) | NG-PRV | Discogs, Bandcamp, Library, candidates, snapshots | Draft | 0.2 |
@@ -24,10 +24,10 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | [11-paths-and-devices.md](11-paths-and-devices.md) | NG-PTH | Source / target / temp paths, removable drives | Draft | 0.2 |
 | [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.2 |
 | [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.2 |
-| [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Draft | 0.2 |
+| [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Agreed | 0.15 |
 | [adr/](adr/0000-template.md) | — | Architecture decision records | — | — |
 | [sessions/](sessions/) | — | Briefs for the planned sessions | — | — |
-| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D66 | Draft | 0.5 |
+| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D67 | Draft | 0.6 |
 
 ## Doc rules
 
@@ -76,3 +76,5 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.5 | 2026-10-10 | Index row for `br/as-is-from-code/` (Phase 2 done). |
 | 0.6 | 2026-10-10 | Index rows fixed: 00-roadmap.md (0.7), br/as-is-from-docs/ (0.2), br/as-is-from-code/ (0.2), inbox/raw-notes.md (0.5, D1–D66); added missing index row for br/as-is-merged/. |
 | 0.7 | 2026-10-11 | Index row for 00-roadmap.md bumped to 0.8 (Phase 4 input: real-world library maps from `tools/library-mapper/`). |
+| 0.8 | 2026-10-14 | Index row for 02-app-shape.md fixed to 0.2 (matched the file's own header, stale since 2026-10-10). |
+| 0.9 | 2026-11-03 | Phase 4 prep (D67): index rows fixed — 00-roadmap.md (0.10), br/as-is-merged/ (Agreed 0.15), inbox/raw-notes.md (0.6, D1–D67); line 7 now mentions phase 3 and the coming br/to-be/. |
