@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.12 | Last updated: 2026-11-04
+Status: Draft | Version: 0.13 | Last updated: 2026-11-04
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -25,10 +25,10 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.2 |
 | [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.2 |
 | [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Agreed | 1.0 |
-| [br/to-be/](br/to-be/README.md) | TB | To-be BR: as-is + NG delta (Phase 4) | Draft | 0.3 |
+| [br/to-be/](br/to-be/README.md) | TB | To-be BR: as-is + NG delta (Phase 4) | Draft | 0.4 |
 | [adr/](adr/0000-template.md) | — | Architecture decision records | — | — |
 | [sessions/](sessions/) | — | Briefs for the planned sessions | — | — |
-| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D84 | Draft | 0.10 |
+| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D85 | Draft | 0.11 |
 
 ## Doc rules
 
@@ -83,3 +83,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.10 | 2026-11-03 | Phase 4 session 0 (D68): index row for `br/to-be/` (Draft 0.1); 00-roadmap.md (0.11), inbox/raw-notes.md (0.8, D1–D69). D69 (no Bandcamp): 01-vision-scope.md (0.3), 05-providers.md (0.3, topic without Bandcamp), 10-platform-and-dependencies.md (0.3). |
 | 0.11 | 2026-11-03 | Consistency review (D70): doc rule 6 allows `MANIFESTO §n` as a source; a requirement link goes in `Depends on:`. Index rows updated for 00 (0.12), 01 (0.4), 02 (0.3), 03 (0.3), 05 (0.4), 06 (0.2), 07 (0.3), 08 (0.4), 09 (0.3), 10 (0.4), 11 (0.3), inbox/raw-notes.md (0.9, D1–D70), br/to-be/ (0.2). br/as-is-merged/ set to 1.0 (doc rule 4: Agreed = major version). |
 | 0.12 | 2026-11-04 | Bandcamp cleanup (D69 is the only live mention) and phase 4 area GEN decisions D71–D84, doc rule 6 exception for to-be `Source:` (D82), doc rule 10 (examples): index rows for 01 (0.5), 03 (0.4), 04 (0.2), 05 (0.5), 07 (0.4), 08 (0.5), 11 (0.4), inbox/raw-notes.md (0.10, D1–D84), br/to-be/ (0.3). |
+| 0.13 | 2026-11-04 | Index rows: br/to-be/ (0.4), inbox/raw-notes.md (0.11, D1–D85). Skill `.claude/skills/next-gen-doc-decisions` added (used by the phase 4 brief, 0.6). |

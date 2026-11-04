@@ -1,6 +1,6 @@
 # 00 — General (to-be)
 
-Status: Draft | Version: 0.1 | Last updated: 2026-11-04
+Status: Draft | Version: 0.2 | Last updated: 2026-11-04
 
 ## Scope
 
@@ -18,17 +18,18 @@ The details each rule points to live in their own area files. v1 non-goals: see
 ### TB-GEN-001 — The release is the unit of work
 Priority: Must | Status: Draft | Source: AS-GEN-001 (the release is the unit of work)
 
-The app organizes music around two concepts: the **main artist** (band or performer) and the
-**release** (album, EP, single, maxi-single). It works one release at a time.
+The app shall organize music one release at a time. It uses two concepts: the **main artist**
+(band or performer) and the **release** (album, EP, single, maxi-single).
 
 Example: `Kyuss\1994 Welcome to Sky Valley` is one release of the main artist `Kyuss`.
 
 ### TB-GEN-002 — Organizing runs again and again on different sources
 Priority: Must | Status: Draft | Source: AS-GEN-002 (the app runs again and again on different sources), D78 (phones over USB: copy to a disk first)
 
-Organizing is an ongoing process, not a one-time job. The user runs the app many times, each time
-on another source folder: the existing collection first, then `Downloads` folders, USB flash
-drives, memory cards. A phone connected by USB is not a direct source in v1 (NG-PTH-014).
+The app shall let the user organize again and again, each time on another source folder: the
+existing collection first, then `Downloads` folders, USB flash drives, memory cards. Organizing is
+an ongoing process, not a one-time job. A phone connected by USB is not a direct source in v1
+(NG-PTH-014).
 
 Example: session 1 on `E:\Music\Unsorted`, session 2 on `C:\Users\me\Downloads`, session 3 on a USB
 stick `F:\`.
@@ -36,8 +37,8 @@ stick `F:\`.
 ### TB-GEN-003 — Four stages, results stored in the app's database
 Priority: Must | Status: Draft | Source: AS-GEN-003 (four stages, each with its own JSON document), NG-VIS-001 (.NET application replaces the PowerShell scripts), D72 (Propose runs automatically after Recognize, or is skipped)
 
-The pipeline has four stages: **Recognize → Propose → Review → Apply**. Each stage stores its
-results in the app's database, not in JSON files. The next stage reads them from there.
+The app shall run the pipeline in four stages, **Recognize → Propose → Review → Apply**, and store
+the results of each stage in its database, not in JSON files. The next stage reads them from there.
 
 - Propose runs automatically after Recognize, or by hand when that setting is off (NG-SES-015).
 - Propose can be skipped: the user may approve and apply straight from the recognized values
@@ -52,11 +53,12 @@ itself, the user reviews and approves `1994 Welcome to Sky Valley`, and Apply wr
 ### TB-GEN-004 — Providers suggest, the user decides, the app works without providers
 Priority: Must | Status: Draft | Source: AS-GEN-004 (Discogs is the source of truth for metadata), NG-VIS-004 (core principles: works without providers), D71 (providers can be turned off), D75 (provider-neutral candidate panel)
 
-Names, tags and cover art can come from **providers**: Discogs (primary) and the Library (the copy
-already in the library) — see NG-PRV-001. A provider only **suggests**: every candidate is
-visible, and the user can select another one or edit any value. The app also works with no
-provider at all: no token, no network, a provider that is down, or providers turned off by the
-user (NG-PRV-002).
+The app shall treat provider data as **suggestions**: every candidate is visible, and the user can
+select another one or edit any value. Names, tags and cover art can come from **providers**:
+Discogs (primary) and the Library (the copy already in the library) — see NG-PRV-001.
+
+If no provider can be used (no token, no network, a provider that is down, or providers turned off
+by the user), then the app shall work on the recognized data alone (NG-PRV-002).
 
 Example: Discogs is turned off for the session. Source folder
 `Kyuss - 1994 - Welcome To Sky Valley [FLAC]` → proposed `Kyuss\1994 Welcome to Sky Valley`, from
@@ -65,8 +67,8 @@ the folder name and the existing tags.
 ### TB-GEN-005 — Default target layout, changeable by levels
 Priority: Must | Status: Draft | Source: AS-GEN-005 (target layout is Artist / yyyy Album / NN Track), D76 (path template as a list of levels)
 
-Only the target root folder is fixed. Below it, the layout comes from a path template made of
-levels (NG-CFG-003). The default is the legacy layout: one folder per main artist, one folder per
+The app shall build the output path below the target root from a path template made of levels
+(NG-CFG-003). Only the target root folder is fixed. The default is the legacy layout: one folder per main artist, one folder per
 release named `yyyy Album`, tracks named `NN Track Name.ext`. The user can change the names and
 add, remove or reorder levels.
 
@@ -79,7 +81,8 @@ User layout: <target>\Kyuss\1994 - Welcome to Sky Valley\CD1\Track_01.flac
 ### TB-GEN-006 — Tag rules are on by default
 Priority: Must | Status: Draft | Source: AS-GEN-006 (metadata rules that the app enforces), D80 (tag rules fixed in v1, configurable later)
 
-The app applies these tag rules. In v1 they are built in and always on (NG-CFG-006). A later
+The app shall apply these tag rules to every release. In v1 they are built in and always on
+(NG-CFG-006). A later
 version may let the user change them (NG-CFG-015). The rules themselves live in the naming area.
 
 | Rule (shortened) | Example |
@@ -96,9 +99,9 @@ template now; the naming area decides it. The embedded-cover size is a setting, 
 ### TB-GEN-007 — Nothing unclear is decided silently
 Priority: Must | Status: Draft | Source: AS-GEN-007 (nothing ambiguous is guessed automatically), NG-VIS-004 (core principles: no silent matching), D75 (candidates always visible)
 
-Grouping folders, band-member folders and low-confidence provider matches always go to the user's
-review. The app never resolves them silently. Every candidate a provider found stays visible
-(NG-PRV-003).
+If a folder or a match is unclear (a grouping folder, a band-member folder, a low-confidence
+provider match), then the app shall send it to the user's review and never resolve it silently.
+Every candidate a provider found stays visible (NG-PRV-003).
 
 Example: a folder `Band A and its members' projects` with subfolders `Band A` and `Band B` is not
 turned into an artist called "Band A and its members' projects"; it is shown for review.
@@ -106,8 +109,8 @@ turned into an artist called "Band A and its members' projects"; it is shown for
 ### TB-GEN-008 — A re-run never creates a duplicate; the user chooses the action
 Priority: Must | Status: Draft | Source: AS-GEN-008 (re-runs are safe because of the stable key), D74 (a re-run marks later layers outdated, never deletes them)
 
-Running the app again on the same source never creates a second copy of a release by itself. Two
-steps are separate:
+When the user runs the app again on a source, the app shall not create a second copy of a release
+by itself. Two steps are separate:
 1. **Identity**: is this the same release as one already in the library? (release key, NG-LIB-002)
 2. **Action**: skip, overwrite or keep both. The app suggests a default from the quality
    comparison (NG-LIB-009); the user always makes the choice.
@@ -122,9 +125,9 @@ of the data-and-storage area (see [README open points](README.md#open-points)).
 ### TB-GEN-009 — A session can be stopped and continued
 Priority: Must | Status: Draft | Source: AS-GEN-009 (sessions can be resumed), D74 (a re-run marks later layers outdated, never deletes them)
 
-A session is one pipeline run on one source folder. Its stage, its data and the user's edits are
-stored in the app's database. The user can stop at any point and continue later. Nothing is lost
-when a stage is re-run (NG-SES-005, NG-SES-008). Details: the sessions area file.
+The app shall store the stage, the data and the user's edits of each session in its database, so
+the user can stop at any point and continue later. A session is one pipeline run on one source
+folder. Nothing is lost when a stage is re-run (NG-SES-005, NG-SES-008). Details: the sessions area file.
 
 Example: the user runs Propose, closes the app, opens it the next day, and continues with Review
 of the same session.
@@ -132,8 +135,8 @@ of the same session.
 ### TB-GEN-010 — CLI and a full UI over one shared core
 Priority: Must | Status: Draft | Source: NG-VIS-002 (CLI and full UI), NG-APP-001 (one core, two front-ends)
 
-The app has a CLI for power users and batch work, and a full UI. With the UI the user can do
-everything without the CLI. Both call the same application core: the same operation with the same
+The app shall offer a CLI for power users and batch work, and a full UI that does everything
+without the CLI. Both front-ends call the same application core: the same operation with the same
 input gives the same result from either front-end.
 
 Example: running Propose for one session from the CLI or by pressing Next in the UI wizard gives
@@ -141,6 +144,8 @@ the same proposed names.
 
 ### TB-GEN-011 — Core principles
 Priority: Must | Status: Draft | Source: NG-VIS-004 (core principles)
+
+The app shall follow these principles in every area:
 
 | Principle | Meaning |
 |---|---|
@@ -158,7 +163,8 @@ keep their old names; only releases not yet applied use the new template.
 ### TB-GEN-012 — Local, single user
 Priority: Must | Status: Draft | Source: NG-APP-006 (local, single user)
 
-The app serves one user on one machine. The UI listens on localhost only and has no login.
+The app shall serve one user on one machine. The UI shall listen on localhost only and shall not
+ask for a login.
 
 Example: the UI is reachable at `http://localhost:<port>` on the user's PC, not from another PC
 in the same network.
@@ -184,3 +190,4 @@ in the same network.
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-11-04 | Phase 4, Part 1, area GEN: TB-GEN-001–012 from AS-GEN-001–009 and NG-VIS-001, 002, 004, NG-APP-001, 006. CF-GEN-001 decided (D75). AS-GEN-010 dropped (D83). NG-VIS-003 process only (D84). |
+| 0.2 | 2026-11-04 | D85: the first sentence of TB-GEN-001–012 rewritten in an EARS pattern. Meaning, sources and examples unchanged. |

@@ -1,6 +1,6 @@
 # To-be BR (Phase 4)
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-04
+Status: Draft | Version: 0.4 | Last updated: 2026-11-04
 
 This folder holds the **to-be BR**: the business requirements of the new .NET app. It is built from
 the merged as-is BR ([../as-is-merged/](../as-is-merged/README.md), 841 `AS-*` requirements, facts
@@ -85,10 +85,21 @@ in the [area status table](#area-status-table) whose status is not Done.
 ### TB-<AREA>-NNN — <title in words>
 Priority: <Must|Should|Could|Won't> | Status: Draft | Source: AS-<AREA>-NNN (<short title>), NG-<PREFIX>-NNN (<short title>), D<n> (<short title>)
 
-<behavior text>
+<EARS sentence> <details, if any>
 
 Example: <concrete example>
 ```
+
+- **Behavior text** starts with one sentence in an EARS pattern (Easy Approach to Requirements
+  Syntax, D85). Details and the example follow it.
+
+  | Pattern | Shape | Example |
+  |---|---|---|
+  | Always | The app shall … | The app shall never change a source file. |
+  | Event | When …, the app shall … | When Recognize finishes and auto-propose is on, the app shall start Propose. |
+  | State | While …, the app shall … | While providers are off for a session, the app shall show an info message in the candidate panel. |
+  | Unwanted | If …, then the app shall … | If Discogs does not answer, then the app shall continue in no-provider mode and show a warning. |
+  | Optional | Where …, the app shall … | Where a placeholder uses a dictionary, the app shall store the entry ID. |
 
 - **IDs** are new per area and start at 001. Never renumber or reuse an ID (doc rule 5).
 - **`Source:`** always keeps the old `AS-<AREA>-NNN` ID (D67), plus the `NG-*` and `D<n>` IDs it applies. This is allowed by the doc rule 6 exception (D82). `Depends on:` is for other `TB-*` requirements. Every ID in `Source:` gets a short
@@ -198,3 +209,4 @@ Totals: 841 as-is requirements, 88 suspected defects.
 | 0.1 | 2026-11-03 | Phase 4, Part 1, session 0: folder created. Glossary, requirement format, NG → to-be file map (D68: topic scan, six NG-only files `14`–`19`), open points, area status table. |
 | 0.2 | 2026-11-03 | NG-PRV-009 marked Withdrawn (D69, no Bandcamp). Six open points from the consistency review added to the open-points table, each with its owning area. |
 | 0.3 | 2026-11-04 | Bandcamp cleanup: last to-be file renamed `13-bandcamp-and-errors.md` → `13-errors.md`; Bandcamp notes shortened. Area GEN session: 9 new NG requirements (NG-SES-015, NG-SES-016 → SES; NG-LAY-010, NG-LAY-011 → LAY; NG-CFG-014 → REF; NG-PTH-014, NG-PTH-015 → PTH; NG-LIB-014 → PRP; NG-CFG-015 → TXT), total 124. Example rule: library-map pairs check the logic, written examples use public names (D81). Two open points added: editions of one album (→ DAT), master release first (→ MAT). Format: `Source:` note (D82), "Process only" list (D84). Area GEN done: `00-general.md` (TB-GEN-001–012). |
+| 0.4 | 2026-11-04 | Requirement format: behavior text starts with an EARS sentence (D85), with a pattern table. |

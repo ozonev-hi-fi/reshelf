@@ -1,6 +1,6 @@
 # Brief — Phase 4: apply the NG vision to the merged as-is BR
 
-Status: Draft | Version: 0.5 | Last updated: 2026-11-04
+Status: Draft | Version: 0.6 | Last updated: 2026-11-04
 
 Roadmap phase: 4 | Output: `docs/next-gen/br/to-be/`, status Agreed
 
@@ -27,6 +27,8 @@ decisions get made.
   requirement's `Source:` line.
 - Follow the doc rules in [../README.md](../README.md#doc-rules): header, changelog, index row, cross-links.
 - Go one item at a time with the user.
+- Use the `next-gen-doc-decisions` skill (`.claude/skills/`) for the conversation, for recording
+  each decision across the docs, and for closing an area.
 - Never use a bare ID. Always say what it is, e.g. "AS-PRP-007 (target index is built once per
   run)", "area REC (recognition)", "D67 (phase 4 ends with a validation step)".
 
@@ -201,3 +203,4 @@ or a check fails, use the `grilling` skill approach to dig in before moving on.
 | 0.3 | 2026-11-03 | Phase 4 prep (D67): split into Part 1 (draft) and Part 2 (item-by-item validation, now the only step that sets Agreed and archives). Added session-0 setup, fixed area order, open-point ownership table, NG-only area files, coverage file, to-be ID scheme (`TB-<AREA>-NNN`), resume rules, and the "no bare IDs" rule. |
 | 0.4 | 2026-11-03 | Session 0 done: suspected-defect count corrected to 88 (was "~99"). NG-only section now names the six NG-only files (D68) and points to the NG → to-be file map in `br/to-be/README.md`, instead of the literal "never a `Source:`" scan rule, which matched all 115 NG IDs. |
 | 0.5 | 2026-11-04 | Bandcamp cleanup: the last as-is area is now "ERR (errors)"; it also drops the legacy-plan Bandcamp items under D69. NG count 115 → 124 (D72, D73, D77, D78, D79, D80). Step 3: library-map pairs check the logic; doc examples use public names and neutral folder patterns (D81). |
+| 0.6 | 2026-11-04 | Rules: use the `next-gen-doc-decisions` skill for the conversation, the decision ripple and the area close. |
