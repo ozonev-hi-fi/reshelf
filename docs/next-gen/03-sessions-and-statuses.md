@@ -1,6 +1,6 @@
 # 03 — Sessions, stages and statuses
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-03
+Status: Draft | Version: 0.4 | Last updated: 2026-11-04
 
 ## Today vs next-gen
 
@@ -37,11 +37,11 @@ Priority: Must | Status: Draft | Source: D10
 A session runs through these stages: Recognize → Propose → Review → Apply. The UI shows them as a wizard (NG-APP-004).
 
 ### NG-SES-005 — Re-running a stage invalidates the later stages
-Priority: Must | Status: Draft | Source: D10
+Priority: Must | Status: Draft | Source: D10, D74
 
-The user can re-run any stage explicitly. Before the re-run, the app warns which later stages become invalid. After a re-run, every later stage is marked invalid and must run again. The survival rules NG-SES-008 to NG-SES-010 decide what is kept.
+The user can re-run any stage explicitly. Before the re-run, the app warns which later stages become invalid. A re-run replaces only its own data layer. The data of every later stage stays in the DB and is marked **outdated**; it is never deleted automatically. It is replaced only when that stage runs again. The survival rules NG-SES-008 to NG-SES-010 decide what is kept.
 
-Example: recognize → propose → re-recognize. Propose becomes invalid and must run again. Propose is fast thanks to the provider cache (NG-PRV-012).
+Example: recognize → propose → re-recognize. The Recognized layer is replaced. The Proposed layer is kept and marked outdated. Propose runs again automatically (NG-SES-015) or, when auto-propose is off, the release shows "proposal outdated, run Propose". Propose is fast thanks to the provider cache (NG-PRV-012).
 
 ### NG-SES-006 — Re-recognize the whole source or a subfolder
 Priority: Must | Status: Draft | Source: D35, D46
@@ -117,6 +117,20 @@ Priority: Must | Status: Draft | Source: D43, D59, D15, D28
 
 There is no status or milestone for "moved from temp to the library". The user moves the folders by hand. An applied release shows a computed Location instead (NG-PTH-011).
 
+### NG-SES-015 — Propose runs automatically after Recognize
+Priority: Should | Status: Draft | Source: D72
+
+A setting "run Propose after Recognize" (default on). When it is on, Propose starts by itself when Recognize finishes, also after a re-recognize. When it is off, the user starts Propose by hand, for the whole session or for one release.
+
+Example: auto-propose off. The user recognizes `D:\Downloads\Kyuss`, checks 3 releases, and runs Propose only for `1994 Welcome to Sky Valley`.
+
+### NG-SES-016 — Propose can be skipped
+Priority: Must | Status: Draft | Source: D72 | Depends on: NG-LAY-002
+
+The user may approve and apply a release that has no Proposed data. Apply then uses the User values, else the Recognized values (NG-LAY-002).
+
+Example: the source folder is already named and tagged correctly. The user approves it right after Recognize, without Propose.
+
 ## Open points
 
 - An **applied** release whose data changes after a re-run: does it stay `Applied` with the mark "outdated, apply again" (NG-SES-010), or does its approval reset to `Ready` (NG-SES-009)? Does apply again need a new Approve (NG-SES-013 applies approved releases only)? This also affects the Done milestone (NG-SES-014). → Phase 4, area SES (sessions).
@@ -128,3 +142,4 @@ There is no status or milestone for "moved from temp to the library". The user m
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: open points of NG-SES-002, 010, 013, 014 resolved with links to doc 11. |
 | 0.3 | 2026-11-03 | Consistency review: NG-SES-014 cites D15 and D28 (they name it). New open point: status of an applied release whose data changes (NG-SES-009 vs NG-SES-010) → phase 4, area SES. |
+| 0.4 | 2026-11-04 | Phase 4, area GEN: NG-SES-005 — a re-run marks later layers outdated, never deletes them (D74). New NG-SES-015 (auto-propose setting) and NG-SES-016 (Propose can be skipped), D72. |

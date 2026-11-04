@@ -1,6 +1,6 @@
 # 07 — Library, quality comparison, lossy manager
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-03
+Status: Draft | Version: 0.4 | Last updated: 2026-11-04
 
 ## Today vs next-gen
 
@@ -117,6 +117,23 @@ The lossy ledger stores **relative** paths, for example `ZZ Top\1999 XXX`. The a
 
 Legacy absolute paths are converted during the import (NG-STO-008). An entry that could not be converted has the mark `Path unresolved`. The lossy manager shows it, and the user can fix the path or delete the entry.
 
+## Collection copies
+
+### NG-LIB-014 — Manage copies of the library on other devices
+Priority: Won't (v1) | Status: Draft | Source: D79 | Depends on: NG-LIB-001, NG-PTH-001, NG-PTH-015
+
+A later version manages **copies** of the main library on other devices, for example a full copy on the SD card of a music player and a partial copy on a phone. A copy is a new root role, separate from source, target and temp. The main library stays read-only (NG-VIS-004); only copies are written. The user can:
+
+| Ability | Example |
+|---|---|
+| Compare a copy with the main library | "SD card: 12 releases missing, 3 releases older than on the SSD" |
+| Sync missing or changed releases to a copy | "Copy the 12 missing releases to the SD card" |
+| Use a different quality per copy | SSD holds FLAC 24-96; the phone copy gets MP3 320, converted by the app |
+| Choose what a partial copy holds | Phone: only artists marked ★, or one playlist |
+| Find stray files on a copy | Releases on the SD card that are no longer in the main library |
+
+A phone copy needs write access over MTP (NG-PTH-014, NG-PTH-015). The details are decided when this feature is planned. v1 must not block it: for example, the library index must not assume that only one library exists.
+
 ## Open points
 
 - NG-LIB-003 (incremental rescan): this was part of the Q37 proposal. The user replaced its identity part (provider IDs) with D44, but did not explicitly confirm the incremental rescan itself. Is it wanted? → Phase 4, area PRP (proposal naming and tags), where AS-PRP-007 (the target index is built once per run) lives.
@@ -130,3 +147,4 @@ Legacy absolute paths are converted during the import (NG-STO-008). An entry tha
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
 | 0.2 | 2026-10-04 | Docs part B: index covers target and temp, Overwrite via temp, `upgraded` at apply, relative lossy paths. Open points resolved. |
 | 0.3 | 2026-11-03 | Consistency review: superseded D37 removed from NG-LIB-002 and marked in NG-LIB-003. NG-LIB-003's "confirm in the BR merge" note moved to Open points → phase 4, area PRP. NG-LIB-009 "never writes" stated per role. Two new open points for area LSY: when lossy tracking starts, and renamed lossy folders. |
+| 0.4 | 2026-11-04 | Phase 4, area GEN (D79): new section "Collection copies" with NG-LIB-014 (manage copies of the library on other devices, Won't in v1). |

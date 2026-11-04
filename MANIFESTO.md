@@ -25,8 +25,8 @@ inconsistencies:
 
 - Some filenames have no track number and/or no `-` separator.
 - Sometimes there's a "grouping" folder instead of a real main-artist
-  folder — e.g. "Godspeeds and their projects" containing subfolders for
-  "Godspeed You! Black Emperor", "Silver Mountain Zion", etc.
+  folder — e.g. "Band A and its members' projects" containing subfolders
+  for "Band A", "Band B" (a side project of a Band A member), etc.
 - Sometimes inside a main-artist folder there are subfolders like `EPs`,
   `Singles`, `Lives`, and the corresponding releases live inside those
   instead of directly under the artist.

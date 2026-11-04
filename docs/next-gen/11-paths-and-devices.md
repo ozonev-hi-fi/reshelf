@@ -1,6 +1,6 @@
 # 11 — Paths and devices
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-03
+Status: Draft | Version: 0.4 | Last updated: 2026-11-04
 
 This doc defines where the app reads music, where it writes results, and how it finds these folders when a drive letter changes or a drive disappears.
 
@@ -111,9 +111,9 @@ When the user chooses **Overwrite** for a library match, the app never deletes t
 In both setups the user does the swap by hand. "Keep both" (NG-LIB-010) needs no special rule: its folder name never clashes, so it goes to temp like any other release.
 
 ### NG-PTH-010 — Relative paths, resolved against target, then temp
-Priority: Must | Status: Draft | Source: RAW, D54
+Priority: Must | Status: Draft | Source: RAW, D54, D76
 
-The library index (NG-LIB-001) and the lossy ledger (NG-LIB-013) store **relative** paths, for example `ZZ Top\1999 XXX`.
+The library index (NG-LIB-001) and the lossy ledger (NG-LIB-013) store **relative** paths, for example `ZZ Top\1999 XXX`. A stored relative path is a list of levels (`["ZZ Top", "1999 XXX"]`) with no OS separator; the app joins it with the separator of the current OS (D76).
 - To find the real folder, the app tries `<target>\<relative path>` first, then `<temp>\<relative path>`.
 - The library index covers **both** roots. Each entry remembers the root role where it was found. If both roots have the same release, the target entry wins.
 
@@ -152,6 +152,20 @@ Legacy shortens long folder and file names so the full path fits. Next-gen count
 
 Example: temp `T:\t`, target `E:\Music\Collection`. The budget is counted from `E:\Music\Collection`.
 
+### NG-PTH-014 — Phones over USB (MTP) are not a direct source in v1
+Priority: Must | Status: Draft | Source: D78
+
+A phone connected by USB is an MTP device (Media Transfer Protocol): it has no drive letter and no volume serial number, and normal file APIs cannot open its files. So it cannot be a root location (NG-PTH-001). When the user tries to pick a folder on such a device as a source, the app explains: "Phones connected by USB are not supported directly. Copy the folder to a disk first." A memory card in a card reader is a normal drive and works.
+
+Example: the user picks `This PC\Pixel 7\Internal shared storage\Music`. The app shows the message and does not create a session.
+
+### NG-PTH-015 — Copy from a device into managed temporary storage (after v1)
+Priority: Should | Status: Draft | Source: D78 | Depends on: NG-PTH-014, NG-PLT-002
+
+A later version can copy a folder from an MTP device into app-managed temporary storage and recognize the copy. The device stays read-only. The user sees what was copied, where, and how much space it uses, and can delete it. When the session is finished (NG-SES-014), the app suggests deleting the copy. The session remembers the original device and folder, e.g. "copied from Pixel 7, `Internal shared storage\Music\New`".
+
+Device access is Windows-specific and sits behind the OS interface (NG-PLT-002).
+
 ## Resolved open points
 
 The open points that Docs part A collected for this doc are now resolved:
@@ -186,3 +200,4 @@ The open points that Docs part A collected for this doc are now resolved:
 | 0.1 | 2026-10-04 | Stub created in Docs part A. |
 | 0.2 | 2026-10-04 | Docs part B: paths model grilled with the user (D49–D63). Requirements NG-PTH-001…013 added. Open points resolved. |
 | 0.3 | 2026-11-03 | Consistency review: NG-PTH-002 cites D63 (UNC paths). New open points: target and temp as the same folder → phase 4 area PTH; clash on the replacement name → phase 4 area APL. |
+| 0.4 | 2026-11-04 | Phase 4, area GEN (D76): NG-PTH-010 — stored relative paths are lists of levels with no OS separator. D78: new NG-PTH-014 (phones over USB/MTP not a direct source in v1, with a message) and NG-PTH-015 (copy from a device into managed temporary storage, after v1). |

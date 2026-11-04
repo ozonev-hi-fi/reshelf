@@ -1,11 +1,11 @@
 # To-be BR (Phase 4)
 
-Status: Draft | Version: 0.2 | Last updated: 2026-11-03
+Status: Draft | Version: 0.3 | Last updated: 2026-11-04
 
 This folder holds the **to-be BR**: the business requirements of the new .NET app. It is built from
 the merged as-is BR ([../as-is-merged/](../as-is-merged/README.md), 841 `AS-*` requirements, facts
 about the legacy app) plus the NG delta docs [01](../../01-vision-scope.md)–[11](../../11-paths-and-devices.md)
-(115 `NG-*` requirements). Roadmap phase 4, brief:
+(124 `NG-*` requirements). Roadmap phase 4, brief:
 [../../sessions/br-apply-ng-vision.md](../../sessions/br-apply-ng-vision.md).
 
 Phase 4 has two parts (D67, phase 4 ends with a validation step):
@@ -49,7 +49,7 @@ in the [area status table](#area-status-table) whose status is not Done.
 | APL | Apply | [10-apply.md](../as-is-merged/10-apply.md) |
 | LSY | Lossy tracking | [11-lossy-tracking.md](../as-is-merged/11-lossy-tracking.md) |
 | CLI | Command line | [12-cli.md](../as-is-merged/12-cli.md) |
-| BND | Bandcamp | [13-bandcamp-and-errors.md](../as-is-merged/13-bandcamp-and-errors.md) |
+| BND | Legacy plan only; dropped in to-be (D69) | [13-bandcamp-and-errors.md](../as-is-merged/13-bandcamp-and-errors.md) |
 | ERR | Errors | [13-bandcamp-and-errors.md](../as-is-merged/13-bandcamp-and-errors.md) |
 
 ### Area codes used only in to-be (NG-only files, no legacy counterpart)
@@ -71,7 +71,7 @@ in the [area status table](#area-status-table) whose status is not Done.
 | NG-APP | App shape: CLI + UI, menu, wizard, concurrency | [02-app-shape.md](../../02-app-shape.md) |
 | NG-SES | Sessions and statuses | [03-sessions-and-statuses.md](../../03-sessions-and-statuses.md) |
 | NG-LAY | Data layers, track identity | [04-data-layers.md](../../04-data-layers.md) |
-| NG-PRV | Providers (Discogs, Library; no Bandcamp, D69), candidates, snapshots | [05-providers.md](../../05-providers.md) |
+| NG-PRV | Providers (Discogs, Library), candidates, snapshots | [05-providers.md](../../05-providers.md) |
 | NG-REV | Review page | [06-review-page.md](../../06-review-page.md) |
 | NG-LIB | Library index, matching, quality, lossy manager | [07-library-and-quality.md](../../07-library-and-quality.md) |
 | NG-CFG | Settings, naming templates, reference data | [08-settings-templates-refdata.md](../../08-settings-templates-refdata.md) |
@@ -91,16 +91,18 @@ Example: <concrete example>
 ```
 
 - **IDs** are new per area and start at 001. Never renumber or reuse an ID (doc rule 5).
-- **`Source:`** always keeps the old `AS-<AREA>-NNN` ID (D67). Every ID in `Source:` gets a short
+- **`Source:`** always keeps the old `AS-<AREA>-NNN` ID (D67), plus the `NG-*` and `D<n>` IDs it applies. This is allowed by the doc rule 6 exception (D82). `Depends on:` is for other `TB-*` requirements. Every ID in `Source:` gets a short
   title in words, never a bare ID.
 - **`Priority`** uses MoSCoW, per [../../README.md](../../README.md#requirement-format). D64 deferred
   real priorities to this phase.
 - **Example**: at least one concrete acceptance example per requirement. For MAT, and REC where it
-  helps, use a real release pair from `local/maps/before.library-map.json` /
-  `after.library-map.json`.
+  helps, check the logic against a real release pair from `local/maps/before.library-map.json` /
+  `after.library-map.json`. The written example keeps only the public artist, album and year; the
+  real folder name becomes a neutral pattern (doc rule 10, D81).
 - **Dropped as-is requirement**: write it as an explicit drop in the area file (a short
   `Dropped:` list with the `AS-*` ID, its title and the `D` number). The coverage check in
   `92-coverage.md` needs every `AS-*` ID to end up in a `TB-*` item or in a drop.
+- **Process-only NG requirement**: an `NG-*` requirement that is a rule for building the app, not app behavior, goes into a short `Process only:` list in its owner file (the `NG-*` ID, its title and the `D` number), instead of a `TB-*` item. The coverage check accepts it (D84).
 
 ## NG → to-be file map
 
@@ -115,26 +117,26 @@ this table. The final check is `92-coverage.md`.
 |---|---|---|
 | `00-general.md` | GEN | NG-VIS-001–004 (vision and principles), NG-APP-001 (one core, two front-ends), NG-APP-006 (local, single user) |
 | `01-data-and-storage.md` | DAT | NG-CFG-013 (WavPack `.wv` is a built-in audio format) |
-| `02-text-and-naming.md` | TXT | NG-CFG-003–006 (naming templates, placeholders, live preview, MANIFESTO naming as defaults), NG-PTH-013 (name-length budget) |
+| `02-text-and-naming.md` | TXT | NG-CFG-003–006, NG-CFG-015 (naming templates, placeholders, live preview, MANIFESTO naming as defaults, configurable tag rules later), NG-PTH-013 (name-length budget) |
 | `03-settings-and-secrets.md` | SET | NG-CFG-001 (settings page), NG-CFG-002 (cover max dimension), NG-CFG-007 (settings never retroactive), NG-CFG-008 (provider-ID tag setting), NG-STO-006 (Discogs token storage) |
-| `04-sessions.md` | SES | NG-SES-001–012 and NG-SES-014 (session lifecycle, invalidation, statuses, approval, milestones) |
+| `04-sessions.md` | SES | NG-SES-001–012, NG-SES-014–016 (session lifecycle, invalidation, statuses, approval, milestones, auto-propose, skipping Propose) |
 | `05-recognition.md` | REC | NG-LAY-005 (cue sheets become virtual tracks at recognize) |
 | `06-discogs-client.md` | DSC | NG-PRV-001 (provider set), NG-PRV-002 (no-provider mode), NG-PRV-003 (show everything found), NG-PRV-005 (snapshots), NG-PRV-006 (re-sync), NG-PRV-007 (custom provider URL), NG-PRV-008 (search order), NG-PRV-012 (provider response cache) |
 | `07-proposal-matching.md` | MAT | NG-PRV-004 (reversible candidate selection) |
-| `08-proposal-naming-and-tags.md` | PRP | NG-LIB-001–010 (library index, release key, incremental rescan, library match, quality comparison, "keep both"), NG-PRV-010 (library as a provider), NG-PRV-011 (provider IDs as optional tags) |
+| `08-proposal-naming-and-tags.md` | PRP | NG-LIB-001–010, NG-LIB-014 (library index, release key, incremental rescan, library match, quality comparison, "keep both", collection copies — Won't in v1), NG-PRV-010 (library as a provider), NG-PRV-011 (provider IDs as optional tags) |
 | `09-review-ui.md` | REV | NG-REV-001–013 (review page) |
 | `10-apply.md` | APL | NG-SES-013 (apply per release), NG-PTH-006–009 (temp → library move, staging, replacing own output, overwrite prepared by the app) |
 | `11-lossy-tracking.md` | LSY | NG-LIB-011–013 (lossy tracking, lossy manager, ledger paths), NG-STO-008 (import of the legacy lossy ledger) |
 | `12-cli.md` | CLI | NG-APP-005 (CLI scope) |
-| `13-bandcamp-and-errors.md` | BND, ERR | NG-PRV-009 (Bandcamp needs research first) — **Withdrawn by D69 (no Bandcamp), nothing to apply.** The BND session most likely drops AS-BND-001/002 (planned Bandcamp fallback) under D69. |
+| `13-errors.md` | ERR (+ BND drops) | NG-PRV-009 (Withdrawn, nothing to apply). The legacy-plan items AS-BND-001/002 are dropped here under D69. |
 | `14-app-shell.md` | APP | NG-APP-002 (UI covers the whole pipeline), NG-APP-003 (main menu), NG-APP-004 (session wizard), NG-APP-007 (CLI and UI at the same time), NG-APP-008 (UI technology by ADR) |
-| `15-data-layers.md` | LAY | NG-LAY-001–004, NG-LAY-006–009 (three layers, effective value, per-field granularity, track identity, reset, "no override", stale overrides, suggestion next to user value) |
+| `15-data-layers.md` | LAY | NG-LAY-001–004, NG-LAY-006–011 (three layers, effective value, per-field granularity, track identity, UI-only reset, "no override", stale overrides, suggestion next to user value) |
 | `16-storage-and-instances.md` | STO | NG-STO-001–005, NG-STO-007, NG-STO-009 (SQLite, instances, DB location, binaries on disk, migrations, test isolation, nothing else imported) |
-| `17-reference-data.md` | REF | NG-CFG-009–012 (reference data in the DB, seeding, disable not delete, user rows as draft) |
+| `17-reference-data.md` | REF | NG-CFG-009–012, NG-CFG-014 (reference data in the DB, seeding, disable not delete, user rows as draft, new placeholders by data) |
 | `18-platform.md` | PLT | NG-PLT-001–006 (Windows v1, OS interfaces, portable zip, dependency rule, ADR per dependency, check for tools not bundled) |
-| `19-paths-and-devices.md` | PTH | NG-PTH-001–005, NG-PTH-010–012 (location model, offline locations, three roots, read-only roles, shared target/temp, relative paths, computed location, location lost mid-operation), NG-PLT-007 (removable storage robustness) |
+| `19-paths-and-devices.md` | PTH | NG-PTH-001–005, NG-PTH-010–012, NG-PTH-014–015 (location model, offline locations, three roots, read-only roles, shared target/temp, relative paths, computed location, location lost mid-operation, phones over USB), NG-PLT-007 (removable storage robustness) |
 
-Total: 115 NG requirements, each with one owner. One of them, NG-PRV-009, is Withdrawn (D69) and still counts here, so the coverage check stays exact.
+Total: 124 NG requirements, each with one owner. One of them, NG-PRV-009, is Withdrawn (D69) and still counts here, so the coverage check stays exact.
 
 Layer-related points that come up in PRP, REV or APL before file `15` exists are marked
 "pending LAY" in those files, the same way REV marks the progress/cancel point "pending CLI".
@@ -154,6 +156,8 @@ Decided inside the owning area. The first three are named in the brief, with ful
 | A renamed lossy folder never matches its ledger entry again (relative path only, no release key) ([07](../../07-library-and-quality.md#open-points)) | LSY (lossy tracking) |
 | Target and temp as the same folder: scan skip, "target wins" location, and replace of own output clash ([11](../../11-paths-and-devices.md#open-points)) | PTH (paths and devices) |
 | The replacement name `{year} {album} [replacement]` is also taken by a foreign folder ([11](../../11-paths-and-devices.md#open-points)) | APL (apply) |
+| Editions of one album: a same-year reissue collides on one release key (CF-DAT-001), a later-year remaster gets a different key and is not seen as the same album. Should identity include the edition, or group editions (e.g. like a Discogs master)? Moved here from the GEN session on 2026-11-04. | DAT (data and storage), together with CF-DAT-001 |
+| Master release first: start matching from the Discogs master and go down to one release only when there are hints (an edition marker in the folder name, a different disc or track count). Raised by the user in the GEN session on 2026-11-04. | MAT (Discogs proposal matching) |
 
 ## Area status table
 
@@ -161,7 +165,7 @@ As-is count = `AS-*` requirements in the as-is file. CF count = suspected defect
 
 | # | File | Area code(s) | Area name | As-is count | CF count | Status | Last done ID |
 |---|---|---|---|---|---|---|---|
-| 1 | `00-general.md` | GEN | General | 10 | 1 | Not started | — |
+| 1 | `00-general.md` | GEN | General | 10 | 1 | Done | TB-GEN-012 |
 | 2 | `01-data-and-storage.md` | DAT | Data and storage | 97 | 5 | Not started | — |
 | 3 | `02-text-and-naming.md` | TXT | Text and naming | 74 | 3 | Not started | — |
 | 4 | `03-settings-and-secrets.md` | SET | Settings and secrets | 45 | 2 | Not started | — |
@@ -174,7 +178,7 @@ As-is count = `AS-*` requirements in the as-is file. CF count = suspected defect
 | 11 | `10-apply.md` | APL | Apply | 69 | 11 | Not started | — |
 | 12 | `11-lossy-tracking.md` | LSY | Lossy tracking | 22 | 2 | Not started | — |
 | 13 | `12-cli.md` | CLI | Command line | 52 | 7 | Not started | — |
-| 14 | `13-bandcamp-and-errors.md` | BND, ERR | Bandcamp and errors | 13 | 1 | Not started | — |
+| 14 | `13-errors.md` | ERR (+ BND drops) | Errors | 13 | 1 | Not started | — |
 | 15 | `14-app-shell.md` | APP | App shell | — | — | Not started | — |
 | 16 | `15-data-layers.md` | LAY | Data layers | — | — | Not started | — |
 | 17 | `16-storage-and-instances.md` | STO | Storage and instances | — | — | Not started | — |
@@ -193,3 +197,4 @@ Totals: 841 as-is requirements, 88 suspected defects.
 |---|---|---|
 | 0.1 | 2026-11-03 | Phase 4, Part 1, session 0: folder created. Glossary, requirement format, NG → to-be file map (D68: topic scan, six NG-only files `14`–`19`), open points, area status table. |
 | 0.2 | 2026-11-03 | NG-PRV-009 marked Withdrawn (D69, no Bandcamp). Six open points from the consistency review added to the open-points table, each with its owning area. |
+| 0.3 | 2026-11-04 | Bandcamp cleanup: last to-be file renamed `13-bandcamp-and-errors.md` → `13-errors.md`; Bandcamp notes shortened. Area GEN session: 9 new NG requirements (NG-SES-015, NG-SES-016 → SES; NG-LAY-010, NG-LAY-011 → LAY; NG-CFG-014 → REF; NG-PTH-014, NG-PTH-015 → PTH; NG-LIB-014 → PRP; NG-CFG-015 → TXT), total 124. Example rule: library-map pairs check the logic, written examples use public names (D81). Two open points added: editions of one album (→ DAT), master release first (→ MAT). Format: `Source:` note (D82), "Process only" list (D84). Area GEN done: `00-general.md` (TB-GEN-001–012). |

@@ -1,6 +1,6 @@
 # Brief — Phase 5: technical specification and ADRs
 
-Status: Draft | Version: 0.3 | Last updated: 2026-11-03
+Status: Draft | Version: 0.4 | Last updated: 2026-11-04
 
 Roadmap phase: 5 | Output: `docs/next-gen/tech-spec/` and `docs/next-gen/adr/NNNN-*.md`, status Agreed
 
@@ -22,7 +22,18 @@ Turn the agreed to-be BR into a technical specification of the .NET solution, an
 ## Steps
 
 1. Use the **dotnet skills plugin** for analysis and design.
-2. Write ADRs, one per decision ([template](../adr/0000-template.md)). At least:
+2. Research the tools before each ADR. Start from what already worked in legacy (D83) — these are the first candidates, kept only if no better alternative is found:
+
+   | Job | Legacy tool | Note |
+   |---|---|---|
+   | Read and write tags and embedded covers | TagLibSharp, in-process | Available as a NuGet package |
+   | Resize covers, split one-file + cue releases | ffmpeg | Legacy re-encodes FLAC/APE to FLAC on split; bit-exactness is an open point owned by area APL |
+   | Review UI | plain HTML/JS, no build step, localhost server | See NG-APP-008 |
+   | Validate stored documents | `Test-Json` against JSON schemas | JSON files are replaced by SQLite in next-gen |
+
+   Dropped legacy options, for reference: mp3tag (tags); cuetools, shntool, mp3splt (cue split); the browser File System Access API (UI).
+
+   Write ADRs, one per decision ([template](../adr/0000-template.md)). At least:
    - UI technology: Blazor vs controllers + static site vs MAUI (NG-APP-008). User preference: controllers over minimal APIs.
    - Tag reading and writing.
    - Cue split, with lossless output.
@@ -34,7 +45,8 @@ Turn the agreed to-be BR into a technical specification of the .NET solution, an
    - data model (layers, candidates, snapshots, statuses, reference data);
    - the API between the UI and the core;
    - CLI commands;
-   - a test strategy that reuses the legacy fixtures where useful.
+   - a test strategy that reuses the legacy fixtures where useful;
+   - coding rules, at least: build every path with the `Path` APIs, never with `\` or `/` literals; stored templates and paths are lists of levels with no OS separator (D76, NG-PLT-002); each tag rule is a separate unit, so it can become reference data later (D80, NG-CFG-015).
 4. Make a traceability table: to-be requirement → tech-spec section.
 5. Ask the user to review. Set the status to `Agreed` after they agree. Commit.
 6. Write the brief for phase 6 (task breakdown).
@@ -52,3 +64,4 @@ Turn the agreed to-be BR into a technical specification of the .NET solution, an
 | 0.1 | 2026-10-04 | Initial brief for phase 4 (technical specification and ADRs). |
 | 0.2 | 2026-10-10 | Added a scope note: built only from `br/to-be/`, no direct read of the archived as-is docs. Renumbered from phase 4 to phase 5 (phase 3 split into phases 3/4; task breakdown is now phase 6). |
 | 0.3 | 2026-11-03 | "Bandcamp feasibility spike" ADR removed (D69: no Bandcamp; NG-PRV-009 Withdrawn). |
+| 0.4 | 2026-11-04 | Step 3: coding rules section, "no path separator literals" (D76), "each tag rule is a separate unit" (D80). Step 2: tool research, starting from the legacy tools that worked (D83). |

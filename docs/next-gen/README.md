@@ -1,6 +1,6 @@
 # Reshelf Next-Gen — Docs
 
-Status: Draft | Version: 0.11 | Last updated: 2026-11-03
+Status: Draft | Version: 0.12 | Last updated: 2026-11-04
 
 This folder holds the **next-gen delta requirements**. These docs describe what changes compared to the legacy PowerShell app. They also hold the roadmap, ADRs (architecture decision records), the briefs for later sessions and the BR documents in `br/`.
 
@@ -11,24 +11,24 @@ The current (as-is) behavior is described by the BR (business requirements) sess
 | File | Prefix | Topic | Status | Version |
 |---|---|---|---|---|
 | [00-roadmap.md](00-roadmap.md) | — | Phases, sessions, exit criteria | Draft | 0.12 |
-| [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.4 |
+| [01-vision-scope.md](01-vision-scope.md) | NG-VIS | Goals, non-goals, principles, glossary | Draft | 0.5 |
 | [02-app-shape.md](02-app-shape.md) | NG-APP | CLI + UI, menu, wizard, concurrency | Draft | 0.3 |
-| [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.3 |
-| [04-data-layers.md](04-data-layers.md) | NG-LAY | Recognized / Proposed / User layers, track identity | Draft | 0.1 |
-| [05-providers.md](05-providers.md) | NG-PRV | Discogs, Library, candidates, snapshots | Draft | 0.4 |
+| [03-sessions-and-statuses.md](03-sessions-and-statuses.md) | NG-SES | Session lifecycle, invalidation, statuses, approve, apply | Draft | 0.4 |
+| [04-data-layers.md](04-data-layers.md) | NG-LAY | Recognized / Proposed / User layers, track identity | Draft | 0.2 |
+| [05-providers.md](05-providers.md) | NG-PRV | Discogs, Library, candidates, snapshots | Draft | 0.5 |
 | [06-review-page.md](06-review-page.md) | NG-REV | Sorting, filters, tree view, pictures | Draft | 0.2 |
-| [07-library-and-quality.md](07-library-and-quality.md) | NG-LIB | Library index, matching, quality, lossy manager | Draft | 0.3 |
-| [08-settings-templates-refdata.md](08-settings-templates-refdata.md) | NG-CFG | Settings, naming templates, reference data | Draft | 0.4 |
+| [07-library-and-quality.md](07-library-and-quality.md) | NG-LIB | Library index, matching, quality, lossy manager | Draft | 0.4 |
+| [08-settings-templates-refdata.md](08-settings-templates-refdata.md) | NG-CFG | Settings, naming templates, reference data | Draft | 0.5 |
 | [09-storage-and-environments.md](09-storage-and-environments.md) | NG-STO | SQLite, instances, migrations, data import | Draft | 0.3 |
 | [10-platform-and-dependencies.md](10-platform-and-dependencies.md) | NG-PLT | Windows v1, OS abstraction, dependency rule | Draft | 0.4 |
-| [11-paths-and-devices.md](11-paths-and-devices.md) | NG-PTH | Source / target / temp paths, removable drives | Draft | 0.3 |
+| [11-paths-and-devices.md](11-paths-and-devices.md) | NG-PTH | Source / target / temp paths, removable drives | Draft | 0.4 |
 | [br/as-is-from-docs/](br/as-is-from-docs/README.md) | AS-DOC | As-is BR from legacy docs and tests (Phase 1) | Draft | 0.2 |
 | [br/as-is-from-code/](br/as-is-from-code/README.md) | AS-CODE | As-is BR from legacy code (Phase 2) | Draft | 0.2 |
 | [br/as-is-merged/](br/as-is-merged/README.md) | AS | Reconciled as-is BR, facts only (Phase 3) | Agreed | 1.0 |
-| [br/to-be/](br/to-be/README.md) | TB | To-be BR: as-is + NG delta (Phase 4) | Draft | 0.2 |
+| [br/to-be/](br/to-be/README.md) | TB | To-be BR: as-is + NG delta (Phase 4) | Draft | 0.3 |
 | [adr/](adr/0000-template.md) | — | Architecture decision records | — | — |
 | [sessions/](sessions/) | — | Briefs for the planned sessions | — | — |
-| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D70 | Draft | 0.9 |
+| [inbox/raw-notes.md](inbox/raw-notes.md) | — | Original notes (verbatim) + decision log D1–D84 | Draft | 0.10 |
 
 ## Doc rules
 
@@ -43,10 +43,11 @@ These rules apply to every file in this folder. They also apply to every agent s
    - fix the cross-links that point to moved or renamed items.
 4. **Versions.** A minor bump (`0.1 → 0.2`) is for edits. A major bump (`0.x → 1.0`) is for the user's agreement (`Agreed`).
 5. **Stable requirement IDs.** The ID format is `NG-<PREFIX>-NNN`. Never renumber or reuse an ID. A dropped requirement keeps its ID and gets `Status: Withdrawn` with a reason.
-6. **Every requirement has a source.** `Source:` points to a decision in [inbox/raw-notes.md](inbox/raw-notes.md) (`D1`, `D2`, … with the next free number for new ones), to a raw-notes section (`RAW`), or to a section of the repo's [MANIFESTO.md](../../MANIFESTO.md) (`MANIFESTO §n`, D70). A link to another requirement is not a source: put it in `Depends on:`. Exception (D64): as-is requirements (`AS-DOC-*`, `AS-CODE-*`) point to the legacy file and test, function or section, and have no `Priority`. See [br/as-is-from-docs/README.md](br/as-is-from-docs/README.md#requirement-format).
+6. **Every requirement has a source.** `Source:` points to a decision in [inbox/raw-notes.md](inbox/raw-notes.md) (`D1`, `D2`, … with the next free number for new ones), to a raw-notes section (`RAW`), or to a section of the repo's [MANIFESTO.md](../../MANIFESTO.md) (`MANIFESTO §n`, D70). A link to another requirement is not a source: put it in `Depends on:`. Exception (D64): as-is requirements (`AS-DOC-*`, `AS-CODE-*`) point to the legacy file and test, function or section, and have no `Priority`. See [br/as-is-from-docs/README.md](br/as-is-from-docs/README.md#requirement-format). Exception (D82): to-be requirements (`TB-*`) list their origin `AS-*`, `NG-*` and `D<n>` IDs in `Source:`; `Depends on:` is for other `TB-*` requirements. See [br/to-be/README.md](br/to-be/README.md#requirement-format).
 7. **New decisions.** A new decision gets a new `D` entry in the decision log. It either updates a requirement doc or creates an ADR in [adr/](adr/0000-template.md).
 8. **Single source of truth.** Each rule lives in one doc. Other docs link to it by requirement ID. They do not copy it.
 9. **Open points.** Write an unresolved item as an `Open points` bullet in the doc where it belongs. Write it as a question, not as a guess. A point that waits for a later phase or another doc names it, for example `→ tech spec`.
+10. **Examples.** Use well-known public releases (for example `Kyuss / 1994 Welcome to Sky Valley`) or invented names (`Artist A`, `Album B`). Never use folder names, drive paths, session IDs or groupings from a contributor's own collection (D81).
 
 ## Requirement format
 
@@ -81,3 +82,4 @@ The shared terms are defined in [01-vision-scope.md](01-vision-scope.md#glossary
 | 0.9 | 2026-11-03 | Phase 4 prep (D67): index rows fixed — 00-roadmap.md (0.10), br/as-is-merged/ (Agreed 0.15), inbox/raw-notes.md (0.6, D1–D67); line 7 now mentions phase 3 and the coming br/to-be/. |
 | 0.10 | 2026-11-03 | Phase 4 session 0 (D68): index row for `br/to-be/` (Draft 0.1); 00-roadmap.md (0.11), inbox/raw-notes.md (0.8, D1–D69). D69 (no Bandcamp): 01-vision-scope.md (0.3), 05-providers.md (0.3, topic without Bandcamp), 10-platform-and-dependencies.md (0.3). |
 | 0.11 | 2026-11-03 | Consistency review (D70): doc rule 6 allows `MANIFESTO §n` as a source; a requirement link goes in `Depends on:`. Index rows updated for 00 (0.12), 01 (0.4), 02 (0.3), 03 (0.3), 05 (0.4), 06 (0.2), 07 (0.3), 08 (0.4), 09 (0.3), 10 (0.4), 11 (0.3), inbox/raw-notes.md (0.9, D1–D70), br/to-be/ (0.2). br/as-is-merged/ set to 1.0 (doc rule 4: Agreed = major version). |
+| 0.12 | 2026-11-04 | Bandcamp cleanup (D69 is the only live mention) and phase 4 area GEN decisions D71–D84, doc rule 6 exception for to-be `Source:` (D82), doc rule 10 (examples): index rows for 01 (0.5), 03 (0.4), 04 (0.2), 05 (0.5), 07 (0.4), 08 (0.5), 11 (0.4), inbox/raw-notes.md (0.10, D1–D84), br/to-be/ (0.3). |

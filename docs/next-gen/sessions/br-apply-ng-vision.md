@@ -1,6 +1,6 @@
 # Brief — Phase 4: apply the NG vision to the merged as-is BR
 
-Status: Draft | Version: 0.4 | Last updated: 2026-11-03
+Status: Draft | Version: 0.5 | Last updated: 2026-11-04
 
 Roadmap phase: 4 | Output: `docs/next-gen/br/to-be/`, status Agreed
 
@@ -36,7 +36,7 @@ decisions get made.
 - `docs/next-gen/br/as-is-merged/` (phase 3 output): the reconciled `AS-<AREA>-NNN` requirements
   (841 of them, 14 areas) and the suspected-defect carry-forward list,
   `91-suspected-defects-carryforward.md` (88 items, all undecided).
-- The delta docs [01](../01-vision-scope.md)–[11](../11-paths-and-devices.md) (115 `NG-*`
+- The delta docs [01](../01-vision-scope.md)–[11](../11-paths-and-devices.md) (124 `NG-*`
   requirements total).
 - The decision log in [../inbox/raw-notes.md](../inbox/raw-notes.md).
 - [../00-roadmap.md](../00-roadmap.md#phase-4-input-real-world-library-maps):
@@ -86,7 +86,7 @@ Print the commit commands. Set the roadmap's phase 4 row to "In progress".
 GEN (general) → DAT (data and storage) → TXT (text and naming) → SET (settings and secrets) →
 SES (sessions) → REC (recognition) → DSC (Discogs client) → MAT (proposal matching) →
 PRP (proposal naming and tags) → REV (review UI) → APL (apply) → LSY (lossy tracking) →
-CLI (command line) → BND/ERR (Bandcamp and errors).
+CLI (command line) → ERR (errors; this session also drops the legacy-plan items of area BND under D69).
 
 For each area:
 1. Decide each of the area's suspected defects from `91-suspected-defects-carryforward.md`: keep,
@@ -99,8 +99,9 @@ For each area:
    touch it, and apply the delta.
 3. Write `br/to-be/NN-<area>.md`. Every to-be requirement links to its sources (`AS-<AREA>`,
    `NG-*`, `D<n>`). For matching-logic requirements (area MAT, and REC where relevant), use
-   `local/maps/before.library-map.json` / `after.library-map.json` real release pairs as concrete
-   examples, where available.
+   `local/maps/before.library-map.json` / `after.library-map.json` real release pairs to check the
+   logic. An example written into a doc keeps only the public artist, album and year; the real
+   folder name becomes a neutral pattern, e.g. `<artist>_<album> (<year>) [flac]` (doc rule 10, D81).
 4. Update `br/to-be/README.md`'s status table. Print the commit commands.
 
 Large areas may need more than one session: REC (recognition, 100 as-is requirements / 18
@@ -118,7 +119,7 @@ commit with status "In progress" and note the last done requirement ID.
 REV comes before CLI in the area order, so the REV to-be file marks the progress/cancel point as
 "pending CLI" until the CLI session resolves it.
 
-### NG-only areas — after BND/ERR
+### NG-only areas — after ERR
 
 Some NG requirements have no legacy counterpart at all. Each such group gets its own new
 `br/to-be/` file, one session each. Session 0 fixed the list (D68, NG coverage scan by topic,
@@ -146,7 +147,7 @@ Fix every gap found here before starting Part 2.
 `br/to-be/93-validation-log.md`. Continue at the first row with no verdict.
 
 **One item = one `TB-*` requirement. Never grouped or bulk-confirmed.** With roughly 950 items
-total (841 as-is-derived + up to ~115 NG-only, net of merges), this spans many sessions. Each
+total (841 as-is-derived + up to ~124 NG-only, net of merges), this spans many sessions. Each
 session commits the updated log.
 
 **Tracker** `br/to-be/93-validation-log.md`: one row per item — ID + title | verdict (`confirmed` /
@@ -199,3 +200,4 @@ or a check fails, use the `grilling` skill approach to dig in before moving on.
 | 0.2 | 2026-10-11 | Added `tools/library-mapper/` output (`local/maps/`, `local/matches/`) to "Read first" and to steps 2–3: real-world test cases for area 07/MAT, real evidence for suspected-defect disposition. |
 | 0.3 | 2026-11-03 | Phase 4 prep (D67): split into Part 1 (draft) and Part 2 (item-by-item validation, now the only step that sets Agreed and archives). Added session-0 setup, fixed area order, open-point ownership table, NG-only area files, coverage file, to-be ID scheme (`TB-<AREA>-NNN`), resume rules, and the "no bare IDs" rule. |
 | 0.4 | 2026-11-03 | Session 0 done: suspected-defect count corrected to 88 (was "~99"). NG-only section now names the six NG-only files (D68) and points to the NG → to-be file map in `br/to-be/README.md`, instead of the literal "never a `Source:`" scan rule, which matched all 115 NG IDs. |
+| 0.5 | 2026-11-04 | Bandcamp cleanup: the last as-is area is now "ERR (errors)"; it also drops the legacy-plan Bandcamp items under D69. NG count 115 → 124 (D72, D73, D77, D78, D79, D80). Step 3: library-map pairs check the logic; doc examples use public names and neutral folder patterns (D81). |

@@ -1,6 +1,6 @@
 # 04 — Data layers: Recognized, Proposed, User
 
-Status: Draft | Version: 0.1 | Last updated: 2026-10-04
+Status: Draft | Version: 0.2 | Last updated: 2026-11-04
 
 ## Today vs next-gen
 
@@ -55,10 +55,21 @@ Priority: Must | Status: Draft | Source: D16, RAW
 
 Recognize turns a single-file + cue release into **virtual tracks**: start time, end time, title and performer from the cue. They appear as normal tracks in the Recognized layer and in the tree view (NG-REV-007). The physical split into files happens only at apply.
 
-### NG-LAY-006 — Reset a field
-Priority: Must | Status: Draft | Source: D11
+### NG-LAY-006 — Reset is UI-only
+Priority: Must | Status: Draft | Source: D11, D73
 
-Every field has a "reset" action. It removes the User override, so the value falls back to Proposed (or to Recognized if there is no Proposed value).
+The edit page has a "reset" action for a field and for the whole page. It restores the values the page had when it was loaded. It does not change the DB.
+
+The user can also load another layer into the edit page: "go back to Recognized" or "go back to Proposed". The stored User values stay unchanged until the user presses Save. Save replaces them with the values on the page.
+
+Example:
+```
+Stored:     Recognized "Welcom to Sky Valley", Proposed "Welcome To Sky Valley", User "Sky Valley"
+Page load:  field shows "Sky Valley"
+User types "Sky Valey", presses Reset        → field shows "Sky Valley", DB unchanged
+User presses "go back to Recognized"         → field shows "Welcom to Sky Valley", DB unchanged
+User fixes the typo and presses Save          → User = "Welcome to Sky Valley"
+```
 
 ### NG-LAY-007 — "No override" is not "empty"
 Priority: Must | Status: Draft | Source: D11
@@ -82,8 +93,23 @@ Priority: Must | Status: Draft | Source: D26
 
 When a field has a User override, the UI shows the provider suggestion next to it, with a "use suggestion" button. On request (for example on hover or expand), the UI also shows the Recognized value.
 
+### NG-LAY-010 — Edit at any stage, prefilled from an earlier layer
+Priority: Must | Status: Draft | Source: D73
+
+The user can edit a release at any stage: after Recognize, after Propose, or later. Save writes only to the User layer. When a field has no User value yet, its edit field is prefilled from the selected earlier layer: Proposed when it exists, else Recognized, or the layer the user chose with "go back to" (NG-LAY-006).
+
+Example: right after Recognize, the Album field is prefilled with "Welcom to Sky Valley". The user fixes it and saves; Propose has not run.
+
+### NG-LAY-011 — Delete my edits
+Priority: Must | Status: Draft | Source: D73
+
+The user can delete all User values of a release from the DB. The effective value (NG-LAY-002) then falls back to Proposed, else Recognized. The app asks for confirmation first.
+
+Example: the user saved 12 track-title edits, then sees that the Discogs titles were right. "Delete my edits" removes the 12 User values; apply uses the Proposed titles.
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-10-04 | Initial version (Docs part A). |
+| 0.2 | 2026-11-04 | Phase 4, area GEN (D73): NG-LAY-006 rewritten — reset is UI-only, plus "go back to Recognized / Proposed". New NG-LAY-010 (edit at any stage, prefilled) and NG-LAY-011 (delete my edits). |

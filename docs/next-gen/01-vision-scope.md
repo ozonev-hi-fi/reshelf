@@ -1,6 +1,6 @@
 # 01 — Vision and scope
 
-Status: Draft | Version: 0.4 | Last updated: 2026-11-03
+Status: Draft | Version: 0.5 | Last updated: 2026-11-04
 
 ## Vision
 
@@ -53,14 +53,17 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 
 | Term | Meaning |
 |---|---|
+| **Main artist** | A band or performer. The first folder level under the target in the default layout. |
 | **Release** | One album, EP, single, etc. The main unit of work. |
+| **Companion material** | Non-track files of a release: cover scans, booklets, lyrics, photos. |
+| **Lossy / lossless** | Compressed with loss (MP3, AAC, ...) / exact (FLAC, ALAC, WavPack, ...). Decided from the codec, not the extension (NG-LIB-006). |
 | **Session** | One run of the pipeline over one source folder. Created by `recognize`. |
 | **Stage** | A pipeline step: Recognize, Propose, Review, Apply. |
 | **Source** | A folder with unorganized music. Read-only to the app. |
 | **Target / library** | The organized music collection. Read-only to the app (NG-PTH-004). See [11-paths-and-devices.md](11-paths-and-devices.md). |
 | **Temp** | The folder where apply writes its results. The user checks them there and moves them to the library. May be the same folder as the target (NG-PTH-005). |
 | **Location** | How the app stores a root folder: volume serial number + path inside the volume, so a drive-letter change does not break it (NG-PTH-001). |
-| **Provider** | An external or internal metadata source: Discogs, Library. No Bandcamp (D69). |
+| **Provider** | An external or internal metadata source: Discogs, Library. |
 | **Candidate** | One possible match found by a provider for a release. |
 | **Snapshot** | The stored data that one candidate gave, kept so you can switch back without a new request. |
 | **Layer** | One of three data versions: Recognized, Proposed, User. |
@@ -87,3 +90,4 @@ Priority: Must | Status: Draft | Source: RAW, D11, D12, D27, D44, D52
 | 0.2 | 2026-10-04 | Docs part B: "Library is read-only" principle; glossary entries Target, Temp, Location. |
 | 0.3 | 2026-11-03 | D69 (no Bandcamp): Bandcamp removed from the glossary entry Provider. |
 | 0.4 | 2026-11-03 | Consistency review: NG-VIS-004 "Library is read-only" stated per role (target role), matching NG-PTH-004/005. Glossary "Reference data" links to NG-CFG-009 instead of copying an incomplete list. |
+| 0.5 | 2026-11-04 | Bandcamp cleanup: glossary entry Provider lists only the real providers. Phase 4 area GEN: glossary terms Main artist, Companion material, Lossy / lossless moved here from the legacy glossary. |
